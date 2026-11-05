@@ -33,7 +33,7 @@ browser and sends nothing anywhere.
 
 | Item | Value |
 | --- | --- |
-| Developer | Chris Fryar, Oxidative RN |
+| Developer | Chris Fryar, Data Divers |
 | Privacy policy | `PRIVACY.md` (needs a public link: https://github.com/biochristy-byte/C-Tableau/blob/main/tableau-garden-petals/exchange/PRIVACY.md once the repo is public) |
 | Terms of service | `TERMS.md` (same folder, same link pattern) |
 | Support | https://github.com/biochristy-byte/C-Tableau/issues and the repo README |
