@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.oxidativern.vizext.gardenpetals" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Garden Petals: one flower per row of your data, one petal per category, petal length set by a measure. Grid, a garden map that plants each flower at its location, or an altitude view. Reference outlines, glow, wilt, shape-twin bees and a close-up bloom, all adjustable from a settings panel inside the viz.</description>
+    <author name="Chris Fryar" email="" organization="Oxidative RN" website="https://oxidativern.com"/>
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>https://garden-petals-viz.netlify.app/src/index.html</url>
+    </source-location>
+    <icon>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</icon>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="flower">
+      <display-name resource-id="enc-flower">Flower</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-f"/>
+      <tooltip resource-id="tip-flower">The dimension that gives each flower its own spot, such as Country.</tooltip>
+    </encoding>
+
+    <encoding id="petal">
+      <display-name resource-id="enc-petal">Petal</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-p"/>
+      <tooltip resource-id="tip-petal">The dimension that makes the petals around each flower, such as Metric.</tooltip>
+    </encoding>
+
+    <encoding id="length">
+      <display-name resource-id="enc-length">Length</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-l"/>
+      <tooltip resource-id="tip-length">The measure that sets how long each petal grows.</tooltip>
+    </encoding>
+
+    <encoding id="score">
+      <display-name resource-id="enc-score">Score</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-s"/>
+      <tooltip resource-id="tip-score">Optional. One number per flower. Used for sorting, the altitude view and the label in the center of the close-up.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Garden Petals</text>
+    </resource>
+    <resource id="enc-flower">
+      <text locale="en_US">Flower</text>
+    </resource>
+    <resource id="enc-petal">
+      <text locale="en_US">Petal</text>
+    </resource>
+    <resource id="enc-length">
+      <text locale="en_US">Length</text>
+    </resource>
+    <resource id="enc-score">
+      <text locale="en_US">Score</text>
+    </resource>
+    <resource id="tip-flower">
+      <text locale="en_US">The dimension that gives each flower its own spot, such as Country.</text>
+    </resource>
+    <resource id="tip-petal">
+      <text locale="en_US">The dimension that makes the petals around each flower, such as Metric.</text>
+    </resource>
+    <resource id="tip-length">
+      <text locale="en_US">The measure that sets how long each petal grows.</text>
+    </resource>
+    <resource id="tip-score">
+      <text locale="en_US">Optional. One number per flower.</text>
+    </resource>
+  </resources>
+</manifest>

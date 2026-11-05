@@ -1,4 +1,4 @@
-# Tableau dashboard house style (35 rules)
+# Tableau dashboard house style (39 rules)
 
 Distilled from reading the published workbooks (XML and thumbnails) of two
 dashboard designers, one who teaches and one who dazzles, plus two conference
@@ -43,6 +43,7 @@ The two styles in one line each:
 | 20 | Build the background art FIRST, before charts exist. It sets the feel early. |
 | 21 | Custom shape marks for hand-made texture. A shape keeps its opacity AND color, so a highlighter circle looks like marker ink. Dual axis gives two layers; use map layers when you need more. |
 | 22 | Chart form must match the theme: a lollipop instead of a bar for a hand-drawn feel, faint gray "pencil" lines for context, one highlighter-colored line for the focus. |
+| 37 | The scene carries the theme and the marks carry the data. Put silhouettes, a waterline or a depth gradient BEHIND plain exact marks, swap a generic mark for a thematic one of the same geometry, and make an axis literal where the theme allows. One hero illustration, not many ([viz-of-the-day-patterns.md](viz-of-the-day-patterns.md)). |
 
 ## Labels, text, honesty
 
@@ -56,6 +57,7 @@ The two styles in one line each:
 | 29 | Show the analytic depth. Hidden math reads as "out of thin air": give the method a visible home, a short line or a recap panel. |
 | 34 | **Text contrast is 7:1 at a minimum (WCAG AAA), never just 4.5:1.** Every word against the ground it actually sits on: card, title band, nav pill, bar, heat cell, tooltip box. Compute it, never eyeball it, and gate it in the build with a control that must fail. If a data color cannot reach 7:1 as text, set its TEXT in a lighter or darker step of the same hue and keep the mark color. |
 | 35 | **No text under 10 pt**, legends at 11 pt with a 13 pt swatch. Size every row header and label column for its longest label at that size. Public draws type at about two thirds of Desktop's size, so 8 pt reads as fine print. |
+| 36 | **Every page ends with its acronym key**: a footer zone spelling out only the acronyms that page uses. Keep text at Viz of the Day density and drop notes that repeat what the chart already shows; keep a caveat only if the chart cannot show it. Gate it by scanning each dashboard's text zones. |
 
 ## Interactivity
 
@@ -67,6 +69,7 @@ The two styles in one line each:
 | 31 | Interaction state may be a string parameter (`[param]="X"` booleans) as well as an integer. Set actions for a dashboard live under Dashboard > Actions, not on the sheet. |
 | 32 | Aggregate before dividing: every rate is `SUM(a)/SUM(b)`. Lock table calcs to Specific Dimensions. |
 | 33 | Rename every action, clear with "Show all values", never trigger on Hover. |
+| 38 | A Pages card (year slider with Play) is a good time control for a map. Make sure no later zone in z-order covers it, turn off Show history controls so the year box is not squeezed empty, and write the zone with `synchronized='1'` and `trailctrls='0'` ([workflow-and-qa.md](workflow-and-qa.md)). |
 
 ## Story and process
 
@@ -76,6 +79,7 @@ The two styles in one line each:
 | 25 | A presented story is about 3 pages: hook, intro with the big question, analysis, answer. Fold extra pages into one with dynamic zone visibility. |
 | 26 | A story is not a list of facts. It has a beginning, a middle, and an ending that is NOT immediately obvious. Informational is fine, but say which one it is. |
 | 27 | Do the thinking in Prep or Python: precompute metrics as flags, map messy categories to a clean list, split into several tiny single-purpose data sources (one per chart), and precompute geometry (Venn x/y from radius by trig). No filtering, renaming or formatting should happen in Tableau. |
+| 39 | When a chart type changes, keep the version that came before it and show the person before and after. Review multi-page builds in whole passes: render everything, gate everything, one problem list, all edits together, then look at everything again ([workflow-and-qa.md](workflow-and-qa.md)). |
 
 ## Local departures worth copying
 
@@ -103,7 +107,8 @@ The two styles in one line each:
 ## Dashboards that talk to AI agents (Tableau Cloud and Next business preferences)
 
 Notes from a conference talk on writing a business-preferences file for
-Tableau's agents. Useful for any agent context file you write.
+Tableau's agents. Useful for any agent context file you write. The full version
+is [agent-business-preferences.md](agent-business-preferences.md).
 
 - It is the last mile, not the main meal. Clean labels and descriptions,
   governed calculations and hidden noise fields come FIRST. Rules last.
@@ -127,5 +132,7 @@ Tableau's agents. Useful for any agent context file you write.
 | A Tableau instructor's published workbooks | 1, 2, 4, 5, 6, 11 to 15, 17 |
 | A dashboard designer's published workbooks | 3, 7 to 10, 16, 18 |
 | An Iron Viz 2026 winner's conference talk | 19 to 29 |
-| Andy Kriebel's VizWiz channel (see [technique-library.md](technique-library.md)) | 30 to 33 |
+| Andy Kriebel's VizWiz channel (see [technique-library.md](technique-library.md) and [andy-kriebel-recipes.md](andy-kriebel-recipes.md)) | 30 to 33 |
 | A reader's feedback that gray notes looked washed out (they passed AA at 6.3:1) | 34, 35 |
+| Public Viz of the Day winners (see [viz-of-the-day-patterns.md](viz-of-the-day-patterns.md)) | 37 |
+| Build feedback from long multi-page builds (see [workflow-and-qa.md](workflow-and-qa.md)) | 36, 38, 39 |

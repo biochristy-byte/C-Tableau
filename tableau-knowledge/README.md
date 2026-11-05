@@ -12,11 +12,17 @@ help me build a dashboard."
 
 | File | What it is | Read it when |
 |---|---|---|
-| [`house-style.md`](house-style.md) | 35 dashboard design rules (layout, color, type, text contrast, interactivity, story) with where each came from | before designing any page |
+| [`house-style.md`](house-style.md) | 39 dashboard design rules (layout, color, type, text contrast, interactivity, story) with where each came from | before designing any page |
 | [`buildout-pipeline.md`](buildout-pipeline.md) | How Claude builds a workbook when there is no authoring API: Tableau authors a template, a script injects charts, you publish. Includes GUI-driving lessons and gating | before generating a `.twb` |
 | [`xml-traps.md`](xml-traps.md) | The `.twb` XML catalogue: load failures, the silent traps, and verified fragments for buttons, actions, filters, maps, colors, DZV | when XML loads but renders wrong, or does not load |
 | [`technique-library.md`](technique-library.md) | Chart and interaction recipes (map layers as a canvas, dashboard-level set actions, zoom without an extension) and calc pitfalls | before building a chart or interaction |
 | [`viz-extensions.md`](viz-extensions.md) | Viz extension hard limits, what is proven and unproven (including Tableau Public), and the gotchas found only in real Tableau | before writing an extension |
+| [`andy-kriebel-recipes.md`](andy-kriebel-recipes.md) | Step-by-step recipes from a public Tableau channel: map-layer drawing (bar, donut, waffle, calendar, gauge), set actions, dynamic zone visibility, KPI cards, calc fundamentals | before building any chart or interaction beyond the basics |
+| [`iron-viz-design.md`](iron-viz-design.md) | An Iron Viz winner's approach: mood board, background first, custom shapes, one-parameter accordion, tiny Prep data sources, speed | before designing a showpiece or a story dashboard |
+| [`agent-business-preferences.md`](agent-business-preferences.md) | How to write the rules file for Tableau Cloud and Next agents (and any AI agent over data) | before putting an AI agent on a dashboard or semantic model |
+| [`viz-of-the-day-patterns.md`](viz-of-the-day-patterns.md) | How themed Viz of the Day winners carry a theme without bending the data, plus how to pull the public archive | before theming a dashboard |
+| [`workflow-and-qa.md`](workflow-and-qa.md) | Whole-pass review, acronym footers, rendered-text gates, the Pages card, driving the GUI politely, scaled-display truth | before a multi-page build or any render loop |
+| [`narration-and-handoff.md`](narration-and-handoff.md) | Turning a recorded talk into rules, and pairing a silent screen recording with a voiceover (retime plan, ffmpeg traps) | when you learn from a video or make a tutorial video |
 | [`never-ctrl-s-on-public.md`](never-ctrl-s-on-public.md) | Why Ctrl+S in Tableau Public publishes, and how to make a driver refuse it | before any GUI automation |
 | [`claude-command/tableau-scrubs.md`](claude-command/tableau-scrubs.md) | A `/tableau-scrubs` slash command: a data-prep and analysis team that asks about grain and audience first | whenever you start a Tableau job |
 | [`reference/`](reference) | A 40+ chart-type reference and the `.twb`/`.twbx` file format primer | as a lookup |

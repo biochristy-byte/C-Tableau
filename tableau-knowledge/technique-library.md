@@ -16,6 +16,9 @@ interactivity, calcs, performance, shortcuts).
 
 ## Highest-value techniques for a generator pipeline
 
+Full step-by-step versions of these (and more) are in
+[andy-kriebel-recipes.md](andy-kriebel-recipes.md).
+
 - **Map layers as a drawing canvas.** A helper point table (rectangle = 5 rows,
   semicircle arc = 180, waffle = 100) plus `MAKEPOINT(row, col)` or
   `MAKEPOINT(-offset, weekday)` on a flat grid, background map off (needs two or

@@ -178,6 +178,10 @@ selection.
 
 ### Selection
 
+- A dashboard Pages card is a zone with `type-v2='currpage'`. It needs
+  `synchronized='1' trailctrls='0'`, and any zone later in z-order that overlaps
+  it swallows its clicks. See [workflow-and-qa.md](workflow-and-qa.md).
+
 - Clicking a mark dims every other mark until the viewer clicks empty space. Tried
   and NOT effective: `fog-desaturation-*` and `fog-bg-color` on every element,
   `selection-relaxation-disallow`. Effective but costly: `<pane inert='true'>`

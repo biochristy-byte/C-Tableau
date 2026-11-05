@@ -570,7 +570,15 @@
       bl.W = w; bl.H = h; bcv.width = w * d; bcv.height = h * d; bcv.style.width = w + 'px'; bcv.style.height = h + 'px'; bctx.setTransform(d, 0, 0, d, 0, 0);
       elBloom.style.background = 'rgba(255,255,255,' + (S.bloom.dim / 200) + ')';
     }
+    /* the close-up card has its own background, so its text must contrast with that, not with the stage */
     function drawBloom(ts) {
+      var keep = C, bg = S.bloom.bg, hx = function (h) { var m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return 1; var v = [0, 2, 4].map(function (i) { var x = parseInt(m[1].substr(i, 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+      var ratio = function (a, b) { var x = hx(a), y = hx(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      var fit = function (pref) { if (ratio(pref, bg) >= 7) return pref; return ratio('#111111', bg) >= ratio('#ffffff', bg) ? '#111111' : '#ffffff'; };
+      C = Object.assign({}, keep, { ink: fit(keep.ink), ink2: fit(keep.ink2), stage: bg });
+      try { drawBloom0(ts); } finally { C = keep; }
+    }
+    function drawBloom0(ts) {
       var f = F[bl.i]; if (!f) return; var t = Math.min(1, (ts - bl.t0) / 700), ease = 1 - Math.pow(1 - t, 3), g = bctx, BW = bl.W, BH = bl.H;
       g.clearRect(0, 0, BW, BH); g.textBaseline = 'alphabetic'; g.textAlign = 'center';
       g.fillStyle = C.ink; g.font = '700 ' + Math.round(Math.min(24, BW / 24)) + 'px ' + C.fd; g.fillText(tmpl(S.bloom.title, f), BW / 2, 32);
