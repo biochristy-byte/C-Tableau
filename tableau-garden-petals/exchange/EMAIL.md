@@ -10,6 +10,7 @@ Garden Petals draws one flower per row of your data, one petal per category, wit
 by a measure. It has a grid view, a garden map and an altitude view, reference outlines, glow and
 wilt thresholds, and a close-up bloom, all adjustable from a settings panel in the viz. It is free
 and MIT licensed. The data is read in the browser and nothing is sent anywhere.
+The design is inspired by *In Full Bloom* by Külli Esko, a hand-built Tableau viz.
 
 Where it stands:
 - Four encodings (Flower, Petal, Length, Score), permission "full data".

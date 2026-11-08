@@ -8,6 +8,8 @@ that look alike, and a close-up bloom you open with a click. Everything is
 adjustable from a settings panel inside the viz. Free, MIT licensed, and it
 runs in the free edition of Tableau Desktop.
 
+**Credit.** The flower design is inspired by *In Full Bloom* by Külli Esko, a hand-built Tableau viz of the same Makeover Monday 2026 week 44 PISA data with the same flower idea. Garden Petals turns that idea into a reusable extension for any data.
+
 The code is a worked example of the hard parts of a viz extension, so it doubles
 as a template. The lessons are written up in
 [`../tableau-knowledge/viz-extensions.md`](../tableau-knowledge/viz-extensions.md).

@@ -5,6 +5,10 @@ first be added as a contributor on the Exchange by emailing extensiongallery@tab
 the details below in the template they send. Review criteria, timeline and the "Works with Tableau
 Public" requirements are not published there, so the email asks about them.
 
+## Credit
+
+The flower design is inspired by *In Full Bloom* by Külli Esko, a hand-built Tableau viz of the same Makeover Monday 2026 week 44 PISA data with the same flower idea. Say so on the Exchange page and in the description.
+
 ## Exchange card
 
 | Field | Value |

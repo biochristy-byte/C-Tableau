@@ -5,6 +5,8 @@ The dashboard this extension was made for: **MM 2026 week 44, students and AI ac
 country, one petal per question, petal length is the share of students, the grey outline is the OECD
 average, and a petal glows when the share is 80% or more.
 
+**Credit.** Inspired by *In Full Bloom* by Külli Esko, a hand-built Tableau viz of the same Makeover Monday 2026 week 44 PISA data with the same flower idea.
+
 This folder is everything you need besides the data itself and Tableau's own library.
 
 | File | What it is |
