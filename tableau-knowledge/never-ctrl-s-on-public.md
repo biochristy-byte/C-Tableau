@@ -43,4 +43,5 @@ Put this in your CLAUDE.md or a standing rule:
 
 > Never send Ctrl+S, Alt+F then S, or any save keystroke to Tableau Public. Save
 > only through File > Save As to an explicit local path, after reading a
-> screenshot of the dialog. Publishing is always a human click.
+> screenshot of the dialog. Publishing is always a human click, or an explicit
+> 'publish' from the owner (route in workflow-and-qa.md section 8).

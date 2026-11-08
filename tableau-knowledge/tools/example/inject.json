@@ -1,0 +1,16 @@
+{
+  "measure": "amount",
+  "measure_caption": "Units",
+  "dashboard": {"name": "Demo Dashboard", "title": "Demo Dashboard", "w": 1000, "h": 800},
+  "sheets": [
+    {"name": "Most units sit in one category", "dim": "category", "color": null},
+    {"name": "Flags split the units", "dim": "flag", "color": null},
+    {"name": "Category by flag", "dim": "category", "color": "flag"}
+  ],
+  "aliases": {"flag": {"TRUE": "Yes", "FALSE": "No"}},
+  "layout": ["vert", [
+    [["text", "Demo Dashboard"], 0.5],
+    [["sheet", "Most units sit in one category"], 1.1],
+    [["horz", [["sheet", "Flags split the units"], ["sheet", "Category by flag"]]], 1.2]
+  ]]
+}

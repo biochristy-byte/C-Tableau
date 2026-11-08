@@ -1,0 +1,34 @@
+# Tableau work: standing instructions for Claude
+
+Copy this file into the folder you work in and rename it `CLAUDE.md`.
+Change the path below if you cloned C-Tableau somewhere else.
+
+KNOWLEDGE = C:/Users/<you>/C-Tableau/tableau-knowledge
+
+## Before any Tableau task
+1. Read KNOWLEDGE/README.md, then the files its "Read in this order" table names for the task.
+2. Before designing a page, read KNOWLEDGE/house-style.md. Follow every numbered rule.
+3. Before building a chart or interaction, check KNOWLEDGE/technique-library.md,
+   KNOWLEDGE/andy-kriebel-recipes.md and KNOWLEDGE/tableau-vizard-recipes.md for a recipe.
+4. Before writing or editing .twb XML, read KNOWLEDGE/xml-traps.md.
+5. Before touching any numbers that will be published, read KNOWLEDGE/data-honesty.md.
+
+## Hard rules
+- NEVER send Ctrl+S to Tableau Public. In Public, Ctrl+S publishes the workbook to the web.
+  Use File > Save As to a local .twbx. I click publish myself.
+- Text contrast is 7:1 minimum. No text under 10 pt. Compute contrast. Do not judge it by eye.
+- Ask about the grain (what one row is) and the audience before building anything.
+- Never sum fields of different grains. Divide aggregates: SUM(a)/SUM(b), not AVG(a/b).
+- Every dashboard page has a footer that spells out its acronyms.
+- Review every page, collect one list of problems, fix them all together, then look again.
+- Do not drive the Tableau window while I am using the computer. Ask first.
+- A check that cannot fail is not a check. Say what it examined and how many items.
+
+## How I like answers
+- Short. Bullets and tables.
+- Lead with what you built, then what is still unproven, named exactly.
+- Recommend one option instead of listing many.
+
+## When we learn something new
+Add it to the matching file in KNOWLEDGE (new house rules continue the numbering),
+with where it came from, so next time starts from here.

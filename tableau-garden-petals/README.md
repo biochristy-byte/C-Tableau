@@ -95,7 +95,9 @@ python tools/package.py --base https://your-host/petals   # needs lib/ filled in
 
 builds `dist/garden-petals-viz-extension-<version>.zip` with the manifest URL
 rewritten. Tableau allows plain HTTP for localhost only, so any other host must
-be HTTPS. See the open question about Tableau Public in
+be HTTPS. On Tableau Public, a self-hosted extension renders while you author
+in Public Desktop, but viewers see "isn't currently supported" until Tableau
+approves it on the Exchange. Details in
 [`../tableau-knowledge/viz-extensions.md`](../tableau-knowledge/viz-extensions.md).
 
 ## Driving Tableau from a script (optional)

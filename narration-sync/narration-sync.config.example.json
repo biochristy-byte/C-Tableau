@@ -1,0 +1,15 @@
+{
+  "out_dir": "~/narration-sync-out",
+  "asr_fixes": [
+    ["tablo", "Tableau"],
+    ["tab low", "Tableau"],
+    ["cross tabs", "crosstabs"]
+  ],
+  "word_fixes": [
+    [["mark", "style"], ["mark", "tile"]]
+  ],
+  "whisper_model": "small",
+  "device": "cpu",
+  "compute_type": "int8",
+  "language": "en"
+}

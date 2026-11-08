@@ -4,7 +4,7 @@
     <default-locale>en_US</default-locale>
     <name resource-id="name"/>
     <description>Garden Petals: one flower per row of your data, one petal per category, petal length set by a measure. Grid, a garden map that plants each flower at its location, or an altitude view. Reference outlines, frost, wilt, shape-twin bees and a close-up bloom, all adjustable from a settings panel inside the viz.</description>
-    <author name="Chris Fryar" organization="Data Divers" website="https://datadivers.com"/>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
     <min-api-version>1.12</min-api-version>
     <source-location>
       <url>http://localhost:8767/src/index.html</url>

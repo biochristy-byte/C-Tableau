@@ -1,4 +1,4 @@
-# Tableau dashboard house style (39 rules)
+# Tableau dashboard house style (47 rules)
 
 Distilled from reading the published workbooks (XML and thumbnails) of two
 dashboard designers, one who teaches and one who dazzles, plus two conference
@@ -57,7 +57,14 @@ The two styles in one line each:
 | 29 | Show the analytic depth. Hidden math reads as "out of thin air": give the method a visible home, a short line or a recap panel. |
 | 34 | **Text contrast is 7:1 at a minimum (WCAG AAA), never just 4.5:1.** Every word against the ground it actually sits on: card, title band, nav pill, bar, heat cell, tooltip box. Compute it, never eyeball it, and gate it in the build with a control that must fail. If a data color cannot reach 7:1 as text, set its TEXT in a lighter or darker step of the same hue and keep the mark color. |
 | 35 | **No text under 10 pt**, legends at 11 pt with a 13 pt swatch. Size every row header and label column for its longest label at that size. Public draws type at about two thirds of Desktop's size, so 8 pt reads as fine print. |
+| 43 | **Color checks are computed.** Simulate protanopia, deuteranopia and tritanopia and report the CLOSEST PAIR of categorical colors by distance; a named stock palette does not exempt your added colors. Keep selected and hover state colors away from every data color with the same metric ([gate-designs.md](gate-designs.md)). |
+| 44 | **If no ink reaches 7:1 on a mark color, move the label off the mark** (print the total past the bar end) rather than lowering the bar. Extends rule 34. |
+| 45 | **A radial or unit chart gives every dot a fixed ANGLE**, never a fixed arc length: the reader compares sweep angle, and a fixed arc length made a +27% rise vanish. |
+| 47 | **Assume the reader's browser may force dark mode.** It repaints text but not baked PNG cards, so light cards wash out. Ship a full dark theme or test the published view with forced dark mode, in a clean browser, never the author's own ([workflow-and-qa.md](workflow-and-qa.md) section 9). |
 | 36 | **Every page ends with its acronym key**: a footer zone spelling out only the acronyms that page uses. Keep text at Viz of the Day density and drop notes that repeat what the chart already shows; keep a caveat only if the chart cannot show it. Gate it by scanning each dashboard's text zones. |
+| 40 | **Quote provenance.** Carry a `verbatim` flag from the source notes, count words only inside the person's own text, and never caption a chart "in their own words" unless the flag proves it. Method in [data-honesty.md](data-honesty.md). |
+| 41 | **Significance before color.** Color a word or category as "different" only after a test that survives a multiple-comparison correction (Benjamini-Hochberg at 10%). State the adjusted p when the verdict hangs on it and say if it is fragile. |
+| 42 | **Name categories by what happened, not by a verdict** ("who acted", not "real versus hoax"). Split two categories that differ in intent, and ask before merging them. |
 
 ## Interactivity
 
@@ -80,6 +87,7 @@ The two styles in one line each:
 | 26 | A story is not a list of facts. It has a beginning, a middle, and an ending that is NOT immediately obvious. Informational is fine, but say which one it is. |
 | 27 | Do the thinking in Prep or Python: precompute metrics as flags, map messy categories to a clean list, split into several tiny single-purpose data sources (one per chart), and precompute geometry (Venn x/y from radius by trig). No filtering, renaming or formatting should happen in Tableau. |
 | 39 | When a chart type changes, keep the version that came before it and show the person before and after. Review multi-page builds in whole passes: render everything, gate everything, one problem list, all edits together, then look at everything again ([workflow-and-qa.md](workflow-and-qa.md)). |
+| 46 | **Chart swap coverage gate** (extends 39). When a chart is replaced or split, list every series by period the old chart showed and assert each still appears in a rendered chart AND a table. Never draw interpolated points that look like data. |
 
 ## Local departures worth copying
 
@@ -136,3 +144,6 @@ is [agent-business-preferences.md](agent-business-preferences.md).
 | A reader's feedback that gray notes looked washed out (they passed AA at 6.3:1) | 34, 35 |
 | Public Viz of the Day winners (see [viz-of-the-day-patterns.md](viz-of-the-day-patterns.md)) | 37 |
 | Build feedback from long multi-page builds (see [workflow-and-qa.md](workflow-and-qa.md)) | 36, 38, 39 |
+| A nurse-workforce story workbook built on survey and social data (see [data-honesty.md](data-honesty.md)) | 40, 41, 47 |
+| A sensitive-incident dataset workbook | 42, 44 |
+| A community-map workbook and a dive-safety story (see [gate-designs.md](gate-designs.md)) | 43, 45, 46 |

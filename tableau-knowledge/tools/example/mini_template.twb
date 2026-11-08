@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<workbook original-version='18.1' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <datasources>
+  <datasource caption='Sample' inline='true' name='federated.demo0000000000000000000000000' version='18.1'>
+    <connection class='federated'>
+      <named-connections>
+        <named-connection caption='sample' name='textscan.demo'>
+          <connection class='textscan' directory='.' filename='sample.csv' />
+        </named-connection>
+      </named-connections>
+    </connection>
+    <column datatype='string' name='[category]' role='dimension' type='nominal' />
+    <column datatype='string' name='[flag]' role='dimension' type='nominal' />
+    <column caption='Amount' datatype='integer' name='[amount]' role='measure' type='quantitative' />
+  </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='Sheet 1'>
+      <table>
+        <view>
+          <datasources />
+        </view>
+        <style />
+        <panes />
+        <rows />
+        <cols />
+      </table>
+    </worksheet>
+  </worksheets>
+  <windows source-height='30'>
+    <window class='worksheet' maximized='true' name='Sheet 1' />
+  </windows>
+</workbook>

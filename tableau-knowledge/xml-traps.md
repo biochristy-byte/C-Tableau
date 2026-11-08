@@ -29,6 +29,14 @@ Copy the failing file, remove one suspect, reopen. Repeat until it loads.
 7. `<column-instance>` elements go after `<column>` and before `<drill-paths>`,
    or before `<extract>` when there are none (schema order).
 
+**Read the real error list.** When Tableau refuses a generated workbook,
+`log.txt` shows only `error-details=["*****"]`. The load-error dialog has the
+text: press the dialog's own "Copy Error Message" button and read the clipboard.
+It holds the full schema error list (element, line, expected children), which
+often ends the bisect in one step. Send no keystroke to the main window while
+doing it. A driver for this exits 0 when the workbook loaded and 1 when it did
+not, printing the errors (wait up to 40 s for the dialog).
+
 ## Silent traps
 
 ### Colors
@@ -128,6 +136,10 @@ included-values='non-null' />`.
   for dimensions, which can still be read inside the tooltip text.
 - On polygons the value is constant per segment: use `[min:value:qk]`, since SUM
   multiplies by the vertex count.
+- Custom tooltip fragment, inside `<pane>` after the encodings:
+  `<customized-tooltip><formatted-text><run fontcolor='#9a9aa5'>Label: </run><run
+  bold='true'><![CDATA[<[ds].[token]>]]></run> ... </formatted-text></customized-tooltip>`.
+  Repeat the pair per line, with the line-break run from above between lines.
 - A straight `"` at the start of a formatted-text run renders as a CLOSING curly
   quote. Write U+201C and U+201D yourself.
 - A run made only of whitespace is stripped on load. Put the gap inside a run
@@ -141,6 +153,12 @@ A `#00000000` sheet background renders opaque WHITE unless the manifest lists
 `#00000000` on the table and pane rules too. Over a transparent sheet ground,
 unselected marks fade toward white: give the sheet a solid ground if you rely on
 selection.
+
+`<ZoneBackgroundTransparency />` is not always needed. Tableau's own Save As
+drops it (and adds `SetMembershipControl` and `SortTagCleanup`) and the reopened
+workbook is still pixel-identical, while the worksheet flag IS required for a
+`#00000000` sheet. Test a manifest flag by pixel diff before treating its absence
+as a defect, and copy the flag set Tableau itself wrote.
 
 ### Maps
 
@@ -214,6 +232,12 @@ selection.
   or a header height, is ignored.
 - Mark label number format (`p0%`) goes on `element='cell'` or the datasource
   column's `default-format`. On `element='label'` alone it formats the HEADERS.
+  **Two sources disagree here.** One build recorded the label format on the
+  datasource column (`default-format='c0"%"'` on `<column name='[pct]'>`) and
+  found that a worksheet `element='label'` text-format rule formats the AXIS;
+  another recorded `p0%` on `element='cell'`. Both were observed, on different
+  builds or paths. Test which one your build honours: set it once, render, and
+  keep whichever changes the mark label.
   `<style-rule element='label'>` styles row and column headers; mark label ink is
   `element='datalabel'` with `color-mode='user'`.
 - A text table shows column names only when `display-field-labels scope='rows'`
@@ -224,7 +248,38 @@ selection.
   field='...' value='false' />`.
 - Label right of a circle: pane cell rule `text-align='right'`; widen the axis so
   the longest label fits or Tableau slides it back over the mark.
-- Column dividers draw n + 1 lines.
+- Column dividers draw n + 1 lines (three clouds on Columns drew four): the outer
+  ones box the card. Turn them off and bake inner hairlines into the background PNG.
+- Row dividers in Tableau's own form (60 of 655 `table-div` rules in 97 local
+  files): per style one rule with rows `line-visibility` on, `line-pattern-only`
+  solid, `div-level` 1 and a `stroke-color`.
+- A hidden axis still draws a 1 px `#f5f5f5` ruler at the pane edge: invisible on
+  a light card, a white rule on a dark one. Put `<format attr='line-visibility'
+  value='off' />` in EVERY `element='axis'` style-rule (row and column scopes) and
+  gate it in the build. To find which element draws a stray pixel, recolor each
+  suspect (zeroline, gridline, table-div, pane border, axis) garish magenta one at
+  a time; here only the axis rule was guilty.
+- A fixed-range axis that keeps its title shows a pin icon in presentation mode.
+  Drop the axis title and put the note in the sheet subtitle.
+- A text sheet that must scroll (705 quote rows) has NO `<zoom type='entire-view'/>`
+  on its dashboard viewpoint, or the rows are squashed into the zone. Keep header
+  widths plus cell width at least 64 px under the zone width or a horizontal
+  scrollbar appears.
+- A dropdown quick-filter card's title area is about 76 px: an 8-letter title
+  truncates at 10 pt and fits at 9 pt. Add 10 px of slack per filter label;
+  per-character averages cut "Nurses" to "Nurs..".
+- A Square mark is a square, sized linearly at about 14.5 px per size-unit step
+  (measured on Desktop), not a cell fill. A size near the column width overlaps
+  the next row. For a heat map that must tile with no gaps use full-width **Bar**
+  marks on a `MIN(1)` measure.
+- A fixed axis min/max on an integer-typed measure is silently ignored. Wrap it in
+  a float calc (`FLOAT([n])`) and the range holds.
+- A dimension on Text or Detail splits a Line into separate points. To label a
+  line use an AGGREGATE string calc on Text (`MAX(STR([label]))`).
+- Stacked-bar labels default to segment centres. For a value at the bar end add a
+  dual-axis Text layer at `SUM(x) + SIGN(x) * offset`; SIGN puts it on the correct
+  side of a diverging bar. A label that cannot fit past a bar end is drawn INSIDE
+  it by Tableau.
 - Bar thickness: a pane mark rule `<format attr='size' value=.. />` (not linear).
 - Stacked bar order: the FIRST member of a manual color sort is drawn OUTERMOST.
 - Single-segment stacked bars print the count twice (segment plus total). Label
@@ -255,6 +310,82 @@ quietly narrower extract.
   declared as an integer CONTINUOUS DIMENSION.
 
 ## Verified fragments
+
+### Hover highlight on a calculated copy
+
+A highlight action keys on the real field's caption, and hover paints the ROW
+HEADER of the highlighted field yellow. Put the real field on Detail or Color and
+a calculated copy on Rows. A calculated field takes no aliases, so build the copy
+as a `CASE` over an aliases dict (`"2 Considering"` shown as `"Weighing it"`).
+Gate it by counting yellow pixels in the header boxes: the broken build measured
+4,620 yellow px, the fixed build 0. The control restores the broken shape and
+must find the yellow.
+
+### Legend as a layout zone
+
+`<zone type='color' name='<sheet>' pane-specification-id='1'
+param='[ds].[none:field:nk]' .../>` added to the dashboard layout gives that
+sheet's color legend as a strip. Lay legend text out in whole units (see
+[workflow-and-qa.md](workflow-and-qa.md)).
+
+### Cross-dashboard filter action
+
+Link expression `tsl:{target dashboard}?..`, `<source dashboard='{source page}'
+.../>`, `<param name='target' value='{target page}'/>`, and an exclude list that
+names the OTHER sheets on the target page. Clicking a source mark jumps to the
+target dashboard, filtered. `<param name='on-empty' value='all' />` is "Show all
+values" on clear; `'none'` left the target EMPTY after a second click on the same
+bar.
+
+### Dumbbell (verified shape)
+
+- Rows: a display copy of the dimension (`Calculation_gaprow`). Columns:
+  `(SUM(pct) + SUM([pct_dot]))` where `pct_dot = SUM([pct])` is a calc, so the
+  dual axis is synchronized.
+- Pane 1: `<mark class='Line' />`, `<lod>` the dimension, `<path column=cohort>`,
+  fixed `mark-color`, size 2, labels off.
+- Pane 2: `<mark class='Circle' />`, `<color column=cohort>`, `<lod>`,
+  `<text column=label_calc>`, cell rule `text-align=right`, mark size 3,
+  `has-stroke false`, `mark-labels-cull false`.
+- Axes: first axis `range-type='fixed'` min 0 max N, second axis `fold='true'
+  synchronized='true'`, both `display false`.
+- Label calc prints "40% vs 16%" on the larger dot only.
+
+### Slope chart (verified shape)
+
+- Rows: `FLOAT([y])` (rank). Columns: `(sx1 + sx2)` with `sx1 = FLOAT([source_x])` and
+  `sx2 = FLOAT([source_x])`; two copies make two panes.
+- Pane 0 an empty Line. Pane 1 `Line` with `<color direction>`, `<lod reason>`,
+  `<path column=sx1>`, size 3, tooltip naming only the reason. Pane 2 `Circle`
+  with the same encodings plus `<lod source>` and the full tooltip.
+- Axes: `sx1` fixed (for example -0.35 to 1.35), `sx2` synchronized, y fixed.
+- A line spans both sources, so it cannot carry per-end values; the dots do.
+
+### Ribbon or bump chart (rank by age)
+
+Precompute S-curve points per reason (x, y, point_order, highlight,
+role='curve'). One sheet: `<mark class='Line' />`, Columns `[none:x:qk]`, Rows
+`[none:y:qk]`, color = highlight, `<lod reason>`, `<path point_order>`, size 4, a
+member filter on role='curve', both axes fixed and hidden, grid off. Labels live
+on separate sheets (next section).
+
+### End labels beside any chart (invisible-Circle label sheet)
+
+A separate narrow sheet: `<mark class='Circle' />` size 0.25, `mark-color` equal
+to the pane ground, `has-stroke false`, `mark-labels-show true`,
+`mark-labels-cull false`, Text = the label field, cell rule `text-align` right
+(labels left of the dot) or left (labels right of it). X is a constant calc
+`[y]*0 + a` on a fixed 0..1 axis, with `a = 1 - GAP/width` (left) or `GAP/width`
+(right). Y shares the chart's fixed range so rows line up. The same trick prints a
+stacked-bar total past the bar end.
+
+### Reading a mark count without trusting the CSV
+
+To prove a map filter keeps N marks: copy the `.twb`, un-hide and maximize the map
+worksheet window (dashboard `maximized='false'`), add `<card type='summary' />` to
+the worksheet window's left strip, set the parameter value and formula per state,
+and open it. The Summary card prints "Count: N". Compare to the rows the calc
+keeps (356, 342 and 61 read for three states).
 
 ### Navigation button (page arrows)
 

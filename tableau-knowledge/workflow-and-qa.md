@@ -75,6 +75,9 @@ design values.
 - **Every gate needs a control** that goes red on its own defect. Gates that had
   never run turned out to be broken (a copy check that rejected a hidden Phone
   copy, a gap control searching a block with no gap run).
+- **Gate designs live in their own page.** Calibration fits, the number-provenance
+  gate, the coverage gate, color-vision checks and the HTML-twin gates are in
+  [gate-designs.md](gate-designs.md).
 - **Straight quotes at the start of a run render as closing quotes.** Write the
   curly characters yourself (U+201C, U+201D), with an editor tool, not a shell
   heredoc.
@@ -115,6 +118,33 @@ it failed twice, for reasons that look like a bug in the card:
   afterwards, and removed by hand if a run is killed or the person's own Tableau
   looks blurry), and verify against headless browser shots of the published
   view with `?:showVizHome=no&:embed=y&:device=phone`.
+- **A phone layout cannot be screenshotted headlessly. Render it through a
+  "gallery" dashboard.** Build an extra dashboard holding the SAME phone zones
+  (same sheets, text and phone background PNG) cut into screen-height slices at
+  the gaps between cards and laid side by side on one fixed canvas (2 to 3 columns,
+  822 or 1221 px wide). Open it in presentation mode (F7), screenshot, and map each
+  slice back to page pixels 1:1. Nothing is re-authored, so it proxies the Phone
+  device layout. Read the composed sheet whole; never crop to 375. A render script
+  for all dashboards launches its own PID, waits until two shots 4 s apart match,
+  presses F7 only while Tableau is foreground, shoots, and kills its own PID
+  (about 25 min for 14 layouts; run it in the background).
+- **Phone proof is a proxy.** Headless shots at `:device=phone` and the gallery are
+  not Tableau's Device Preview. Say so in the report.
+- **Heredoc `\b` becomes a literal backspace (0x08).** A shell heredoc eats one
+  backslash from `\\`; a non-raw Python string or JS template literal then turns
+  the surviving `\b` into the BACKSPACE byte. The regex still parses and matches
+  nothing, or, unanchored, matches inside other words ("device" matched `/ice/` and
+  the wrong petal glowed). Write regex-bearing code with the editor tool, then
+  sweep: `grep -c $'\x08' file` must be 0. A non-breaking space in a patch will
+  not match inside a heredoc either.
+- **Python helpers and import paths.** `python -I` drops the script directory and
+  breaks sibling imports (and hides user-site packages, which is its other failure
+  for speech-to-text tools). `python -s` skips only the user site; `PYTHONPATH=.
+  python` keeps both.
+- **Internal Error 6EA18A9E.** Re-adding Year to the Pages shelf with animation ON
+  threw it (a logic assert in a page-interval helper). It was not needed for the fix;
+  do not chase it. Also, authoring-mode clicks on a dashboard select the TOP zone at
+  that point, so a later-in-z-order wide zone silently kills a control.
 - **Foreground guard.** Every scripted click or key first checks that Tableau is
   the foreground window and refuses to send otherwise. One calibration click once
   landed in a terminal the person was typing in.
@@ -146,7 +176,38 @@ template's extract, not the CSV.
 
 ## 8. Publishing hygiene
 
-The person clicks Publish; Claude never does. Before the click: all pages
+The person clicks Publish; Claude never does, unless the owner explicitly says
+"publish" (see the exception below). Before the click: all pages
 rendered in Tableau first, the published view checked in a headless browser, and
 a list of what is still unproven (for example, base-map labels drawn by Tableau on
 map tiles that XML cannot hide without base-layer ids from a GUI save).
+
+**The explicit-permission exception.** Two workbooks were published at the owner's
+word. The route: File menu, press Down 7 times to "Save to Tableau Public As...",
+Enter (send it WITHOUT re-focusing the window, since refocusing closes the menu),
+type the title, click Save. The remembered session means no sign-in prompt, and
+re-publishing over the same title overwrites the same URL. Presentation mode (F7)
+hides the menu bar, so press Esc before the keys. Only the owner can delete a
+published viz, so a wrong publish cannot be undone by the tool.
+[never-ctrl-s-on-public.md](never-ctrl-s-on-public.md) stays the default.
+
+## 9. Verify the published view in a clean browser, and in forced dark mode
+
+Never judge the published page from the author's own browser: its auto dark mode
+changes what you see. Render the live view (`?:showVizHome=no&:embed=y`) in a clean
+Playwright browser for true colors, AND with `--blink-settings=forceDarkModeEnabled=true`
+(about 40 s per load, `:refresh=yes`).
+
+- Edge `enable-force-dark` and Chrome Auto Dark Mode repaint dark TEXT light but
+  leave a baked PNG card alone, so a light card plus auto-lightened text reads
+  washed out (a reader's real complaint).
+- What fixed it: a full dark theme. Dark baked cards (for example `#15233d`), light
+  inks, chart colors lifted for the dark ground, a heat ramp that brightens with
+  share, and the active nav pill as white text on a mid blue with a white ring
+  (navy text on white gets repainted pale).
+- Tooltips keep DARK inks because Tableau draws them on white; gate that
+  separately.
+- A hidden axis ruler turns into a white line on a dark card (see
+  [xml-traps.md](xml-traps.md)).
+- Known and unfixable here: under force dark, Tableau's own radio widget turns the
+  selected dot light, so "All" can read as unselected.

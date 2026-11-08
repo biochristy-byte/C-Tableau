@@ -32,13 +32,13 @@ runs in the free edition of Tableau Desktop.
 | **Node.js** (or Python 3) | The extension is a web page, and Tableau loads it from a local server. Node runs the one in this project. `python -m http.server` works as a stand-in, see below. |
 | **One file from Tableau** | The Extensions API library, `tableau.extensions.1.latest.min.js`. It is Tableau's, so it is not in this folder. [lib/README.md](lib/README.md) shows where to get it. |
 
-**Tableau Public is not proven for a self-hosted extension.** Tableau's
-Public FAQ says Public supports viz extensions (pick "Works with Tableau
-Public", or "Access Local Viz Extensions" for a `.trex` you have). Whether a
-self-hosted `.trex` like this one loads, publishes and renders for public
-viewers has not been tested here. Publishing also needs Settings > Allow Access
-so the extension can read the visible data, and the extension must be reachable
-at an HTTPS address. It works in Tableau Desktop. Details:
+**Tableau Public: you can author with it, but viewers will not see it.** Tested on
+11/05/2026 with a sibling extension: a self-hosted `.trex` loads and renders in
+Tableau Public Desktop 2026.1 (Add Extension > Access Local Viz Extensions), but
+visitors to the published viz see "isn't currently supported on Tableau Public",
+because Public only runs Tableau-approved Exchange extensions. For a public
+audience, get the extension approved on the Tableau Exchange first. It works in
+Tableau Desktop. Details:
 [../tableau-knowledge/viz-extensions.md](../tableau-knowledge/viz-extensions.md).
 
 ## Install
@@ -121,7 +121,7 @@ edit it, remove the extension and add it again.
 | Extension is not in the Marks card menu | Tableau is older than 2024.2. |
 | It worked, then went blank | The server stopped. The extension is a live page, not a copy baked into the workbook. |
 | Blank in a PDF or PowerPoint export | Tableau draws all viz extensions blank in those exports. |
-| Tableau will not accept the manifest | Check that `lollipop.trex` is still valid XML, and that the `author` line still has a `name` and an HTTPS `website` (Tableau requires both; `email` is optional). |
+| Tableau will not accept the manifest | Check that `lollipop.trex` is still valid XML, and that the `author` line still has a `name` and an HTTPS `website` (Tableau requires both), plus an `email` attribute. It can be empty (`email=""`), but Tableau Public Desktop 2026.1 rejects a manifest without it: "missing required attribute 'email'". |
 
 If someone else opens your workbook, they need the extension reachable at the
 same URL that is saved in it. On `localhost` that means each person runs their

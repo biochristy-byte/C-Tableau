@@ -141,7 +141,9 @@ Tableau is a Qt app, so element automation fails on the canvas and menus.
 - Tableau holds an exclusive lock on an open `.hyper`. Refuse to refresh extracts
   while it runs instead of surfacing a wall of HyperException.
 - A hidden dialog can block the next run: after killing a changed workbook, the
-  next start offers a File Recovery dialog. Close it explicitly before driving.
+  next start offers a File Recovery dialog. Close it by sending WM_CLOSE to the
+  dialog, NEVER by pressing its Delete button (that destroys the recovery copy).
+  Kill only the PIDs you started, never by image name.
 - Tableau rounds zone x/y/w/h by 1 to 2 units of 100000 on save.
 - Save As stores the CURRENT parameter value and the active sheet. Save from a
   fresh open on the first page, never after clicking around. Overwrite check:
@@ -165,6 +167,21 @@ Tableau is a Qt app, so element automation fails on the canvas and menus.
 - Text marks take color ONLY from a Color encoding. A pane `mark-color` is ignored.
 - Mark labels of a stacked bar: put the total past the bar end on a dual axis
   with an invisible Circle, rather than a number on a small segment.
+- Text widths: desktop Tableau draws about 0.96 px per pt per character (an
+  Arial-like face). A legend's wrapped height uses the SWATCH pt size, not the
+  label's. If two modules each hold a width table (a Sankey's label widths), assert
+  they are equal in the build so they cannot drift. A radial auto-fit that guards
+  box edges does NOT guard label-to-label collisions.
+- End-of-line two-line labels collide. Pairs placed at centre -9 and +9 (18 px apart
+  at 11 pt) nearly touched. Use an offset of 12 px on desktop and 11 on phone, then
+  de-overlap vertically per side: sort the pair centres, keep the lowest fixed, push
+  each higher pair up until centres are at least `2*off + 18` px apart. A 3-line
+  label zone (3 lines x about 31 px) that runs past the frame bottom needs the
+  frame's bottom margin raised (78 to 95 px), so the last label ends about 13 px
+  inside the frame and 6 px above the note.
+- Calibrate text and mark drawing by diffing screenshots against the background
+  PNG, and fit ink edges as lines per word: see
+  [gate-designs.md](gate-designs.md).
 
 ## Gate your own work
 
@@ -178,5 +195,13 @@ Everything above fails silently. Build the checks into the generator:
   prove the gate goes red. A gate that cannot fail proves nothing.
 - Report what the gate examined. A gate over zero subjects must be RED or SKIP,
   never a green PASS.
+- Verify a `.twbx` by reopening it from a COPIED folder (proves the package is
+  self-contained: extracts and `Image/` paths are relative), then pixel-diff its
+  shots against the `.twb`'s shots. Expect 0 differing pixels, with a control
+  (previous version against this one) that shows thousands. A rebuild from source
+  should be byte-identical to the saved version.
+
+Designs for the harder gates (calibration, provenance, coverage, HTML twin) are in
+[gate-designs.md](gate-designs.md).
 
 See [xml-traps.md](xml-traps.md) for the silent-failure catalogue.

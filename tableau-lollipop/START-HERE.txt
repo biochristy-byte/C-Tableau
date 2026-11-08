@@ -1,0 +1,41 @@
+LOLLIPOP CHART FOR TABLEAU - QUICK START
+=========================================
+
+Needs: Tableau Desktop 2024.2 or newer (the free edition works).
+Tableau Public: works while you author; viewers see "not supported" until Exchange approval. See README.md.
+
+0. One time only: download Tableau's Extensions API library into lib/
+   (lib/README.md has the link and a one-line command). Without it the chart is blank.
+
+1. Unzip this folder somewhere permanent, like your Desktop.
+   Right-click the zip > Extract All. Do not run it from inside the zip.
+
+2. Double-click  Start-Lollipop.bat
+   A black window opens and says "Lollipop server is running."
+   LEAVE IT OPEN the whole time you use the chart, including during the
+   presentation. Closing it makes the chart go blank.
+   (If Windows shows a blue "protected your PC" box: More info > Run anyway.)
+
+3. In Tableau, make a worksheet with one dimension and one measure.
+
+4. Marks card > the mark type dropdown (says Automatic or Bar)
+   > Viz Extensions > Add Extension > Access Local Viz Extensions
+   > pick  lollipop.trex  from this folder.
+
+5. Click Allow on the permission box.
+
+6. Drag your dimension onto Category and your measure onto Value.
+   Hover the chart and click the gear in the top right for all the settings.
+
+BEFORE THE PRESENTATION
+- Start the server and open the workbook once to confirm the chart draws.
+- Keep the black window open. Do not let the laptop sleep.
+- Viz extensions go blank in PDF and PowerPoint exports. Present live from
+  Tableau, or take screenshots ahead of time.
+
+IF THE CHART IS BLANK
+- Is the black window still open? Reopen Start-Lollipop.bat.
+- Window says "Port 8765 is already in use"? The server is probably already
+  running in another window. Leave it.
+- Is lib/tableau.extensions.1.latest.min.js there? See step 0.
+- More detail is in INSTALL.md.

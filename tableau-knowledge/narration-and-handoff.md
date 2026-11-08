@@ -15,6 +15,14 @@ Worked on a 67 minute video in about six minutes.
    folders to the DLL search path in the script, or you get "cublas64_12.dll
    not found". Do not run Python in isolated mode (`-I`) because it hides the
    user-site package.
+   Settings that worked for a talk: CUDA with `compute_type="int8_float16"`,
+   falling back to `medium.en` on CPU with `int8`; `vad_filter=True`,
+   `beam_size=5`, and an `initial_prompt` listing the talk's proper nouns (the user
+   group, product names, the speakers' names) to cut name errors. For a channel
+   batch: `yt-dlp -x --audio-format mp3`, skip videos whose transcript file already
+   exists, `small.en` on CUDA at `float16`. For narration sync use `small` on CPU
+   with `word_timestamps=True` and `vad_filter=False`: VAD eats the first syllable
+   of a soft opener.
 3. Write the script with an editor tool, not a shell heredoc: a heredoc eats
    backslashes in the DLL paths.
 4. Read the WHOLE transcript. The audio alone misses slides; sample frames with

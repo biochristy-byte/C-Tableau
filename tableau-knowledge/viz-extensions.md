@@ -13,14 +13,20 @@ host. Two working examples live in this repo:
   mark-type dropdown > Viz Extensions > Add Extension > **Access Local Viz
   Extensions** > pick the `.trex`. Tableau shows an Allow dialog naming the
   extension, its author, whether it wants full data access, and its URL.
-- **Tableau Public:** the official Public FAQ says viz extensions are supported
-  ("Works with Tableau Public" for a new extension, or "Access Local Viz
-  Extensions" for a `.trex` you downloaded), and publishing needs Settings >
-  Allow Access so the extension can read the visible data. **Not proven:** whether
-  a self-hosted `.trex` loads, publishes and renders for public viewers. The help
-  pages do not say how an extension earns the "Works with Tableau Public" label.
-  Test it by loading the `.trex` in Public Desktop, with no save. A throwaway
-  publish is the owner's call.
+- **Tableau Public, tested 11/05/2026 on Public Desktop 2026.1:** a self-hosted
+  `.trex` (served over HTTPS from a static host) loads and renders for the author
+  (Marks card > Viz Extensions > Add Extension > **Access Local Viz Extensions**),
+  and the workbook publishes. Public viewers of the published viz see "Extension
+  <name> Version 1.0.0 isn't currently supported on Tableau Public", because Public
+  only runs Tableau-approved Exchange extensions. Consequences:
+  - An extension you host yourself cannot be part of a public dashboard until it
+    is approved through the Exchange submission (see
+    [`../tableau-garden-petals/exchange/SUBMISSION.md`](../tableau-garden-petals/exchange/SUBMISSION.md)).
+  - A Tableau Public showpiece must not depend on your own extension. Build it
+    from native marks (map layers, custom shapes, dual axis) and use the
+    extension for Desktop work.
+  - Publishing still needs Settings > Allow Access for an approved extension to
+    read the visible data.
 - **Do not settle a Tableau feature question by scanning the installed
   binaries.** The menu string "Access Local Viz Extensions" is in the raw bytes of
   neither Public nor Desktop, because Qt keeps UI strings in compressed `.rcc`
@@ -38,7 +44,7 @@ host. Two working examples live in this repo:
 | Plain HTTP only for `localhost` | Every other host must be HTTPS. The packager should refuse a non-HTTPS non-localhost URL. |
 | Tableau parses the `.trex` only when the extension is added | After editing the manifest, remove and re-add the extension. |
 | Settings are strings only | Store each settings group as one JSON string and coerce by type on load. |
-| Manifest `author` needs `name` and an HTTPS `website` | An email is not required, so leave it out of anything public. |
+| Manifest `author` needs `name`, an HTTPS `website` and an `email` attribute | Public Desktop 2026.1 refuses a manifest with no `email` attribute ("missing required attribute 'email'"). Ship `email=""` so no real address goes in a public file. Desktop 2026.2 Free Edition loaded the manifest without it, so `email=""` is safe on both. |
 
 ## Gotchas found only in real Tableau
 
@@ -63,10 +69,20 @@ host. Two working examples live in this repo:
   stop/start the loop on `visibilitychange`.
 - **Settings survive a switch between the Data Source and Sheet tabs.** Whether
   they survive a workbook save and reopen was not checked.
+- **Playwright caches the extension's JS hard.** Edits to the served `engine.js`
+  do not show on reload. Clear the cache over CDP (`Network.clearBrowserCache`),
+  navigate to `about:blank`, then goto the page.
 - **Text contrast for auto colors.** An "Auto" text color should pick near-black
   or white for 7:1 against the panel it sits on, not reuse the main ink.
 - **Tooltips:** hover tooltips are your own DOM. A tooltip card needs its own
   contrast check.
+
+## Credit a design you rebuild
+
+Before submitting an extension that reproduces a design from a native viz you
+saw, show the original author, agree the credit line ("Inspired by <title> by
+<author>") and put it in the README, the example README and the submission text.
+Do not ship the rebuild without credit (house rule 14 covers the caption).
 
 ## Build with a mock first
 
@@ -111,5 +127,6 @@ else's machine.
 - `<permissions><permission>full data</permission></permissions>` if you read data
 - up to four `<encoding>` blocks, each with `data-spec`, `role-spec`,
   `fields max-count`, an icon token and a tooltip resource
-- `<author name=".." website="https://..">` with no email
+- `<author name=".." email="" website="https://..">`: the `email` attribute must be
+  present, and empty keeps a public file free of addresses
 - extension id in reverse-DNS form you control

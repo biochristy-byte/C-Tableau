@@ -4,7 +4,7 @@
     <default-locale>en_US</default-locale>
     <name resource-id="name"/>
     <description>Lollipop chart: a thin stick from the baseline to the value, capped by a shaped, labelled ball. Every colour, font, shape and axis detail is adjustable from a settings panel inside the viz.</description>
-    <author name="Chris Fryar" organization="Data Divers" website="https://datadivers.com"/>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
     <!-- 1.12 is the floor because this extension uses worksheetContent, which
          the shipped type definitions tag as "since 1.12.0 and Tableau 2024.2". -->
     <min-api-version>1.12</min-api-version>
