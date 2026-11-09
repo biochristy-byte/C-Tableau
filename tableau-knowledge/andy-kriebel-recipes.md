@@ -1,14 +1,13 @@
 # Andy Kriebel's VizWiz recipes, written as build steps
 
-Distilled from 39 videos on Andy Kriebel's public VizWiz channel (2026), the one
+Distilled from 40 videos on Andy Kriebel's public VizWiz channel (2026), the one
 channel I used for Tableau technique. This file holds the full recipes. The short
 version of the best ones is in [technique-library.md](technique-library.md); the
 design opinions are folded into [house-style.md](house-style.md) rules 30 to 33.
 Credit goes to him: watch the originals for the craft, this is only the notes.
 
-Not covered: one 56-minute Frequency Matrix video could not be read (captions
-were rate limited). A few promo, career and conference-reaction videos had no
-build content and were skipped.
+Not covered: a few promo, career and conference-reaction videos had no build
+content and were skipped.
 
 Two ideas run through almost everything here:
 
@@ -303,6 +302,261 @@ flawless vizzes looks suspicious); a consistent style across projects is a
 selling point; for confidential work use a synthetic dataset or a four-part case
 study (challenge, process, solution, impact). Makeover Monday, Workout Wednesday
 and Back to Viz Basics are the starter community projects.
+
+## 11. Frequency matrix (enrollment and performance, plus flow variants)
+
+Source: "Frequency Matrix" live session, 56 min (video gv5uJvETqZo). He says it is
+recorded, so he moves fast: use the timestamps to jump. The data is made up
+(generated with Claude, framed as Appalachian State data). No Tableau version is
+named, and no feature is announced as new.
+
+### What it answers and when to use it
+
+A frequency matrix is a grid that compares two dimensions: one on Rows, one on
+Columns, each cell showing a count or a measure such as GPA (at 1:12). Here it is
+majors down the side and minors across the top. It shows the whole picture at
+once and answers (at 1:47):
+
+- Which majors most commonly pair with which minors (color by student count).
+- Which pairings produce the strongest outcomes (color by average GPA, with a dot
+  on the single best cell).
+- Which pairings are rare or surprisingly common.
+
+Reading it (at 4:13): darker cells are higher, lighter are lower, the eye goes to
+extremes first. Look for clusters, outliers and cold spots. To see clusters,
+order neighbors that belong together (psychology, sociology, education next to
+each other). His GPA range was only about 2.7 to 3.9, so color varies little.
+
+### Data shape
+
+One row per student and term (at 5:55): student ID, term, major, minor, GPA in
+the major, GPA in the minor, average GPA (the two added and divided by 2, no
+weighting), plus filters such as first generation. Every major and minor
+combination must exist so the grid is full (at 7:26). He aggregates courses up to
+department to keep it simple. Drop the Excel file on the canvas and Tableau
+connects it (at 6:51). The second source (at 28:47) is student mobility: resident
+state, enrollment state, number of students, limited to Northeast states so the
+grid is not 50 by 50. The map build (Build 6) also needs a state table with latitude, longitude and a
+state abbreviation (at 35:06).
+
+### Build 1: count matrix (at 7:13)
+
+1. Major on Rows, minor on Columns. Hide the field labels. Fill the view (Entire
+   View).
+2. Drag the student count field onto Color. The exact field is unclear in the
+   transcript. This shows students per combination.
+3. Pick a better palette (his own "next level" palette) and add cell borders
+   (at 8:06). Mark labels on is possible, but he finds numbers make the grid busy
+   and hide the pattern, so he leaves them off (at 8:31).
+4. Bold 14 pt axis titles for minors (top) and majors (side) so the reader knows
+   which direction is which (at 10:11). He used dummy data to add the minor
+   label on top.
+
+### Build 2: most common pair per row (at 8:58)
+
+```
+// most common pair
+// Exact formula is unclear in the transcript. Spoken as: if the number of
+// students equals the largest in the row, return the number of students,
+// otherwise nothing. Table calculation computed across each row.
+```
+
+Convert the result to continuous, put it on Label, set the mark type to Square,
+and make the table calc run across the view (at 9:41). Reads as "most biology
+majors who take a minor take psychology". It is a labeled square only where the
+row maximum sits.
+
+### Build 3: blank the diagonal (at 11:06)
+
+The diagonal is a major paired with a minor in the same department. It would
+dominate the color scale.
+
+```
+// major and minor the same
+// Spoken: if major equals minor then 0, else 1. Whether it is a separate IF
+// ELSE with two branches is audible; the exact casing is not.
+IF [Major] = [Minor] THEN 0 ELSE 1 END
+```
+
+1. Duplicate the sheet first so the earlier version survives (at 11:51).
+2. Put the calc on Color. Edit the palette: reverse it so reds are at the top,
+   set the center to 1, and make the bottom color white (at 12:00). The diagonal
+   is now white.
+3. To show the diagonal on its own as numbers, duplicate the calc and switch the
+   branches (at 12:55):
+
+```
+// major and minor students
+// Spoken: the same IF with the branches switched, so it returns the student
+// count only on the diagonal; put it on Label. Exact body unclear in transcript.
+```
+
+   That diagonal count is students with a major and a minor in the same
+   department (117 for biology), not all biology students. Row context
+   in the final view: 1,100 biology minors, 1,082 biology majors (at 19:21).
+
+### Build 4: GPA matrix (at 13:36)
+
+1. Set the default aggregation of the average GPA field to Average (at 13:43).
+2. Put average GPA on Color instead of the count. Diagonal cells look too strong
+   if left in, so factor them out as before (at 14:34):
+
+```
+// major and minor GPA
+// Spoken: if major does not equal minor, average GPA, else 0.
+IF [Major] <> [Minor] THEN AVG([Average GPA]) ELSE 0 END
+// exact wrapping of the average is unclear in transcript
+```
+
+3. Put it on Color. The diagonal now reads as a zero GPA
+   and turns dark, so fix the palette (at 15:04): reverse the colors so red is at
+   the top, set the center, and use Stepped Color. His start value has to be 1,
+   not 0, and the bottom color white so the zero cells show as white (at 16:30).
+4. Use four steps, with the end set to 4.0, so the bands read as GPA 1, 2, 3, 4
+   (at 17:02). Dark red now means high GPA. The first attempt showed gray instead
+   of white and he fought the palette settings for about two minutes: if the
+   diagonal turns gray, check the start value.
+
+### Highlight the best cell with a dot (at 17:23)
+
+```
+// highest GPA
+// Spoken: if the average GPA (the major and minor GPA field wrapped in an
+// average) equals the highest value across the entire view, return a small
+// circle character, else nothing.
+// The window function name is unclear in the transcript.
+```
+
+Put it on Label. First result showed many ties because it marked the maximum in
+every row. Edit the table calc to Compute Using the specific dimensions Major
+and Minor, so it runs over every major and minor combination, not within each
+row (at 18:21). One dot now marks the best pair (political science
+major with history minor in this data, at 18:32). Set the label to 20 pt bold to
+make it stand out (at 18:50). His preferred version is the one with the wider
+color range and student counts down the rows for context.
+
+### Variants he builds on the same data
+
+- **Sankey** (at 20:12): a viz extension (Marks card, Add Extension), must be
+  enabled by the Tableau admin. Major and minor on it, student count as the
+  link. Filter out the diagonal with a calc `major equals minor` set to False
+  (at 20:54). Filter to a few majors (STEM: biology, computer science, nursing)
+  or it is too busy. Sort each side by the field, descending, to rank (at 31:19).
+- **Distribution by minor** (at 22:11): major on Rows, student count and average
+  GPA, circles, minor on Color. Adding student on Detail gets too dense. Spread
+  with the RANDOM function (how it is applied is unclear in transcript), add an average line per
+  pane. He finds it too busy and goes to a **box plot** instead (Tableau adds it
+  in the view): biology majors with a history minor perform significantly worse
+  than other minors (at 24:45). He calls it an analytical chart and would not
+  put it on a dashboard (at 24:45).
+- **Major GPA vs minor GPA scatter** (at 25:02): both GPAs, student ID on Detail
+  is too busy, so detail by major and minor, circles, student count on Size set
+  as a range, opacity down (at 26:29). Psychology major with sociology minor has a
+  high GPA but only 25 students; computer science with English minor has many
+  students and low GPA. A diagonal pattern means major and minor GPA move
+  together (R squared 0.85, "a correlation, not causation", at 27:24).
+- **Slope graph** (at 27:41): major GPA to minor GPA, major on Color. A line going
+  down means a lower GPA in the minor; steeper slope for biology majors.
+- **Dual axis dot plus line** (at 47:12): duplicate the measure, dual axis,
+  synchronize, second mark a Line connecting the minors, to show the range.
+- **Tree diagram** (viz extension, at 32:18): resident state and enrollment state
+  on Detail, student count, drop in-state students. Free to use, but publishing
+  to Server or Cloud needs a license (at 54:44, details below).
+- **Network diagram** (viz extension, at 33:44): resident state as start,
+  enrollment state as end, students as measure. Horizontal, vertical or radial
+  layout in the extension; he prefers radial. It would not fill the space in the
+  demo and he did not fix it (at 34:39).
+- **Split by first generation, term, school year** (at 42:52): the same view
+  filtered; first generation students did not perform as well. Nothing stood out
+  by term or year.
+
+### Build 5: mobility matrix and Sankey (at 29:22)
+
+1. Resident state on Rows, enrollment state on Columns, student count on Color.
+   Most students stay in state.
+2. Calc to remove them (at 29:44):
+
+```
+// in state
+[Enrollment State] = [Resident State]
+```
+
+   Put it on Filter and keep False. Neighbors then show: New Jersey to New York
+   and Pennsylvania (at 30:01). Raw counts ignore the population of each state,
+   so they are not the best comparison (at 32:30).
+3. Sankey on resident state to enrollment state with students as the link
+   (at 30:54).
+
+### Build 6: flow lines on a map with map layers (at 34:58)
+
+1. Bring in the state latitude and longitude table as a second data source
+   (a CSV against an Excel file works through relationships) (at 35:21).
+2. Add it TWICE as a relationship: first resident state to the table's state
+   abbreviation, renamed Residence, then enrollment state to the same state
+   abbreviation, renamed Enrollment (at 35:47). The same table can be used more
+   than once. Hide the unneeded fields.
+3. Calcs (at 37:19 and 38:19):
+
+```
+// residence point
+MAKEPOINT([Residence Latitude], [Residence Longitude])
+// enrollment point
+MAKEPOINT([Enrollment Latitude], [Enrollment Longitude])
+// state flow
+MAKELINE([residence point], [enrollment point])
+// field names inside MAKEPOINT are not spoken; the pattern (latitude and
+// longitude from each connection) is.
+```
+
+4. Double-click the residence point, set it as circles, state name on Detail,
+   students on Size (he first filters to one state to focus the view, at 37:44).
+5. Add a layer (drop on Add a Marks Layer) for the flow: state flow, with
+   residence state and enrollment state on Detail and student count on Color.
+   Sort the states by students so the darker lines come to the front
+   (at 40:17). He keeps the dots because they help show the spokes.
+6. Tooltip rewritten as "students that reside in X ... enrolled in Y" (at 40:40).
+   Example: 8,000 New York residents enrolled in Pennsylvania. Switch to his red
+   palette or a university palette.
+
+### Formatting and design choices
+
+- Palette: his own "next level" palette for counts; red high to white low for
+  GPA; four stepped colors from 1 to 4.0 (no hex codes given in the video).
+- Square marks, cell borders, no labels except the diagonal or the best cell.
+- Axis titles 14 pt bold; best-cell dot 20 pt bold.
+- Reduce opacity on overlapping circles.
+
+### Interactions and actions
+
+None built. He did not build a dashboard. Filters (major and minor flag,
+first generation, term) are used on the sheets in exploration (at 42:52).
+
+### Gotchas and his opinions
+
+- Numbers on every cell make the matrix busy and cover the pattern (at 8:35).
+- Blank the diagonal or it hijacks the color scale. If you blank it with a 0, the
+  zero shows as the darkest color unless the center and start are set (at 15:19).
+- Table calcs for the best cell must be set to the specific dimensions, or you get
+  one winner per row (at 18:11).
+- Counts versus per capita: raw counts hide that big states dominate (at 32:30).
+- Viz extensions: must be enabled by the admin. Of the free ones, three are built
+  by Tableau and publish free to Cloud (the Sankey works after publishing). Third
+  party ones (he shows LaDataViz) are free on Desktop and Public but need a
+  license to publish to Server or Cloud (at 54:44).
+- Colorblind palettes exist built in (at 48:04). A parameter `colorblind` (yes or
+  no) on Detail then Color, with two palette assignments, lets the reader switch
+  (at 49:55). Custom palettes do not update automatically when a brand palette
+  changes, because Tableau stores a hex code per member (at 52:01). Chart types
+  cannot be disabled; use guidelines and training (at 53:41).
+- Guiding principles (at 43:42): ask the stakeholder what question they are
+  answering, not what they want in the dashboard; build many charts and choose
+  the one that answers it best; add context ("compared to what", for example the
+  average for that major); know the decision that follows; expect the next
+  question ("why five times") and give a drill or popup for it. Most dashboards
+  show what is wrong, not what is going well. A dashboard is an overview, not
+  deep analysis.
+- Same data three ways: matrix, Sankey and tree map all show the same data
+  (at 33:27). Pick by audience and question.
 
 ## Announced but not shipped (at the time of the videos)
 
