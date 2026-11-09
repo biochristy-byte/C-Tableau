@@ -130,8 +130,8 @@ Tableau has no viewer theme switch, so the workbook is dark by design.
 - **Bars always start at zero.**
 - **Never join individual-level and aggregate-level data.** It double-counts.
   Keep them on separate sheets. Prefer a weight column to duplicating rows.
-- **Filter order of operations:** extract, context, dimension, FIXED, measure,
-  table calc. Know where your filter sits.
+- **Filter order of operations:** extract, data source, context, FIXED, dimension,
+  INCLUDE/EXCLUDE, measure, table calc. Know where your filter sits.
 
 ## Design opinions that confirm or tension with the house rules
 

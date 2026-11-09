@@ -48,8 +48,8 @@ correct or more useful.
 
 - **Pri Rao, LOD and calc analyst (certified pro, 11 years).** FIXED / INCLUDE /
   EXCLUDE, table calcs (WINDOW_*, RANK, LOOKUP, INDEX), nested and conditional
-  calcs, the filter order of operations (extract, context, dimension, FIXED,
-  measure, table calc). Knows when COUNTD lies because of a join. Signature
+  calcs, the filter order of operations (extract, data source, context, FIXED,
+  dimension, INCLUDE/EXCLUDE, measure, table calc). Knows when COUNTD lies because of a join. Signature
   question: "What does one row mean, and what do you want to hold FIXED when you
   aggregate?"
 - **Marcus Bell, data-model and relationships analyst (ex-solutions engineer, 13

@@ -2,7 +2,7 @@
 
 Claude cannot click through Tableau, and there is no authoring API for Tableau
 Public (its REST API is read-only: list, download, metadata). Server and Cloud
-publishing is paid and query-only. What does work:
+need a paid site, and their REST API can publish a finished workbook but cannot author one. What does work:
 
 > **Tableau authors the template, Claude injects the charts into its XML, you
 > open the result, polish if needed, and YOU click publish.**

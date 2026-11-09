@@ -43,11 +43,12 @@ Copy these into your Claude folder (on Windows, `C:\Users\<you>\.claude\`), then
 
 ### If you mostly use Claude Desktop (the chat app)
 
-Desktop chat cannot read files on your computer, so give it the knowledge as one skill:
+The chat app does not load this folder by itself, so give it the knowledge as one skill:
 
 1. In the C-Tableau folder, run `python tableau-knowledge/tools/make_desktop_skill.py`.
    It writes `dist/tableau-craft.zip` and prints GREEN with the number of files packed.
-2. In Claude Desktop: Settings > Capabilities > Skills > Upload skill, and pick that zip.
+2. In Claude Desktop: Customize > Skills, click +, then Create skill > Upload a skill, and pick that zip.
+   If Skills is missing, turn on Code execution and file creation under Settings > Capabilities first.
 3. Optional: make a Project called Tableau and paste the "Hard rules" and "How I like answers"
    sections of `tableau-knowledge/CLAUDE.md.template` into its instructions.
 4. Ask anything Tableau, for example "brainstorm chart types for..." and the skill loads itself.

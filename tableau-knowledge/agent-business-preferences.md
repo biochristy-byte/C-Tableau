@@ -24,14 +24,16 @@ real descriptions, not tiny labels.
 
 ## Where the file lives and its limits
 
+Limits as reported at the ATUG talk on 10/08/2026 and the Tableau help page in 11/2026. They change often: check help.tableau.com before quoting one.
+
 | | Tableau Cloud | Tableau Next |
 |---|---|---|
-| Scope | one file per dashboard | one file per semantic model |
-| Format | `.md`, each rule starts with `# ` (pound and a space) | same idea |
+| Scope | one file per workbook; Tableau Knowledge (Tableau+) adds global preferences | one file per semantic model |
+| Format | `.md` or `.txt`, each rule starts with `# ` (pound and a space) | same idea |
 | Size | at most 50 rules and 8,000 characters | 30,000 characters (an 18,000 character file worked) |
 | To take effect | the dashboard must be PUBLISHED | n/a |
 | Check | the upload shows a rule count | n/a |
-| Editing | not editable in place yet | n/a |
+| Editing | add or replace in Workbook settings; check your version | n/a |
 
 Cloud currently ignores geographic roles, number formatting and fiscal years, so
 sorting by fiscal period has to be asked for in the question. Next also has a

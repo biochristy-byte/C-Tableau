@@ -36,7 +36,7 @@ The two styles in one line each:
 | 6 | Cap categorical color at 4 to 6 per view. More categories means a highlight or a set action, not more hues. |
 | 7 | Type hierarchy by size and greyscale only (`#000000 #333333 #555555 #757575 #898989`, 7 to 18 pt, 22 pt title) plus 1 or 2 semantic accents. Do not change fonts to add interest. |
 | 8 | A full-bleed background image at zone 0 (`type-v2='bitmap'`, `w=h=100000`) is the highest-payoff single move, and it can be generated from Python. |
-| 9 | Panels are translucent fills over that art (8-digit hex such as `#f5f5f584`) with real rounded corners where Tableau renders them. Adjoining zones take opposite corners so a split panel reads as one pill. |
+| 9 | Panels are translucent fills over that art (8-digit hex such as `#f5f5f584`) with native Corner Radius (Layout pane, Tableau 2026.1 and later), set per corner. Adjoining zones take opposite corners so a split panel reads as one pill. |
 | 10 | Bake anything Tableau cannot render (script-font titles, signatures, icons) as a PNG image zone. Ship light and dark variants of each icon. |
 | 18 | Colorblind-safe named palettes (`color_blind_10_0`) for categorical color. A hand-authored multi-stop palette only when the mood needs it. Never a manually stepped gradient for a continuous measure. |
 | 19 | Mood board before design. Collect reference images and pull palette, fonts, banners and textures from them. |
@@ -91,9 +91,12 @@ The two styles in one line each:
 
 ## Local departures worth copying
 
-- **Tableau's own rounded borders are feature-flagged** and may never render. If you
-  want rounded cards, bake the card (fill, shadow, 15 px corners, 2 px border)
-  into the page PNG and make the sheets on it `#00000000`.
+- **Rounded corners are native from Tableau 2026.1** (Layout pane > Corner Radius).
+  Set it on each item: a container's corners do not clip what is inside it. Before
+  2026.1 they were feature-flagged and did not render. Check the published page on
+  Tableau Public before relying on them. For shadows, a 2 px border, or readers on
+  older versions, bake the card (fill, shadow, 15 px corners, 2 px border) into the
+  page PNG and make the sheets on it `#00000000`.
 - **Fonts on Tableau Public** are limited to Tableau's own plus the web-safe set
   (Arial, Comic Sans, Courier New, Georgia, Lucida Sans Unicode, Tahoma, Times
   New Roman, Trebuchet MS, Verdana). Any other headline face falls back on the web.
@@ -120,10 +123,11 @@ is [agent-business-preferences.md](agent-business-preferences.md).
 
 - It is the last mile, not the main meal. Clean labels and descriptions,
   governed calculations and hidden noise fields come FIRST. Rules last.
-- Cloud: one `.md` file per dashboard, each rule begins with `# `, at most 50
-  rules and 8,000 characters, and the dashboard must be published. Next: one per
-  semantic model, 30,000 characters. Field descriptions: 255 characters on Next;
-  Cloud may stop absorbing past about 150.
+- Cloud: one `.md` or `.txt` file per workbook, each rule begins with `# `, at most 50
+  rules and 8,000 characters, and it must be published. Tableau Knowledge (Tableau+)
+  can also hold global preferences. Next: one per semantic model. Limits change
+  often: check the current help page before quoting a number. Field descriptions:
+  255 characters on Next; Cloud may stop absorbing past about 150 (ATUG, 10/08/2026).
 - Rules cover meaning, policy thresholds, interpretation defaults and behavior
   ("never fabricate", "no unsupported assumptions"). NEVER put math or
   formatting in a rule: a `TO_CHAR` rule turned a number into text.

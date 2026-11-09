@@ -273,14 +273,14 @@ Bins: right-click measure > Create > Bins. Groups: select members > Group (or `C
 
 ## 9. NEWEST FEATURES (2022-2026)
 
-Public (free) gets the authoring ones; AI tier is Cloud + paid.
-- **Dynamic Axis Titles (2023.1)**: Edit Axis > Axis Titles > Field (title follows a swap parameter). **Dynamic Axis Ranges (2023.1)**: Edit Axis > Range > Custom > parameter for min/max.
+Public (free) gets the authoring ones; AI tier is paid (Tableau+) and needs a Cloud or Server site.
+- **Dynamic Axis Titles (2023.1)**: Edit Axis > Axis Titles > Field (title follows a swap parameter). **Dynamic Axis Ranges (2023.3)**: Edit Axis > Range > Custom > parameter for min/max. From 2025.3 the range can also follow an area selection with no parameter.
 - **Image Role (2022.4)**: right-click string URL field > Image Role > URL; drag to a header. URLs png/jpg/svg/webp, <200KB, ~500/field. Headers only, not marks.
 - **Viz Extensions (2024.2)**: Marks mark-type dropdown > Viz Extensions > Add (Tableau Exchange). Custom mark renderers (first-party Sankey, Table). Different from dashboard extensions (those are dashboard objects).
 - **Dashboard Extensions**: Objects > Extension. Sandboxed (no network, default-on) vs Network-enabled (needs admin safelist).
 - **Dynamic Zone Visibility (2022.3)**: see section 6.
 - **Multi-fact relationships / multiple base tables (2024.2)**: stitch unrelated fact tables via shared dimensions (no blend). Drag 2nd table to New Base Table drop area; relate shared dims.
-- **Tableau Pulse (2024.1, Cloud-only)**: metrics layer + AI insight digests (Slack/email). **Tableau Agent / Einstein Copilot (2024.2, Cloud web-authoring + Prep)**: NL -> viz + calc. Both paid, Einstein Trust Layer.
+- **Tableau Pulse (2024.1, Cloud-only)**: metrics layer + AI insight digests (Slack/email). **Tableau Agent** (formerly Einstein Copilot; 2024.2 on Cloud web authoring and Prep, Desktop authoring from 2025.1 when signed in to a Cloud or Server site, Tableau Server from 2025.3): NL -> viz + calc. Both paid (Tableau+). Einstein Trust Layer applies on Cloud.
 - **Explain Data (active)**: select a mark > Data Guide / right-click Explain Data; AI surfaces outliers/drivers. **Ask Data RETIRED** (2024). **Data Stories (auto-narrative) RETIRED 2025.1** -> replaced by Pulse / Dashboard Narratives. (Classic Story Points NOT retired.)
 - **Workbook Optimizer (2022.1)**: Server > Run Optimizer. Take Action / Needs Review / Passed; some autofix.
 - **Spatial**: Outline/ShapeType/Length funcs, GeoJSON, mixed geometry, spatial parameters. Accessible web authoring.
@@ -313,7 +313,7 @@ Pill tricks: **Ctrl+drag** copies a pill; **double-click empty shelf** = inline 
 - **Prep Builder** (separate ETL product, .tfl flows): steps = Input, Clean (rename/filter/split/group/type), Pivot (cols<->rows, wildcard), Aggregate, Join, Union (manual/wildcard), Split, **Group/Cluster fuzzy** (pronunciation/spelling/common-chars), New Rows (fill sequence gaps), Script (Python TabPy / R Rserve), Output (.hyper/published/CSV/database). Profile pane = field histograms; Changes list = auditable. Incremental refresh (new rows by a field). Prep Conductor (paid Data Management add-on) schedules flows. Prep upstream when reused/heavy/scheduled; Desktop when view-specific/live.
 - **Joins** (physical): Inner/Left/Right/Full + join calculations (non-equality); cross-database/federated. Fix grain at connect, can duplicate. **Relationships** (logical noodle, default): per-sheet join at query time, preserves grain, no fan-out. Order of preference: relationships > joins > blends.
 - **Unions**: stack same-structure tables (manual or wildcard `*2016`). **Pivot**: cols->rows. **Data Interpreter**: clean messy Excel/CSV/PDF. **Split / Custom Split**. **Blending**: last resort, aggregate first. **Custom SQL** (Tableau wraps it, can be slow; prefer DB views) vs **Initial SQL** (runs once on connect). **Data source filters** (all sheets + shrink extract).
-- **Connect pane**: To a File (Excel/csv/JSON/PDF/.hyper/stats/spatial), To a Server (SQL Server/Oracle/MySQL/Postgres/Snowflake/BigQuery/Redshift/Salesforce/JDBC-ODBC), Saved sources (.tds/.tdsx), Web Data Connector (moving to WDC 3.0 / Connector SDK). Public = files + some cloud, extract-only, public.
+- **Connect pane**: To a File (Excel/csv/JSON/PDF/.hyper/stats/spatial), To a Server (SQL Server/Oracle/MySQL/Postgres/Snowflake/BigQuery/Redshift/Salesforce/JDBC-ODBC), Saved sources (.tds/.tdsx), Web Data Connector (WDC 2.x and 3.0 are deprecated; use the REST API Connector from Tableau Exchange, 2023.3+, or the Connector SDK). Public = files + some cloud, extract-only, public.
 
 ## Sources
 All help.tableau.com (chart/map/marks/analytics/calc/format/actions/whatsnew/prep/performance sections), Trailhead

@@ -1,6 +1,6 @@
 """Build tableau-craft.zip: the whole knowledge folder as one Claude skill.
 
-Upload the zip in Claude Desktop or claude.ai (Settings > Capabilities > Skills), or unzip
+Upload the zip in Claude Desktop or claude.ai (Customize > Skills > Upload a skill), or unzip
 it into ~/.claude/skills/ for Claude Code. It is generated from the repo, so rerun this after
 every `git pull` and re-upload.
 
