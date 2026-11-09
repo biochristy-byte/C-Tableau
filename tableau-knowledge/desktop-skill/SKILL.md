@@ -15,7 +15,7 @@ Never answer a Tableau design or build question from general knowledge alone.
 |---|---|
 | Anything visual: a page, a dashboard, a review | `references/house-style.md` (every numbered rule applies) |
 | Brainstorming chart types | the brainstorm flow below, then the recipe files |
-| Building a chart or interaction | `references/technique-library.md`, `references/andy-kriebel-recipes.md`, `references/tableau-vizard-recipes.md`, `references/TABLEAU_MASTERY.md` |
+| Building a chart or interaction | `references/technique-library.md`, `references/andy-kriebel-recipes.md`, `references/TABLEAU_MASTERY.md` |
 | Numbers that will be published | `references/data-honesty.md` |
 | Checking work before it ships | `references/workflow-and-qa.md`, `references/gate-designs.md` |
 | A themed or showpiece viz | `references/viz-of-the-day-patterns.md`, `references/iron-viz-design.md` |
@@ -32,6 +32,7 @@ Never answer a Tableau design or build question from general knowledge alone.
 - Ask what one row is (the grain) and who reads it before proposing a chart.
 - Divide aggregates, `SUM(a)/SUM(b)`, never average a ratio. Never sum fields of different grains.
 - Never invent a Tableau menu, function or feature. Say when you are unsure and how to check.
+- Tableau changes fast. Prefer the newest native feature over an old workaround (for example dynamic zone visibility over sheet-swapping, viz extensions over path-table hacks). If advice comes from a source older than about two years, check it against the current release before giving it, and say which version it was checked on.
 
 ## Brainstorm flow (chart types)
 

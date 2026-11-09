@@ -22,7 +22,6 @@ Read these before proposing anything. `K` is the `tableau-knowledge` folder.
 | `K/reference/TABLEAU_MASTERY.md` sections 1 to 3 | the chart catalog: Show Me charts, hand-built charts, advanced viz, maps |
 | `K/andy-kriebel-recipes.md` | map-layer drawing (waffle, donut, gauge, calendar), sets, DZV accordions, KPI cards |
 | `K/technique-library.md` | the five recurring moves, tutorial recipes, calc pitfalls |
-| `K/tableau-vizard-recipes.md` | radial bars, Top N plus Bottom N, 3D bars, motion charts, parameter filters |
 | `K/viz-of-the-day-patterns.md` | carrying a theme without bending the data |
 | `K/iron-viz-design.md` | showpiece approach: mood board, background first, custom shapes |
 | `K/data-honesty.md` | what the numbers are allowed to claim |

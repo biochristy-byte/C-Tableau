@@ -27,7 +27,6 @@ help me build a dashboard."
 | [`narration-and-handoff.md`](narration-and-handoff.md) | Turning a recorded talk into rules, and pairing a silent screen recording with a voiceover (retime plan, ffmpeg traps) | when you learn from a video or make a tutorial video |
 | [`never-ctrl-s-on-public.md`](never-ctrl-s-on-public.md) | Why Ctrl+S in Tableau Public publishes, and how to make a driver refuse it | before any GUI automation |
 | [`tools/`](tools/README.md) | The scripts that go with these pages (generators, gates, drivers), what each does and what it needs | before writing your own generator or gate |
-| [`tableau-vizard-recipes.md`](tableau-vizard-recipes.md) | Recipes distilled from a public Tableau tutorial channel (interactive resume, toggle switch, Makeover Monday builds, shape file maps, dendrogram, Sankey, tiled hex map). Coming later | before building a chart those videos cover |
 | [`claude-command/chart-brainstorm.md`](claude-command/chart-brainstorm.md) | A `/chart-brainstorm` slash command: four chart options from safe to showpiece, a recommendation, and a shelf-by-shelf build card | whenever you are choosing a chart |
 | [`desktop-skill/`](desktop-skill/SKILL.md) | The same knowledge as one skill for Claude Desktop or claude.ai: run `tools/make_desktop_skill.py`, upload the zip | if you work in Claude chat instead of Claude Code |
 | [`CLAUDE.md.template`](CLAUDE.md.template) | Standing instructions to copy into your working folder as `CLAUDE.md` | once, at setup |
