@@ -134,8 +134,32 @@ standalone test's screenshots or the published view, not from the Desktop canvas
 
 Open `https://public.tableau.com/views/<Workbook>/<Dashboard>?:showVizHome=no&:embed=y`
 in a clean browser and confirm the inner frame loads your page and the chart draws.
-Then set the profile thumbnail if Tableau's own capture is blank, and write the
-description on the Tableau Public page.
+Then write the description on the Tableau Public page.
+
+### Fix the blank profile thumbnail
+
+Tableau Public draws the gallery thumbnail on its own servers, and that renderer
+**skips Web Page objects**. A dashboard that is only a Web Page object gets a blank card
+(white, grey or an empty dark box). Check it: `views/<Workbook>/<Dashboard>.png` is the
+server's render.
+
+Fix: put a still picture of the viz **under** the Web Page object.
+
+1. Screenshot the hosted page with `?embed=1` at the exact dashboard size (ours 1400 x 900).
+2. Add an **Image** object at full size, then the Web Page object at full size on top of it.
+   Floating both at x 0, y 0 works. In the `.twb` XML the order inside `<zones>` is the
+   stacking order: the `type-v2='bitmap'` zone first, the `type-v2='web'` zone after it.
+3. Republish with the **same title** and answer Yes to "already exists. Overwrite it?" The
+   URL stays the same.
+
+Viewers still see the live page (the picture is hidden underneath), and the server render
+shows the picture. Verified 11/18/2026 on AI Garden and MOM 46 Turkey Trot: the server
+render went from blank to the viz, and the live iframe is still the top element at the
+center of the view. The gallery card (`static/images/.../4_3.png`) is cached and updates
+later than the render.
+
+`tableau-garden-petals/tools/add_thumb_layer.py` does step 2 for a downloaded workbook
+(`https://public.tableau.com/workbooks/<Workbook>.twb` returns the packaged file).
 
 ## 7. Link it back
 
@@ -162,4 +186,5 @@ can find it either way.
 | No publish item under Server | 2026.1 moved it | File > Save to Tableau Public As |
 | Petal colors did not match the Tableau view | Colors follow row arrival order | Sort rows in the workbook's order |
 | Thumbnail showed a white page | Captured an older, light version | `make_thumbnail.py` refuses light images |
+| Tableau Public gallery thumbnail blank | Its server render skips Web Page objects | Image object of the viz under the Web Page object, republish same title |
 | A click meant for a dialog hit the viz | The OK button sat over the page | Close the panel it opened; viewer changes are not saved in the workbook |
