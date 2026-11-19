@@ -19,7 +19,7 @@ Usage:
     python tools/tabdrive.py key    <keys>          send keys, e.g. {ENTER}
     python tools/tabdrive.py menu                   list top-level menus
 """
-import ctypes
+import os, ctypes
 import sys
 import time
 from pathlib import Path
@@ -42,27 +42,30 @@ SHOTS.mkdir(exist_ok=True)
 
 user32 = ctypes.windll.user32
 
-# Keystrokes that could save or publish. In Tableau Public, Ctrl+S is "Save to
-# Tableau Public" and a remembered sign-in publishes with no password prompt.
-# The check runs on every string that reaches send_keys (key AND type, because
-# send_keys reads ^ and % as Ctrl and Alt), after lowercasing and dropping
-# spaces, and it refuses anything that CONTAINS one of these.
-BANNED = ("^s", "%fs", "^%s", "^+s", "{vk_control down}s", "{ctrl down}s")
-
-
-def is_save_keystroke(keys):
-    k = keys.replace(" ", "").lower()
-    return any(b.replace(" ", "") in k for b in BANNED)
+# Keystrokes that could save or publish. Refused outright.
+BANNED = ("^s", "^S", "%fs", "%f s", "^%s")
 
 
 def tableau_window():
-    pid = None
-    for p in psutil.process_iter(["pid", "name"]):
-        if (p.info["name"] or "").lower() in ("tableau.exe", "tabpublic.exe"):
-            pid = p.info["pid"]
-            break
-    if pid is None:
+    """The largest Tableau window. With TAB_TITLE set, only a window whose title contains
+    that text, searched across every Tableau process, so a driver never touches another
+    open workbook. It refuses to run rather than fall back to some other window."""
+    names = (os.environ.get("TAB_EXE", "tableau.exe,tabpublic.exe")).lower().split(",")
+    want = os.environ.get("TAB_TITLE", "")
+    pids = [p.info["pid"] for p in psutil.process_iter(["pid", "name"]) if (p.info["name"] or "").lower() in names]
+    if not pids:
         raise SystemExit("No Tableau process is running.")
+    if want:
+        for pid in pids:
+            app = Application(backend="uia").connect(process=pid, timeout=30)
+            for w in app.windows():
+                try:
+                    if want.lower() in (w.window_text() or "").lower():
+                        return app, w, pid
+                except Exception:
+                    pass
+        raise SystemExit("No Tableau window titled with %r. Refusing to touch any other window." % want)
+    pid = pids[0]
     app = Application(backend="uia").connect(process=pid, timeout=30)
     best, area = None, -1
     for w in app.windows():
@@ -145,6 +148,14 @@ def main():
     cmd = sys.argv[1].lower()
     app, win, pid = tableau_window()
     print(f"window: {win.window_text()!r} {win.rectangle()}")
+    if os.environ.get("TAB_TITLE") and cmd in ("xy", "dxy", "rxy", "type", "key", "click"):
+        raise_window(win, pid)          # never let a click or key land in another workbook
+        fg = user32.GetForegroundWindow()
+        out = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(fg, ctypes.byref(out))
+        if out.value != pid:
+            print("REFUSED: the targeted Tableau window is not in front.")
+            return 4
 
     if cmd == "shot":
         raise_window(win, pid)
@@ -198,6 +209,17 @@ def main():
         shot(win, sys.argv[3] if len(sys.argv) > 3 else "after-click")
         return 0
 
+    if cmd == "rxy":
+        r = win.rectangle()
+        x, y = r.left + int(sys.argv[2]), r.top + int(sys.argv[3])
+        print(f"right-clicking screen ({x},{y})")
+        user32.SetCursorPos(x, y)
+        time.sleep(0.15)
+        user32.mouse_event(8, 0, 0, 0, 0)
+        user32.mouse_event(16, 0, 0, 0, 0)
+        shot(win, sys.argv[4] if len(sys.argv) > 4 else "after-rxy")
+        return 0
+
     if cmd in ("xy", "dxy"):
         r = win.rectangle()
         x = r.left + int(sys.argv[2])
@@ -214,16 +236,13 @@ def main():
 
     if cmd == "type":
         text = sys.argv[2]
-        if is_save_keystroke(text):
-            print(f"REFUSED: {text!r} can save or publish. Do that by hand.")
-            return 3
         send_keys(text, with_spaces=True, pause=0.02)
         shot(win, sys.argv[3] if len(sys.argv) > 3 else "after-type")
         return 0
 
     if cmd == "key":
         keys = sys.argv[2]
-        if is_save_keystroke(keys):
+        if keys.replace(" ", "").lower() in [b.replace(" ", "").lower() for b in BANNED]:
             print(f"REFUSED: {keys!r} can save or publish. Do that by hand.")
             return 3
         send_keys(keys, pause=0.05)

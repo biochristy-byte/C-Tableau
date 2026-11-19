@@ -109,7 +109,10 @@ approves it on the Exchange. Details in
 | Tool | What it does |
 | --- | --- |
 | `tabshot.py` | Screenshot the Tableau window. Finds it by process, never by window title. Read-only. |
-| `tabdrive.py` | Click by name or by window-relative pixel, type, send keys, dump the accessibility tree. Screenshots after every step. |
+| `tabdrive.py` | Click by name or by window-relative pixel, right-click (`rxy`), type, send keys, dump the accessibility tree. Screenshots after every step. Set `TAB_TITLE` to act on one workbook window only. |
+| `build_standalone.py` | Builds the extension as a standalone web page (stand-in Extensions API, your CSV, your settings) for a Tableau Public Web Page object. Recipe: [`../tableau-knowledge/extension-on-tableau-public.md`](../tableau-knowledge/extension-on-tableau-public.md) |
+| `standalone_test.py` | Frame-tests that page at 7 sizes plus on its own; GREEN only at 9 of 9 |
+| `make_thumbnail.py` | 1280x790 preview image of the page; refuses a white or empty capture |
 | `tabdrag.py` | Drag one field onto one shelf, scaled to the window width. |
 | `reload_ext.sh` | An example of the reload sequence. Coordinates are one machine's: measure your own. |
 

@@ -1,0 +1,165 @@
+# Put your own viz extension on Tableau Public (the Web Page object route)
+
+Tableau Public only runs extensions that Tableau has approved for the Exchange. A
+workbook that uses your own extension publishes fine, but every visitor sees
+"Extension <name> isn't currently supported on Tableau Public"
+(see [`viz-extensions.md`](viz-extensions.md)).
+
+The way around it: **run the extension as an ordinary web page, host the page, and
+show it in a dashboard Web Page object.** Tableau Public is happy to frame a web page.
+The method was shared by Eric Summers at a Tableau User Group session; this file is
+the full recipe as we ran it on 11/18/2026 for *AI Garden* (the Garden Petals
+extension, Makeover Monday 2026 week 44), live at
+public.tableau.com/app/profile/c2fryar/viz/AIGarden/AIGarden.
+
+Tools for every step are in
+[`../tableau-garden-petals/tools/`](../tableau-garden-petals/tools/): `build_standalone.py`,
+`standalone_test.py`, `make_thumbnail.py`, `tabdrive.py`.
+
+## Where to host the extension itself: C-Tableau
+
+**c-tableau.netlify.app** hosts viz extensions (the `.trex` manifest plus its page) over
+HTTPS, so a manifest points at a real address instead of `localhost`.
+
+| Plan | What you get |
+|---|---|
+| Free | 3 extensions |
+| C-Tableau Unlimited, **$2 once** | Unlimited hosting, plus every public community extension. One payment, no subscription |
+
+New extensions are private (only you can load them) until you set one to public. Every
+upload waits for approval, and each extension can hold up to 300 files and 30 MB.
+Sign in with your email, or use an API key from the account page for scripts.
+
+Hosting fixes the address. It does not change Tableau Public's rule: viewers there still
+see "isn't currently supported" until the extension is Exchange-approved. So use the
+hosted extension in Tableau Desktop, Server and Cloud, and use the route below on Public.
+
+## The route in one picture
+
+```
+your extension code  ->  standalone page (extension + stand-in API + your data + your settings)
+                     ->  hosted on any HTTPS site
+                     ->  Tableau dashboard: one Web Page object pointing at it
+                     ->  Save to Tableau Public
+```
+
+## 1. Build the standalone page
+
+The extension's `viz.js` talks to `tableau.extensions`. The build script inlines the
+extension code and adds a small read-only stand-in for that API, which serves your CSV
+rows shaped exactly like Tableau's summary data (`SUM(Value)` and so on). The extension
+runs unchanged and never knows Tableau is missing.
+
+```
+cd tableau-garden-petals
+python tools/build_standalone.py --data example-pisa/pisa_long.csv \
+    --settings example-pisa/pisa-dark-settings.json --title "AI Garden" \
+    --url https://your-site/vizzes/ai-garden/ --image https://your-site/vizzes/images/ai-garden.jpg \
+    --exit-href /vizzes/ --out standalone/ai-garden/index.html
+```
+
+- **Settings:** in Tableau, open the extension's gear panel, click **Copy settings**, and
+  save that JSON. The page starts in exactly your look.
+- **Row order matters.** Petal colors follow the order each metric first arrives, so the
+  script sorts rows in the same order your workbook sent them (`PETAL_ORDER`). Change it
+  for other data, or your colors will not match your Tableau view.
+- **Row and flower counts are a gate.** The script stops RED if the CSV does not give the
+  expected rows and flowers (`--expect-rows`, `--expect-flowers`).
+- **Viewer controls stay.** The settings gear and panel ship with the page. A visitor's
+  changes last only for their visit.
+- **Exit button.** When the page is opened on its own, a small Exit pill shows at the top
+  left (`--exit-href`). Inside a frame it hides itself. Tableau Desktop's Web Page object is
+  **not** a frame (`window.top === window` there), so the page also hides Exit when the
+  URL has `?embed=1`. Always put `?embed=1` on the URL you paste into Tableau.
+
+## 2. Test it the way Tableau frames it
+
+```
+python tools/standalone_test.py                       # the local build
+python tools/standalone_test.py https://your-site/... # the deployed page
+```
+
+It loads the page inside an iframe at 7 sizes (1200x800 down to 400x700, plus very
+wide and very tall) and checks, at each: no sideways scroll, 0 console errors, every row
+and flower drawn, every country placed, the gear present, Exit hidden, the canvas
+actually painted. Then it opens the page on its own at desktop and phone width and checks
+that Exit shows at the top left without covering the chart. It prints how many checks it
+examined and goes RED below 9 of 9. Look at the screenshots in `shots/standalone/` too.
+
+## 3. Host it
+
+Any static HTTPS host works: your own site, Netlify, GitHub Pages. Upload the one
+`index.html`. Test the live URL with `standalone_test.py <url>` before you touch Tableau.
+
+## 4. Thumbnail and link preview
+
+```
+python tools/make_thumbnail.py ai-garden.jpg
+```
+
+1280 x 790, captured with `?embed=1` after the animation settles. It refuses to write an
+image that is mostly white or mostly empty, so a dark viz never gets a blank or light
+placeholder card. Upload it to the `--image` address so link previews show the real viz.
+
+## 5. Build the Tableau Public workbook
+
+1. **Data.** Tableau Public publishes a workbook with a data source, so connect a tiny CSV.
+   Ours was one row: a column `Viz` with the value `AI Garden`. (We did not test publishing
+   with no data source at all.)
+2. **New dashboard** from the **Dashboard** menu > New Dashboard. The tab-bar icons shift
+   as tabs are added; clicking by position once made a Story instead. If that happens,
+   right-click the Story tab > Delete.
+3. **Size:** Size dropdown > **Fixed size**, then type the width and height. We started at
+   1200 x 800 and went to **1400 x 900** for a bigger map. Tableau Public scales a fixed
+   dashboard down on small screens.
+4. **Web Page object:** Objects list (scroll down) > double-click **Web Page**. Paste your
+   URL **with `?embed=1`**, press Enter. The page renders right in the dashboard.
+5. **Remove the white edge.**
+   - Select the web object > **Layout** tab > Outer Padding > set all sides to 0.
+   - Tableau still keeps an 8 px gap at the dashboard edge. **Format > Dashboard >
+     Dashboard Shading > More colors** > type the page's background hex (ours `#0a1619`).
+     The gap now matches the viz.
+6. **Name things.** Right-click the dashboard tab > Rename (ours: "AI Garden"). Delete any
+   extra Story or empty tabs you made by accident.
+7. **Publish:** in Tableau Public 2026.1 it is under **File > Save to Tableau Public As...**
+   (the Server menu only has Run Optimizer). Type the workbook title, click Save.
+   **Never press Ctrl+S in Tableau Public**: it publishes (see
+   [`never-ctrl-s-on-public.md`](never-ctrl-s-on-public.md)).
+
+Text looks larger inside local Tableau than on the web on a 150% display: local Tableau
+scales fonts with Windows, Tableau Public web does not. Judge the layout from the
+standalone test's screenshots or the published view, not from the Desktop canvas.
+
+## 6. Check the published viz
+
+Open `https://public.tableau.com/views/<Workbook>/<Dashboard>?:showVizHome=no&:embed=y`
+in a clean browser and confirm the inner frame loads your page and the chart draws.
+Then set the profile thumbnail if Tableau's own capture is blank, and write the
+description on the Tableau Public page.
+
+## 7. Link it back
+
+If your site has a viz gallery, add the Tableau Public link to the viz's card so people
+can find it either way.
+
+## Driving Tableau with a script (optional)
+
+`tools/tabdrive.py` drives Tableau by screenshots and clicks, one step at a time.
+
+- When more than one workbook is open, set `TAB_TITLE` to the target window's title.
+  The driver then acts only on that window, brings it to the front before any click or
+  key, and refuses to run if it cannot find it, so it never clicks into another workbook.
+- `rxy` right-clicks (tab menus).
+- It refuses Ctrl+S and Alt+F+S outright.
+
+## Gotchas we hit
+
+| What happened | Why | Fix |
+|---|---|---|
+| Exit button showed inside Tableau Desktop | Desktop's web object is not an iframe | `?embed=1` on the URL, page hides Exit on that flag |
+| 8 px white strip right and bottom | Dashboard edge padding outside the object | Dashboard shading = page background color |
+| A Story tab appeared | Tab-bar icons shift position | Use the Dashboard menu; delete the stray tab |
+| No publish item under Server | 2026.1 moved it | File > Save to Tableau Public As |
+| Petal colors did not match the Tableau view | Colors follow row arrival order | Sort rows in the workbook's order |
+| Thumbnail showed a white page | Captured an older, light version | `make_thumbnail.py` refuses light images |
+| A click meant for a dialog hit the viz | The OK button sat over the page | Close the panel it opened; viewer changes are not saved in the workbook |

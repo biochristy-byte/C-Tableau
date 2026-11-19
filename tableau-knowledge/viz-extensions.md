@@ -22,9 +22,14 @@ host. Two working examples live in this repo:
   - An extension you host yourself cannot be part of a public dashboard until it
     is approved through the Exchange submission (see
     [`../tableau-garden-petals/exchange/SUBMISSION.md`](../tableau-garden-petals/exchange/SUBMISSION.md)).
-  - A Tableau Public showpiece must not depend on your own extension. Build it
-    from native marks (map layers, custom shapes, dual axis) and use the
-    extension for Desktop work.
+  - A Tableau Public showpiece must not depend on your own extension inside a
+    worksheet. Either build it from native marks (map layers, custom shapes, dual
+    axis), or **run the extension as a hosted web page in a dashboard Web Page
+    object**: proven live on Tableau Public 11/18/2026. Full recipe and tools:
+    [`extension-on-tableau-public.md`](extension-on-tableau-public.md).
+  - To host the extension itself for Desktop, Server or Cloud, use
+    **c-tableau.netlify.app**: 3 extensions free, then C-Tableau Unlimited for
+    $2 once (unlimited hosting plus every public community extension).
   - Publishing still needs Settings > Allow Access for an approved extension to
     read the visible data.
 - **Do not settle a Tableau feature question by scanning the installed

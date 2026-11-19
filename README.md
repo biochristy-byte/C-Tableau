@@ -10,6 +10,8 @@ plus two working extensions you can run. Free, MIT licensed.
 | Have Claude design or build Tableau work well | [`tableau-knowledge/`](tableau-knowledge/README.md). Point your Claude at it and say "read tableau-knowledge/README.md, then help me build a dashboard." |
 | Rebuild the flower garden dashboard (MM 2026 week 44, PISA and AI) | [`tableau-garden-petals/example-pisa/`](tableau-garden-petals/example-pisa/README.md): data script, exact dark settings, shelf-by-shelf steps (design inspired by *In Full Bloom* by Külli Esko) |
 | Use or copy a viz extension | [`tableau-garden-petals/`](tableau-garden-petals/README.md) (flowers, three views) or [`tableau-lollipop/`](tableau-lollipop/README.md) (84 settings) |
+| Show your own viz extension on Tableau Public (hosted page in a Web Page object) | [`tableau-knowledge/extension-on-tableau-public.md`](tableau-knowledge/extension-on-tableau-public.md): build, test, host, thumbnail, dashboard steps, publish |
+| Host a viz extension online | **c-tableau.netlify.app**: 3 extensions free, then C-Tableau Unlimited for $2 once (unlimited hosting plus every public community extension) |
 | Submit an extension to the Tableau Exchange | [`tableau-garden-petals/exchange/`](tableau-garden-petals/exchange/SUBMISSION.md): manifest, icon, screenshots, privacy policy, terms and the contributor email |
 | Pair a silent screen recording with a voiceover | [`narration-sync/`](narration-sync/SKILL.md), a Claude skill |
 | Use the tested scripts (build a `.twb`, check contrast, package a `.twbx`) | [`tableau-knowledge/tools/`](tableau-knowledge/tools/README.md) |
@@ -23,3 +25,5 @@ workbook that uses your own self-hosted extension shows visitors "isn't currentl
 11/05/2026: it loads and renders in Tableau Public Desktop 2026.1 (Add Extension > Access Local Viz
 Extensions) while you author, and Public Desktop refuses a manifest whose `author` has no `email`
 attribute, so ship `email=""`. Details: [`viz-extensions.md`](tableau-knowledge/viz-extensions.md).
+To show an extension on Tableau Public anyway, run it as a hosted web page inside a dashboard Web
+Page object: [`extension-on-tableau-public.md`](tableau-knowledge/extension-on-tableau-public.md).
