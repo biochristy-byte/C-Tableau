@@ -34,6 +34,39 @@ Hosting fixes the address. It does not change Tableau Public's rule: viewers the
 see "isn't currently supported" until the extension is Exchange-approved. So use the
 hosted extension in Tableau Desktop, Server and Cloud, and use the route below on Public.
 
+## The no-script route: Viz pages on c-tableau.netlify.app
+
+If your extension is approved on C-Tableau, C-Tableau can build the standalone page for you. You give it your data and your settings, and it gives you the address to paste into a Tableau Web Page object. Sections 1 to 4 below are then done for you.
+
+1. Sign in at https://c-tableau.netlify.app/account/ and open **Viz pages**, then **New viz page**.
+2. **Name your viz** (3 to 60 characters). The name becomes the address: `https://c-tableau-hosted.netlify.app/v/<name>/?embed=1`. The screen shows the final address as you type, and suggests `<name>-2` if the name is taken. The address is fixed once published, so links in Tableau never break.
+3. **Pick the extension**: one of yours, or any public community extension if you have C-Tableau Unlimited.
+4. **Upload your data**: in Tableau, View Data, Download, Summary tab. A CSV up to 5 MB. You see the first 10 rows.
+5. **Map your columns**: one dropdown per encoding the extension asks for, read from its .trex. C-Tableau remembers your mapping for each extension.
+6. **Paste your settings** (optional): in the extension's gear panel press Copy settings, then paste the JSON. If the extension stores its settings under a key prefix and the look does not match, fill in the prefix box.
+7. **Preview**: the page renders at 1200x800, 800x600 and 400x700. Publish stays off until all three draw with no errors and no sideways scroll, and the screen says why while it is off.
+8. **Publish** and copy the address. Then go to section 5, "Build the Tableau Public workbook": Web Page object, keep `?embed=1`, dashboard shading set to the page colour, the Image-object thumbnail fix, and File > Save to Tableau Public As (never Ctrl+S).
+
+Free accounts get 3 live viz pages. C-Tableau Unlimited ($2 once) has no limit. Edit, unpublish and delete are on the Viz pages screen.
+
+### With Claude or a script
+
+Download `ctab.py` from https://c-tableau.netlify.app/api/ and make an API key in your account. Then:
+
+```
+python ctab.py vizpage publish --name "AI Garden" --extension <extension id> \
+    --csv pisa_long.csv --settings pisa-dark-settings.json \
+    --map flower=Country --map petal=Metric --map length=Value --map score="Science Score"
+```
+
+It prints the address to paste. `vizpage list`, `vizpage unpublish <slug>` and `vizpage delete <slug>` manage your pages, and `POST /api/v1/vizpages` does the same over HTTP. For Garden Petals, row order sets the order petals arrive in, so sort your CSV the way your workbook sent it if you want the same colours.
+
+### What a viz page can run
+
+The page swaps Tableau's library for a read-only stand-in. It runs extensions that read one worksheet's summary data, their encodings and their own settings. It cannot run extensions that need filters, parameters, several worksheets, dialogs or dashboard objects, or that write back to the workbook. Settings a visitor changes last for that visit only.
+
+Prefer full control, or your extension is not on C-Tableau? The script route below works for any extension.
+
 ## The route in one picture
 
 ```
