@@ -166,6 +166,68 @@ later than the render.
 If your site has a viz gallery, add the Tableau Public link to the viz's card so people
 can find it either way.
 
+## Animated vizzes: why this route beats the Pages shelf
+
+The same route works for any hand-built HTML viz, not just an extension. We used it on
+11/18/2026 for *MOM 46 Turkey Trot* (Makeover Monday week 46), an animated map of turkey
+exports, after first building it the Tableau-native way with the Pages shelf.
+
+**What the Pages shelf cannot do (Tableau Public 2026.1, checked in the app's own files):**
+
+- **No speed setting.** The Pages card zone (`type-v2='currpage'`) only knows `looped`,
+  `dropdown`, `slider`, `playctrls`, `synchronized` and `trailctrls`. There is no speed
+  attribute, and the speed a viewer picks is not saved in the workbook.
+- **Every viewer starts on normal speed**, about 1 page per second. Fast is about 10 pages
+  per second. You can tell viewers to pick fast, but you cannot pick it for them.
+- **You cannot hide just the speed buttons.** `playctrls='0'` hides the play button too.
+- **Marks jump, they do not glide.** Pages playback in Desktop never tweens marks between
+  pages, with animations on or off. Smooth motion needs many small steps, which makes the
+  movement slow.
+
+A Web Page object showing the hosted HTML runs at the browser's 60 frames per second,
+starts on its own, and needs no speed buttons. On the published Turkey Trot viz the framed
+page measured a steady 16.7 ms per frame (worst 16.9 ms) on Tableau Public's website.
+
+**Extra steps for a hand-built page:**
+
+1. **Make it fit any frame.** Draw at a fixed design size (ours an SVG with
+   `viewBox='0 0 1600 1000'`) and let it scale: `body > svg { width: 100vw; height: 100vh }`.
+   The default `preserveAspectRatio` letterboxes it. At the dashboard's exact size it is 1:1.
+2. **Declare the color scheme.** Add `<meta name="color-scheme" content="light dark">` and
+   `:root { color-scheme: light dark }`. Without it, Chrome's Auto Dark Mode (and some
+   Android browsers) darken the page background but not the SVG text, and the text
+   disappears for anyone with dark mode on. The page keeps its own colors once it declares
+   a scheme. Set every background and text color yourself so nothing falls back to the
+   browser default.
+3. **Hide standalone-only buttons on `?embed=1`**, the same as the Exit pill above.
+4. **Keep your real data as the data source.** Instead of a one-row placeholder, we kept the
+   viz's own data in the workbook on hidden sheets, so anyone who downloads it gets the
+   data behind the picture. Published fine.
+
+**Building the workbook in XML instead of clicking:** the Web Page object is one zone.
+
+```xml
+<zone h='100000' w='100000' x='0' y='0' id='2'
+      param='https://your-site/vizzes/your-viz/?embed=1' type-v2='web'>
+```
+
+`h`, `w`, `x` and `y` are in 1/100000 of the dashboard, so this fills a fixed-size
+dashboard edge to edge. Put the thumbnail Image zone before it (see "Fix the blank profile
+thumbnail" above).
+
+**Testing tips for a framed animation:**
+
+- Measure the drawn area with `svg.getScreenCTM()`, not the SVG's box. A letterboxed SVG's
+  box is the whole window, so a box check passes or fails for the wrong reason.
+- Check smoothness from `requestAnimationFrame` gaps after about 10 warm-up frames
+  (median near 16.7 ms, worst under 50 ms). One run with a single 50 ms gap that clears on
+  the next run is the test machine, not the page. A real stutter shows up every run.
+- **Test forced dark mode headlessly.** Launch Chromium or Edge with
+  `--enable-features=WebContentsForceDark --force-dark-mode
+  --blink-settings=forceDarkModeEnabled=true` and a dark color scheme, then read a
+  background pixel. Run it on the page without the color-scheme tag first: the test must
+  go RED there (ours read the paper as dark brown) before you trust its GREEN.
+
 ## Driving Tableau with a script (optional)
 
 `tools/tabdrive.py` drives Tableau by screenshots and clicks, one step at a time.
@@ -175,6 +237,9 @@ can find it either way.
   key, and refuses to run if it cannot find it, so it never clicks into another workbook.
 - `rxy` right-clicks (tab menus).
 - It refuses Ctrl+S and Alt+F+S outright.
+- **See a Tableau window without taking it over.** Windows `PrintWindow(hwnd, dc, 2)` (the
+  2 is `PW_RENDERFULLCONTENT`) captures one window even when another window is on top of
+  it, so you can check a workbook while someone keeps working in theirs.
 
 ## Gotchas we hit
 
@@ -188,3 +253,6 @@ can find it either way.
 | Thumbnail showed a white page | Captured an older, light version | `make_thumbnail.py` refuses light images |
 | Tableau Public gallery thumbnail blank | Its server render skips Web Page objects | Image object of the viz under the Web Page object, republish same title |
 | A click meant for a dialog hit the viz | The OK button sat over the page | Close the panel it opened; viewer changes are not saved in the workbook |
+| Page text vanished for a dark-mode viewer | Browser Auto Dark Mode darkened the background, not the SVG text | `color-scheme` meta tag and CSS on the page |
+| Viewers stuck on slow Pages playback | Pages speed cannot be set or saved | Animate in the hosted page instead |
+| Frame test said a letterboxed page overflowed | It measured the SVG box, not the drawing | Measure with `getScreenCTM()` |

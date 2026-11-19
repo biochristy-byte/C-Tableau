@@ -199,6 +199,10 @@ as a defect, and copy the flag set Tableau itself wrote.
 - A dashboard Pages card is a zone with `type-v2='currpage'`. It needs
   `synchronized='1' trailctrls='0'`, and any zone later in z-order that overlaps
   it swallows its clicks. See [workflow-and-qa.md](workflow-and-qa.md).
+- The Pages card has no speed attribute (only `looped`, `dropdown`, `slider`, `playctrls`,
+  `synchronized`, `trailctrls`), the viewer's speed choice is never saved, and
+  `playctrls='0'` hides play along with speed. For smooth animation use a hosted page in a
+  Web Page object: see [extension-on-tableau-public.md](extension-on-tableau-public.md).
 
 - Clicking a mark dims every other mark until the viewer clicks empty space. Tried
   and NOT effective: `fog-desaturation-*` and `fog-bg-color` on every element,
