@@ -662,14 +662,23 @@
       if (!W || ro.q) return; ro.q = requestAnimationFrame(function () { ro.q = 0; var w = elStage.clientWidth, h = elStage.clientHeight; if (Math.abs(w - ro.w) < 1 && Math.abs(h - ro.h) < 1) return; ro.w = w; ro.h = h; resize(); if (bl.open) sizeBloom(); });
     }).observe(elStage); } catch (e) {}
 
+    // Frame budget. On a normal machine a frame costs a few ms and the loop runs every display
+    // frame. On a slow one (software rendering, a server-side screenshotter such as Tableau
+    // Public's gallery-card job) a frame can cost hundreds of ms; back-to-back frames then starve
+    // timers and screenshots, and the card job gave up. So when the average frame cost passes
+    // 12 ms, rest 1.5x that cost before the next frame: the page uses at most ~40% of the CPU.
+    var cost = 0, nap = 0;
     function frame(ts) {
       if (!running) return;
+      var t0 = performance.now();
       var dt = Math.min(0.05, Math.max(0.001, (ts - last) / 1000 || 0.016)); last = ts; T = ts / 1000;
       try { step(dt); draw(); } catch (e) { if (hooks.onError && !frame.said) { frame.said = 1; hooks.onError('draw (' + mode + '): ' + (e && e.stack || e)); } }
-      raf = requestAnimationFrame(frame);
+      var c = performance.now() - t0; cost = cost ? cost * 0.8 + c * 0.2 : c;
+      if (cost > 12) nap = setTimeout(function () { nap = 0; if (running) raf = requestAnimationFrame(frame); }, Math.min(1000, cost * 1.5));
+      else raf = requestAnimationFrame(frame);
     }
     function start() { if (running) return; running = true; last = 0; raf = requestAnimationFrame(frame); }
-    function stop() { running = false; cancelAnimationFrame(raf); }
+    function stop() { running = false; cancelAnimationFrame(raf); clearTimeout(nap); nap = 0; }
     document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
 
     applyTheme(); start();

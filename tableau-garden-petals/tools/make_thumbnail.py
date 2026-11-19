@@ -21,7 +21,7 @@ h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(folder
 h.log_message = lambda *a, **k: None
 srv = socketserver.TCPServer(("127.0.0.1", 0), h)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
-url = "http://127.0.0.1:%d/%s/?embed=1" % (srv.server_address[1], folder.name)
+url = "http://127.0.0.1:%d/%s/?embed=1&live=1" % (srv.server_address[1], folder.name)
 
 with sync_playwright() as p:
     b = p.chromium.launch()

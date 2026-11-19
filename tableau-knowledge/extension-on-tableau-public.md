@@ -58,6 +58,10 @@ python tools/build_standalone.py --data example-pisa/pisa_long.csv \
     --exit-href /vizzes/ --out standalone/ai-garden/index.html
 ```
 
+- **Poster (do this, or your Tableau Public card stays blank):** build once, run
+  `python tools/make_poster.py poster.jpg standalone/ai-garden 1400 900` at your dashboard
+  size, then build again with `--poster poster.jpg`. `--viz-title` sets the title drawn
+  inside the viz. See "Fix the blank profile thumbnail" below for why.
 - **Settings:** in Tableau, open the extension's gear panel, click **Copy settings**, and
   save that JSON. The page starts in exactly your look.
 - **Row order matters.** Petal colors follow the order each metric first arrives, so the
@@ -138,28 +142,42 @@ Then write the description on the Tableau Public page.
 
 ### Fix the blank profile thumbnail
 
-Tableau Public draws the gallery thumbnail on its own servers, and that renderer
-**skips Web Page objects**. A dashboard that is only a Web Page object gets a blank card
-(white, grey or an empty dark box). Check it: `views/<Workbook>/<Dashboard>.png` is the
-server's render.
+Tableau Public makes **two different pictures** of a published viz, and they behave
+differently with a Web Page object:
 
-Fix: put a still picture of the viz **under** the Web Page object.
+| Picture | Where | What it does with a Web Page object |
+|---|---|---|
+| Server render | `views/<Workbook>/<Dashboard>.png` | **Skips** it. Shows only what is under it |
+| Gallery card (profile thumbnail) | `static/images/<2 letters>/<Workbook>/<Dashboard>/4_3.png` | **Loads your page** in a headless browser and screenshots it |
 
-1. Screenshot the hosted page with `?embed=1` at the exact dashboard size (ours 1400 x 900).
-2. Add an **Image** object at full size, then the Web Page object at full size on top of it.
-   Floating both at x 0, y 0 works. In the `.twb` XML the order inside `<zones>` is the
-   stacking order: the `type-v2='bitmap'` zone first, the `type-v2='web'` zone after it.
-3. Republish with the **same title** and answer Yes to "already exists. Overwrite it?" The
-   URL stays the same.
+We proved the second one with a test workbook pointed at example.com: its card was a
+picture of example.com. Turkey Trot's card was a live render too, drawn in a Linux font.
 
-Viewers still see the live page (the picture is hidden underneath), and the server render
-shows the picture. Verified 11/18/2026 on AI Garden and MOM 46 Turkey Trot: the server
-render went from blank to the viz, and the live iframe is still the top element at the
-center of the view. The gallery card (`static/images/.../4_3.png`) is cached and updates
-later than the render.
+So the card needs **your page** to be screenshot-friendly:
 
-`tableau-garden-petals/tools/add_thumb_layer.py` does step 2 for a downloaded workbook
-(`https://public.tableau.com/workbooks/<Workbook>.twb` returns the packaged file).
+1. **No outside requests.** A Google Fonts `<link>` that cannot be reached stops the
+   page from ever finishing loading, and a screenshot then waits forever "for fonts to
+   load". Inline the fonts (base64 woff2). `build_standalone.py` does this and goes RED if
+   the page requests any outside URL.
+2. **Open on a still if you draw on a canvas.** Plain HTML and SVG (Turkey Trot) were
+   captured fine. AI Garden's animated canvas never made it into the card through five
+   publishes. The fix that worked: the embedded page opens on a still image of the viz
+   (built into the page). For a person the live canvas replaces it after its first frames
+   with a 0.25 s fade. An automated browser (`navigator.webdriver` is true) keeps the still
+   and the animation does not start. Add `?live=1` to run the live canvas in your own
+   Playwright tests. Tools: `make_poster.py` captures the still, then rebuild.
+3. **Optional: an Image object under the Web Page object** (same size, bitmap zone listed
+   before the web zone in `<zones>`). It only fixes the server render, not the card, but it
+   keeps `views/...png` from being blank. `add_thumb_layer.py` does it for a downloaded
+   workbook (`https://public.tableau.com/workbooks/<Workbook>.twb` returns the packaged file).
+
+Republish with the **same title** and answer Yes to "already exists. Overwrite it?" so the
+URL stays. Verified 11/18/2026: AI Garden's card changed from Tableau's placeholder to the
+viz about 2 minutes after the republish with step 2 live. Tableau Public's card for a
+failed render is a plain grey placeholder, and that workbook's `1.png` is 1 x 1 pixel.
+
+If you publish a test workbook to try this, **hide it from your profile right away** (and
+delete it after): a public test shows up in your gallery.
 
 ## 7. Link it back
 
@@ -251,7 +269,8 @@ thumbnail" above).
 | No publish item under Server | 2026.1 moved it | File > Save to Tableau Public As |
 | Petal colors did not match the Tableau view | Colors follow row arrival order | Sort rows in the workbook's order |
 | Thumbnail showed a white page | Captured an older, light version | `make_thumbnail.py` refuses light images |
-| Tableau Public gallery thumbnail blank | Its server render skips Web Page objects | Image object of the viz under the Web Page object, republish same title |
+| Tableau Public gallery card stays a grey placeholder | The card is a headless screenshot of your page; a blocked font request or an animated canvas never reaches it | Inline fonts, no outside URLs, open on a still for `navigator.webdriver`, republish same title |
+| `views/...png` render is blank | The server render skips Web Page objects | Image object of the viz under the Web Page object |
 | A click meant for a dialog hit the viz | The OK button sat over the page | Close the panel it opened; viewer changes are not saved in the workbook |
 | Page text vanished for a dark-mode viewer | Browser Auto Dark Mode darkened the background, not the SVG text | `color-scheme` meta tag and CSS on the page |
 | Viewers stuck on slow Pages playback | Pages speed cannot be set or saved | Animate in the hosted page instead |

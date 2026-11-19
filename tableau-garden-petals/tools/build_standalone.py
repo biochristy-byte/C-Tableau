@@ -20,7 +20,7 @@ The page holds:
       --url https://example.com/vizzes/ai-garden/ --image https://example.com/vizzes/images/ai-garden.jpg \
       --exit-href /vizzes/ --out standalone/ai-garden/index.html
 """
-import argparse, csv, json, os, sys
+import argparse, csv, json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser(description="Build a standalone Garden Petals page for a Tableau Web Page object.")
@@ -34,6 +34,8 @@ ap.add_argument("--exit-href", default="/", help="where the Exit button goes whe
 ap.add_argument("--expect-rows", type=int, default=437)
 ap.add_argument("--expect-flowers", type=int, default=91)
 ap.add_argument("--out", default=os.path.join("standalone", "ai-garden", "index.html"))
+ap.add_argument("--viz-title", default="", help="title drawn inside the viz (default: --title)")
+ap.add_argument("--poster", default="", help="JPEG still from make_poster.py; the embedded page opens on it (see poster_block)")
 args = ap.parse_args()
 TITLE, URL, IMAGE, DESC = args.title, args.url, args.image, args.desc
 
@@ -78,7 +80,7 @@ if len(rows) != args.expect_rows or countries != args.expect_flowers:
 # ---- settings: one JSON string per section, as Tableau stores them ----
 with open(args.settings, encoding="utf-8") as f:
     settings = json.load(f)
-settings["title"]["text"] = TITLE
+settings["title"]["text"] = args.viz_title or TITLE
 stored = {"gp." + k: json.dumps(v) for k, v in settings.items()}
 
 SHIM = r"""
@@ -126,6 +128,71 @@ SHIM = r"""
 """ % {"data": json.dumps({"columns": COLS, "rows": rows}, separators=(",", ":")),
        "settings": json.dumps(stored, separators=(",", ":"))}
 
+def embedded_fonts():
+    """The fonts as inline @font-face rules (base64 woff2), so the page makes NO outside request.
+
+    Tableau Public's gallery card is a screenshot its own headless browser takes of your page.
+    With the Google Fonts stylesheet linked and unreachable, the page never fired `load` and a
+    screenshot waited forever "for fonts to load". Fetched once, cached in tools/fonts-cache.css.
+    """
+    import base64, urllib.request
+    cache = os.path.join(ROOT, "tools", "fonts-cache.css")
+    if os.path.exists(cache):
+        return open(cache, encoding="utf-8").read()
+    ua = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"}
+    css_url = "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Martian+Mono:wght@600&display=swap"
+    css = urllib.request.urlopen(urllib.request.Request(css_url, headers=ua), timeout=30).read().decode("utf-8")
+    out = []
+    for subset, face in re.findall(r"/\* ([\w-]+) \*/\s*(@font-face \{.*?\})", css, re.S):
+        if subset not in ("latin", "latin-ext"):
+            continue
+        url = re.search(r"url\((https://[^)]+\.woff2)\)", face).group(1)
+        data = base64.b64encode(urllib.request.urlopen(urllib.request.Request(url, headers=ua), timeout=30).read()).decode()
+        out.append(face.replace(url, "data:font/woff2;base64," + data))
+    faces = "\n".join(out)
+    fams = set(re.findall(r"font-family: '([^']+)'", faces))
+    if fams != {"Poppins", "Martian Mono"} or len(out) != 10:
+        sys.exit("RED: expected 10 embedded faces (Poppins x4, Martian Mono x1, latin + latin-ext), got %d %s" % (len(out), fams))
+    open(cache, "w", encoding="utf-8", newline="\n").write(faces)
+    return faces
+
+
+def poster_block(path):
+    """A still of the embedded view, shown until the live canvas has drawn.
+
+    Tableau Public's gallery card is a headless screenshot of the page. An animated canvas
+    never reached it (the card stayed a grey placeholder through five publishes, 11/18/2026),
+    while a plain HTML page did. So the embedded page opens on this still. For a person the live
+    garden replaces it after its first frames (same picture, a 0.25 s fade). An automated
+    browser (navigator.webdriver, which headless screenshotters set) keeps the still and the
+    engine stays stopped. ?live=1 overrides that for your own Playwright tests.
+    """
+    if not path:
+        return ""
+    if not os.path.exists(path):
+        sys.exit("RED: --poster file not found: %s (make it with tools/make_poster.py)" % path)
+    import base64
+    data = base64.b64encode(open(path, "rb").read()).decode()
+    return ("<img id=\"dd-poster\" alt=\"\" src=\"data:image/jpeg;base64," + data + "\">\n<script>\n"
+            "(function () {\n"
+            "  var p = document.getElementById('dd-poster'); if (!p) return;\n"
+            "  var bot = navigator.webdriver && !/[?&]live=1/.test(location.search);\n"
+            "  function eng() { return window.__gp && window.__gp.engine; }\n"
+            "  if (bot) {\n"
+            "    var hold = function () { var e = eng(); if (e) e.stop(); };\n"
+            "    var k = 0, iv = setInterval(function () { hold(); if (eng() || ++k > 100) clearInterval(iv); }, 50);\n"
+            "    document.addEventListener('visibilitychange', hold);\n"
+            "    return;\n"
+            "  }\n"
+            "  var n = 0;\n"
+            "  (function wait() {\n"
+            "    var s = window.__gp && window.__gp.state;\n"
+            "    if (s && s.flowers > 0 && ++n >= 3) { p.style.opacity = '0'; setTimeout(function () { p.remove(); }, 300); return; }\n"
+            "    requestAnimationFrame(wait);\n"
+            "  })();\n"
+            "})();\n</script>")
+
+
 bg = settings["colors"]["bg"]
 page = """<!doctype html>
 <html lang="en">
@@ -143,9 +210,7 @@ page = """<!doctype html>
 <meta property="og:image:height" content="790">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="%(image)s">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Martian+Mono:wght@600&display=swap">
+<style>%(fontfaces)s</style>
 <style>
   html, body { margin: 0; height: 100%%; overflow: hidden; background: %(bg)s; color-scheme: dark; }
   #root { position: absolute; inset: 0; }
@@ -159,6 +224,9 @@ page = """<!doctype html>
   .dd-exit:focus-visible { outline: 2px solid #3cc4d1; outline-offset: 3px; }
   html.dd-solo .dd-exit { display: inline-flex; }
   html.dd-solo #root { top: 52px; }
+  #dd-poster { position: fixed; inset: 0; width: 100%%; height: 100%%; object-fit: cover; object-position: left top; z-index: 45;
+    pointer-events: none; transition: opacity .25s ease; }
+  html.dd-solo #dd-poster { display: none; }
 </style>
 <script>
   (function () { var solo = true; try { solo = window.top === window.self; } catch (e) { solo = false; }
@@ -174,14 +242,20 @@ page = """<!doctype html>
 <script>%(engine)s</script>
 <script>%(panel)s</script>
 <script>%(viz)s</script>
+%(poster)s
 </body>
 </html>
 """ % {"title": TITLE, "bg": bg, "shim": SHIM, "land": read("src/land.js"), "geo": read("src/gazetteer.js"),
        "engine": read("src/engine.js"), "panel": read("src/settings-panel.js"), "viz": read("src/viz.js"),
-       "desc": DESC, "url": URL, "image": IMAGE, "exit": args.exit_href}
+       "desc": DESC, "url": URL, "image": IMAGE, "exit": args.exit_href,
+       "fontfaces": embedded_fonts(), "poster": poster_block(args.poster)}
 
 if not (URL and IMAGE):   # no public address yet: leave the link-preview tags out
     page = "\n".join(l for l in page.split("\n") if 'property="og:url"' not in l and "og:image" not in l and "twitter:" not in l)
+ext = sorted(set(re.findall(r"""(?:src|href)=["'](https?://[^"']+)""", page)) - {URL, IMAGE})
+ext += sorted(set(re.findall(r"""url\(["']?(https?://[^)"']+)""", page)))
+if ext:
+    sys.exit("RED: the page still requests outside URLs (Tableau Public's card renderer can hang on them): %s" % ext[:5])
 os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
 with open(args.out, "w", encoding="utf-8", newline="\n") as f:
     f.write(page)

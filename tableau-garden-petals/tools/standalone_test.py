@@ -53,6 +53,8 @@ def main():
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         url = "http://127.0.0.1:%d/%s/" % (srv.server_address[1], folder.name)
     OUT.mkdir(parents=True, exist_ok=True)
+    base = url
+    url = url + ("&" if "?" in url else "?") + "live=1"   # Playwright sets navigator.webdriver; live=1 = behave as for a person
     print("framing:", url)
     bad, seen = 0, 0
     with sync_playwright() as p:
@@ -95,11 +97,44 @@ def main():
             print(("ok  " if ok else "RED ") + "solo %dx%d " % (w, hgt) + json.dumps(s) + (" errors=%s" % errs[:2] if errs else ""))
             pg.screenshot(path=str(OUT / ("solo_%dx%d.png" % (w, hgt))))
             ctx.close()
+        # the poster (built with --poster): a still until the live canvas draws; automated browsers keep it
+        emb = base + ("&" if "?" in base else "?") + "embed=1"
+        extra = 0
+        for who in ("bot", "person"):
+            ctx = b.new_context(viewport={"width": 1400, "height": 900})
+            pg = ctx.new_page()
+            errs = []
+            pg.on("pageerror", lambda x, e=errs: e.append(str(x)))
+            if who == "person":   # a real visitor's browser reports navigator.webdriver false
+                pg.add_init_script("Object.defineProperty(Navigator.prototype, 'webdriver', {get: () => false})")
+            pg.goto(emb, wait_until="load")
+            first = pg.evaluate("() => { const p = document.getElementById('dd-poster'); return !!p && p.complete && p.naturalWidth > 0 }")
+            if who == "bot" and not first:
+                print("note: page has no poster (build with --poster); poster checks skipped")
+                ctx.close()
+                break
+            extra += 1
+            pg.wait_for_timeout(4000)
+            s = pg.evaluate("""() => { const p = document.getElementById('dd-poster'), r = p && p.getBoundingClientRect();
+                return {poster: !!p, opacity: p ? getComputedStyle(p).opacity : null, covers: !!r && r.width >= innerWidth && r.height >= innerHeight,
+                        flowers: window.__gp && window.__gp.state ? window.__gp.state.flowers : null}; }""")
+            if who == "bot":   # the engine must stay stopped: the canvas does not change
+                s["canvasStill"] = pg.evaluate("() => new Promise(r => { const c = document.querySelector('#root canvas'), x = c.getContext('2d');"
+                                               " const sum = () => x.getImageData(0, 0, c.width, c.height).data.reduce((s, v, i) => i % 97 ? s : s + v, 0);"
+                                               " const a = sum(); setTimeout(() => r(a === sum()), 1500); })")
+                ok = s["poster"] and s["covers"] and s["opacity"] == "1" and s["canvasStill"] and not errs
+            else:
+                ok = first and not s["poster"] and s["flowers"] == EXPECT_FLOWERS and not errs
+            seen += 1
+            bad += 0 if ok else 1
+            print(("ok  " if ok else "RED ") + "poster/%s " % who + json.dumps(s) + (" errors=%s" % errs[:2] if errs else ""))
+            pg.screenshot(path=str(OUT / ("poster_%s.png" % who)))
+            ctx.close()
         b.close()
     if srv:
         srv.shutdown()
-    want = len(SIZES) + 2
-    print("checks examined: %d of %d (7 framed sizes + 2 solo) | failing: %d" % (seen, want, bad))
+    want = len(SIZES) + 2 + extra
+    print("checks examined: %d of %d (7 framed sizes + 2 solo%s) | failing: %d" % (seen, want, " + 2 poster" if extra else "", bad))
     print("GREEN" if seen == want and not bad else "RED")
     return 0 if seen == want and not bad else 1
 
