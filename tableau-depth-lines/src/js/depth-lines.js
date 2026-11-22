@@ -184,7 +184,13 @@
       if (!evt || !ws.addEventListener) return;
       try { ws.addEventListener(evt, refreshData); } catch (e) { log('listener failed', evt, e); }
     });
-    return refreshData();
+    /* Inter is bundled but loads on first use, and tick thinning and the title underline measure
+     * text. So the first draw waits for it (1.5 s at most), or it would be measured in a fallback
+     * font and then redrawn, which would cut the entrance fade. */
+    var fontReady = (global.document.fonts && global.document.fonts.load)
+      ? Promise.race([global.document.fonts.load('400 14px Inter').catch(function () {}), new Promise(function (r) { setTimeout(r, 1500); })])
+      : Promise.resolve();
+    return fontReady.then(refreshData);
   }
 
   function boot () {
