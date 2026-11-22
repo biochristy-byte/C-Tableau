@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neurons test page</title>
+  <link rel="stylesheet" href="../src/css/neurons.css">
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; }
+    #stage { position: absolute; left: 0; top: 0; overflow: hidden; }
+  </style>
+</head>
+<body>
+<!-- Bare stage for the render gates: ?w=900&h=600&bg=ffffff&fx=worm (bg omitted = Tableau supplies none). -->
+<div id="stage"><div id="nx-root"><div id="nx-chart"></div></div></div>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var st = document.getElementById('stage');
+    st.style.width = (q.get('w') || 900) + 'px';
+    st.style.height = (q.get('h') || 600) + 'px';
+    window.__audit = { dialogs: 0 };
+    ['alert', 'confirm', 'prompt'].forEach(function (n) { window[n] = function () { window.__audit.dialogs++; return null; }; });
+  })();
+</script>
+<script src="../dev/fixtures.js"></script>
+<script src="../dev/mock-tableau.js"></script>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    if (q.get('fx')) window.NX_MOCK.worksheet._fixtureKey = q.get('fx');
+    if (q.get('bg')) window.NX_MOCK.worksheet.backgroundColor = '#' + q.get('bg');
+    if (q.get('noreduce') === null) { /* default: motion allowed */ }
+  })();
+</script>
+<script src="../lib/d3/d3-path.min.js"></script>
+<script src="../lib/d3/d3-shape.min.js"></script>
+<script src="../lib/d3/d3-hierarchy.min.js"></script>
+<script src="../src/js/settings-schema.js"></script>
+<script src="../src/js/palettes.js"></script>
+<script src="../src/js/layout.js"></script>
+<script src="../src/js/render.js"></script>
+<script src="../src/js/settings-panel.js"></script>
+<script src="../src/js/neurons.js"></script>
+</body>
+</html>

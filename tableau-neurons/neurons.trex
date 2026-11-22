@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.datadivers.vizext.neurons" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Neurons: hierarchical edge bundling. Nodes sit on a circle grouped by a parent dimension, and every link is a bundled curve that pulls through its group hubs. Hover a node to light its outgoing and incoming links; every colour, label and curve setting lives in a panel inside the viz.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <!-- 1.12 is the floor because worksheetContent arrived in 1.12 (Tableau 2024.2). -->
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8774/src/index.html</url>
+    </source-location>
+    <icon/>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="group">
+      <display-name resource-id="enc-group">Group</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-g"/>
+      <tooltip resource-id="tip-group">The parent: nodes with the same group sit together on the circle. Each node takes the group of the rows where it is the Source.</tooltip>
+    </encoding>
+
+    <encoding id="source">
+      <display-name resource-id="enc-source">Source</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-s"/>
+      <tooltip resource-id="tip-source">The node a link starts from. One row is one link.</tooltip>
+    </encoding>
+
+    <encoding id="target">
+      <display-name resource-id="enc-target">Target</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-t"/>
+      <tooltip resource-id="tip-target">The node a link ends at.</tooltip>
+    </encoding>
+
+    <encoding id="weight">
+      <display-name resource-id="enc-weight">Weight</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-w"/>
+      <tooltip resource-id="tip-weight">Optional. A measure that sets how thick each link is.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Neurons</text>
+    </resource>
+    <resource id="enc-group">
+      <text locale="en_US">Group</text>
+    </resource>
+    <resource id="enc-source">
+      <text locale="en_US">Source</text>
+    </resource>
+    <resource id="enc-target">
+      <text locale="en_US">Target</text>
+    </resource>
+    <resource id="enc-weight">
+      <text locale="en_US">Weight</text>
+    </resource>
+    <resource id="tip-group">
+      <text locale="en_US">The parent: nodes with the same group sit together on the circle.</text>
+    </resource>
+    <resource id="tip-source">
+      <text locale="en_US">The node a link starts from. One row is one link.</text>
+    </resource>
+    <resource id="tip-target">
+      <text locale="en_US">The node a link ends at.</text>
+    </resource>
+    <resource id="tip-weight">
+      <text locale="en_US">Optional. A measure that sets how thick each link is.</text>
+    </resource>
+  </resources>
+</manifest>

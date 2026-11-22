@@ -1,0 +1,26 @@
+NEURONS FOR TABLEAU - QUICK START
+==================================
+
+Needs: Tableau Desktop 2024.2 or newer (the free edition works).
+Tableau Public: works while you author; viewers see "not supported" until Exchange approval. See README.md.
+
+0. One time only: download Tableau's Extensions API library into lib/
+   (lib/README.md has the link and a one-line command). Without it the chart is blank.
+
+1. Unzip this folder somewhere permanent, like your Desktop. Do not run it from inside the zip.
+
+2. Double-click  Start-Neurons.bat
+   A black window opens and says "Neurons server is running."
+   LEAVE IT OPEN the whole time you use the chart. Closing it makes the chart go blank.
+   (If Windows shows a blue "protected your PC" box: More info > Run anyway.)
+
+3. In Tableau, open a worksheet with your link data: one row per link.
+
+4. Marks card > the mark type dropdown
+   > Viz Extensions > Add Extension > Access Local Viz Extensions
+   > pick  neurons.trex  from this folder. Click Allow.
+
+5. Drag your fields onto Group (the parent), Source, Target and, if you have one, Weight.
+   Hover the chart and click the gear in the top right for all the settings.
+
+Try it first with data/celegans-connectome.csv (Group, Source, Target, Synapses).

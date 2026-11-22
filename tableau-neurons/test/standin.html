@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neurons on the Viz pages stand-in</title>
+  <link rel="stylesheet" href="../src/css/neurons.css">
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; }
+    #stage { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+<!-- Mimics the hosted shell: sets window.__CTAB_VIZ, loads the shared stand-in (the real file from the hub repo, served
+     by the test at /_vz/standin.js) instead of the Tableau library, then the extension's own scripts, unchanged. -->
+<div id="stage"><div id="nx-root"><div id="nx-chart"></div></div></div>
+<script>
+  window.__CTAB_VIZ = {
+    dataUrl: '/_vz/data.json',
+    encodings: [{ id: 'group', field: 'Group' }, { id: 'source', field: 'Source' }, { id: 'target', field: 'Target' }, { id: 'weight', field: 'Synapses' }],
+    settings: { beta: 0.5, glow: false },
+    prefix: '',
+    title: 'Neurons',
+    home: 'https://c-tableau.netlify.app/'
+  };
+</script>
+<script src="/_vz/standin.js"></script>
+<script src="../lib/d3/d3-path.min.js"></script>
+<script src="../lib/d3/d3-shape.min.js"></script>
+<script src="../lib/d3/d3-hierarchy.min.js"></script>
+<script src="../src/js/settings-schema.js"></script>
+<script src="../src/js/palettes.js"></script>
+<script src="../src/js/layout.js"></script>
+<script src="../src/js/render.js"></script>
+<script src="../src/js/settings-panel.js"></script>
+<script src="../src/js/neurons.js"></script>
+</body>
+</html>

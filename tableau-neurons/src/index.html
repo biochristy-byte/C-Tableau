@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neurons</title>
+  <link rel="stylesheet" href="css/neurons.css">
+</head>
+<body>
+  <!-- The gear and settings panel are injected into #nx-root by the panel
+       module, so they float above the chart without taking layout space. -->
+  <div id="nx-root">
+    <div id="nx-chart"></div>
+  </div>
+
+  <!-- Tableau Extensions API. Tableau publishes no CDN for it, so it is
+       loaded from lib/ and is not committed here: see lib/README.md. -->
+  <script src="../lib/tableau.extensions.1.latest.min.js"></script>
+
+  <!-- Vendored d3 modules (ISC licence, see lib/d3). No CDN at runtime. -->
+  <script src="../lib/d3/d3-path.min.js"></script>
+  <script src="../lib/d3/d3-shape.min.js"></script>
+  <script src="../lib/d3/d3-hierarchy.min.js"></script>
+
+  <script src="js/settings-schema.js"></script>
+  <script src="js/palettes.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/settings-panel.js"></script>
+  <script src="js/neurons.js"></script>
+</body>
+</html>

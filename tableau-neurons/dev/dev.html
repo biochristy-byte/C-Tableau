@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neurons viz extension - development harness</title>
+  <link rel="stylesheet" href="../src/css/neurons.css">
+  <style>
+    /* Harness chrome only. None of this ships inside the extension. */
+    html, body { overflow: auto; background: #eef1f4; height: auto; }
+    body { font: 14px/1.45 "Segoe UI", system-ui, Arial, sans-serif; color: #1b1f24; padding: 14px; }
+    .hz { max-width: 1700px; margin: 0 auto; }
+    h1 { font-size: 16px; margin: 0 0 3px; }
+    .sub { color: #3d454e; font-size: 14px; margin-bottom: 12px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
+           background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+    .fld { display: flex; flex-direction: column; gap: 4px; }
+    .fld label { font-size: 14px; color: #3d454e; font-weight: 600; }
+    .fld select, .fld input { height: 32px; border: 1px solid #c9ced4; border-radius: 6px; padding: 0 7px; font: inherit; background: #fff; }
+    .fld input[type=color] { width: 44px; padding: 2px; }
+    button.hzb { height: 32px; padding: 0 11px; border: 1px solid #c9ced4; border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+    #stage { position: relative; width: 1200px; height: 760px; resize: both; overflow: hidden;
+             border: 1px solid #c9ced4; border-radius: 8px; box-shadow: 0 2px 10px rgba(20,25,32,.07); }
+    .evt { margin-top: 8px; font: 14px ui-monospace, Consolas, monospace; color: #1b1f24;
+           background: #fff; border: 1px solid #dfe3e8; border-radius: 6px; padding: 7px 9px; min-height: 34px; }
+  </style>
+</head>
+<body>
+<div class="hz">
+  <h1>Neurons viz extension, development harness</h1>
+  <div class="sub">Runs the shipping extension code against a mock of the Tableau Extensions API. Drag the stage corner to test resize.</div>
+
+  <div class="bar">
+    <div class="fld"><label for="fx">Dataset</label><select id="fx"></select></div>
+    <div class="fld"><label for="wsbg">Worksheet background</label><input type="color" id="wsbg" value="#ffffff"></div>
+    <div class="fld"><label for="wsbgOn">Supply it</label><select id="wsbgOn"><option value="0">No (Tableau gives none)</option><option value="1">Yes</option></select></div>
+    <div class="fld"><label for="sz">Stage size</label>
+      <select id="sz">
+        <option value="1200x760">1200 x 760</option>
+        <option value="1600x1000">1600 x 1000</option>
+        <option value="900x600">900 x 600</option>
+        <option value="600x500">600 x 500</option>
+        <option value="300x300">300 x 300</option>
+      </select></div>
+    <button class="hzb" id="reload">Re-read data</button>
+    <button class="hzb" id="wipe">Clear saved settings</button>
+  </div>
+
+  <div id="stage">
+    <div id="nx-root"><div id="nx-chart"></div></div>
+  </div>
+
+  <div class="evt" id="evt">Tableau API calls from the extension appear here.</div>
+</div>
+
+<script src="fixtures.js"></script>
+<script src="mock-tableau.js"></script>
+<script src="../lib/d3/d3-path.min.js"></script>
+<script src="../lib/d3/d3-shape.min.js"></script>
+<script src="../lib/d3/d3-hierarchy.min.js"></script>
+<script src="../src/js/settings-schema.js"></script>
+<script src="../src/js/palettes.js"></script>
+<script src="../src/js/layout.js"></script>
+<script src="../src/js/render.js"></script>
+<script src="../src/js/settings-panel.js"></script>
+<script src="../src/js/neurons.js"></script>
+<script>
+  (function () {
+    var fx = document.getElementById('fx');
+    Object.keys(window.NX_FIXTURES).forEach(function (k) {
+      var o = document.createElement('option'); o.value = k; o.textContent = window.NX_FIXTURES[k].label; fx.appendChild(o);
+    });
+    fx.addEventListener('change', function () { window.NX_MOCK.setFixture(fx.value); });
+    function bg () {
+      var on = document.getElementById('wsbgOn').value === '1';
+      window.NX_MOCK.setBackground(on ? document.getElementById('wsbg').value : null);
+    }
+    document.getElementById('wsbg').addEventListener('input', bg);
+    document.getElementById('wsbgOn').addEventListener('change', bg);
+    document.getElementById('sz').addEventListener('change', function () {
+      var p = this.value.split('x'), st = document.getElementById('stage');
+      st.style.width = p[0] + 'px'; st.style.height = p[1] + 'px';
+    });
+    document.getElementById('reload').addEventListener('click', function () { window.NX.app.refreshData(); });
+    document.getElementById('wipe').addEventListener('click', function () { window.NX_MOCK.clearSettings(); });
+    var evt = document.getElementById('evt');
+    window.addEventListener('nx-mock-call', function (e) { evt.textContent = new Date().toLocaleTimeString() + '  ' + JSON.stringify(e.detail); });
+  })();
+</script>
+</body>
+</html>
