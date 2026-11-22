@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Depth Lines</title>
+  <link rel="stylesheet" href="css/panel.css">
+  <link rel="stylesheet" href="css/depth-lines.css">
+</head>
+<body>
+  <!-- #root is the hook the C-Tableau Viz pages shell uses to make room for its Exit pill. -->
+  <div id="root"><div id="dl-root" class="dl-root xp-root"></div></div>
+
+  <!-- Tableau Extensions API: not redistributed here, see lib/README.md. -->
+  <script src="../lib/tableau.extensions.1.latest.min.js"></script>
+
+  <!-- Vendored, ISC licensed, see lib/. -->
+  <script src="../lib/d3-array.min.js"></script>
+  <script src="../lib/d3-contour.min.js"></script>
+
+  <script src="js/core.js"></script>
+  <script src="js/schema.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/panel.js"></script>
+  <script src="js/depth-lines.js"></script>
+</body>
+</html>

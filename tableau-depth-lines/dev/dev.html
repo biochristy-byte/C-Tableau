@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Depth Lines - development harness</title>
+  <link rel="stylesheet" href="../src/css/panel.css">
+  <link rel="stylesheet" href="../src/css/depth-lines.css">
+</head>
+<body>
+  <!-- Runs the shipping extension code against dev/mock-tableau.js. Open with
+       ?fx=tumours|blobs|single|tiny|empty  &cat=0  &weight=0  &bg=081f33  &still=1
+       &settings={"multi":"small"}. The page IS the viz: resize the window to test sizes. -->
+  <!-- #root is the hook the C-Tableau Viz pages shell uses to make room for its Exit pill. -->
+  <div id="root"><div id="dl-root" class="dl-root xp-root"></div></div>
+  <script src="fixtures.js"></script>
+  <script src="mock-tableau.js"></script>
+  <script src="../lib/d3-array.min.js"></script>
+  <script src="../lib/d3-contour.min.js"></script>
+  <script src="../src/js/core.js"></script>
+  <script src="../src/js/schema.js"></script>
+  <script src="../src/js/engine.js"></script>
+  <script src="../src/js/render.js"></script>
+  <script src="../src/js/panel.js"></script>
+  <script src="../src/js/depth-lines.js"></script>
+</body>
+</html>

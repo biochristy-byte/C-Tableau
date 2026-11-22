@@ -1,0 +1,6 @@
+node_modules/
+*.log
+Thumbs.db
+dist/
+# Tableau library: download it yourself, see lib/README.md
+lib/tableau.extensions*.js

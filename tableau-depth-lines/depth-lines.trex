@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.datadivers.vizext.depthlines" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Depth Lines: 2D density contours of a scatter, drawn like a bathymetry chart. Filled bands from shallow to deep, optional contour lines and points, one contour set per category. Bandwidth and depth bands are steppers in the in-viz settings panel.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8772/src/index.html</url>
+    </source-location>
+    <icon/>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="x">
+      <display-name resource-id="enc-x">X</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-x"/>
+      <tooltip resource-id="tip-x">The measure on the horizontal axis. Put a dimension on Detail so every row is one point.</tooltip>
+    </encoding>
+
+    <encoding id="y">
+      <display-name resource-id="enc-y">Y</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-y"/>
+      <tooltip resource-id="tip-y">The measure on the vertical axis.</tooltip>
+    </encoding>
+
+    <encoding id="category">
+      <display-name resource-id="enc-category">Category</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="color"/>
+      <tooltip resource-id="tip-category">Optional. One contour set per category, as an overlay or small multiples.</tooltip>
+    </encoding>
+
+    <encoding id="weight">
+      <display-name resource-id="enc-weight">Weight</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="size"/>
+      <tooltip resource-id="tip-weight">Optional. Counts each point this many times in the density.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Depth Lines</text>
+    </resource>
+    <resource id="enc-x">
+      <text locale="en_US">X</text>
+    </resource>
+    <resource id="tip-x">
+      <text locale="en_US">The measure on the horizontal axis. Put a dimension on Detail so every row is one point.</text>
+    </resource>
+    <resource id="enc-y">
+      <text locale="en_US">Y</text>
+    </resource>
+    <resource id="tip-y">
+      <text locale="en_US">The measure on the vertical axis.</text>
+    </resource>
+    <resource id="enc-category">
+      <text locale="en_US">Category</text>
+    </resource>
+    <resource id="tip-category">
+      <text locale="en_US">Optional. One contour set per category, as an overlay or small multiples.</text>
+    </resource>
+    <resource id="enc-weight">
+      <text locale="en_US">Weight</text>
+    </resource>
+    <resource id="tip-weight">
+      <text locale="en_US">Optional. Counts each point this many times in the density.</text>
+    </resource>
+  </resources>
+</manifest>
