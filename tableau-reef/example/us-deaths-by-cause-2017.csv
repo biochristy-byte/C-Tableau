@@ -1,0 +1,511 @@
+Cause group,Cause,Census region,State,Deaths,Age-adjusted death rate
+Injury and infection,Unintentional injuries,South,Alabama,2703,53.8
+Injury and infection,Unintentional injuries,West,Alaska,436,63.7
+Injury and infection,Unintentional injuries,West,Arizona,4184,56.2
+Injury and infection,Unintentional injuries,South,Arkansas,1625,51.8
+Injury and infection,Unintentional injuries,West,California,13840,33.2
+Injury and infection,Unintentional injuries,West,Colorado,3037,53.6
+Injury and infection,Unintentional injuries,Northeast,Connecticut,2078,53.2
+Injury and infection,Unintentional injuries,South,Delaware,608,61.9
+Injury and infection,Unintentional injuries,South,District of Columbia,427,61.0
+Injury and infection,Unintentional injuries,South,Florida,13059,56.1
+Injury and infection,Unintentional injuries,South,Georgia,4712,45.2
+Injury and infection,Unintentional injuries,West,Hawaii,585,35.7
+Injury and infection,Unintentional injuries,West,Idaho,876,49.8
+Injury and infection,Unintentional injuries,Midwest,Illinois,6019,44.4
+Injury and infection,Unintentional injuries,Midwest,Indiana,3978,58.7
+Injury and infection,Unintentional injuries,Midwest,Iowa,1536,42.8
+Injury and infection,Unintentional injuries,Midwest,Kansas,1567,49.4
+Injury and infection,Unintentional injuries,South,Kentucky,3264,72.9
+Injury and infection,Unintentional injuries,South,Louisiana,2780,58.9
+Injury and infection,Unintentional injuries,Northeast,Maine,990,68.0
+Injury and infection,Unintentional injuries,South,Maryland,2408,36.9
+Injury and infection,Unintentional injuries,Northeast,Massachusetts,3821,51.5
+Injury and infection,Unintentional injuries,Midwest,Michigan,5623,53.0
+Injury and infection,Unintentional injuries,Midwest,Minnesota,2788,44.6
+Injury and infection,Unintentional injuries,South,Mississippi,1738,56.3
+Injury and infection,Unintentional injuries,Midwest,Missouri,3776,58.8
+Injury and infection,Unintentional injuries,West,Montana,579,50.2
+Injury and infection,Unintentional injuries,Midwest,Nebraska,811,38.5
+Injury and infection,Unintentional injuries,West,Nevada,1496,47.8
+Injury and infection,Unintentional injuries,Northeast,New Hampshire,907,62.9
+Injury and infection,Unintentional injuries,Northeast,New Jersey,4482,47.3
+Injury and infection,Unintentional injuries,West,New Mexico,1460,68.3
+Injury and infection,Unintentional injuries,Northeast,New York,7687,35.5
+Injury and infection,Unintentional injuries,South,North Carolina,5985,56.3
+Injury and infection,Unintentional injuries,Midwest,North Dakota,339,41.3
+Injury and infection,Unintentional injuries,Midwest,Ohio,8971,75.1
+Injury and infection,Unintentional injuries,South,Oklahoma,2563,62.5
+Injury and infection,Unintentional injuries,West,Oregon,2076,44.8
+Injury and infection,Unintentional injuries,Northeast,Pennsylvania,9527,70.2
+Injury and infection,Unintentional injuries,Northeast,Rhode Island,718,60.0
+Injury and infection,Unintentional injuries,South,South Carolina,3147,60.2
+Injury and infection,Unintentional injuries,Midwest,South Dakota,537,56.1
+Injury and infection,Unintentional injuries,South,Tennessee,4435,63.0
+Injury and infection,Unintentional injuries,South,Texas,10763,38.8
+Injury and infection,Unintentional injuries,West,Utah,1238,44.2
+Injury and infection,Unintentional injuries,Northeast,Vermont,394,56.9
+Injury and infection,Unintentional injuries,South,Virginia,3922,44.0
+Injury and infection,Unintentional injuries,West,Washington,3455,44.0
+Injury and infection,Unintentional injuries,South,West Virginia,1892,100.3
+Injury and infection,Unintentional injuries,Midwest,Wisconsin,3746,58.3
+Injury and infection,Unintentional injuries,West,Wyoming,348,56.9
+Brain and mind,Alzheimer's disease,South,Alabama,2563,45.2
+Brain and mind,Alzheimer's disease,West,Alaska,98,22.1
+Brain and mind,Alzheimer's disease,West,Arizona,3058,35.1
+Brain and mind,Alzheimer's disease,South,Arkansas,1436,39.4
+Brain and mind,Alzheimer's disease,West,California,16238,37.1
+Brain and mind,Alzheimer's disease,West,Colorado,1830,34.2
+Brain and mind,Alzheimer's disease,Northeast,Connecticut,1077,20.4
+Brain and mind,Alzheimer's disease,South,Delaware,377,30.6
+Brain and mind,Alzheimer's disease,South,District of Columbia,125,17.6
+Brain and mind,Alzheimer's disease,South,Florida,6980,20.7
+Brain and mind,Alzheimer's disease,South,Georgia,4290,46.0
+Brain and mind,Alzheimer's disease,West,Hawaii,465,19.7
+Brain and mind,Alzheimer's disease,West,Idaho,672,36.6
+Brain and mind,Alzheimer's disease,Midwest,Illinois,4021,25.6
+Brain and mind,Alzheimer's disease,Midwest,Indiana,2771,35.3
+Brain and mind,Alzheimer's disease,Midwest,Iowa,1597,35.3
+Brain and mind,Alzheimer's disease,Midwest,Kansas,894,24.3
+Brain and mind,Alzheimer's disease,South,Kentucky,1765,35.0
+Brain and mind,Alzheimer's disease,South,Louisiana,2188,43.7
+Brain and mind,Alzheimer's disease,Northeast,Maine,601,30.4
+Brain and mind,Alzheimer's disease,South,Maryland,1191,17.1
+Brain and mind,Alzheimer's disease,Northeast,Massachusetts,1841,19.9
+Brain and mind,Alzheimer's disease,Midwest,Michigan,4428,34.5
+Brain and mind,Alzheimer's disease,Midwest,Minnesota,2474,34.9
+Brain and mind,Alzheimer's disease,South,Mississippi,1626,49.6
+Brain and mind,Alzheimer's disease,Midwest,Missouri,2545,32.3
+Brain and mind,Alzheimer's disease,West,Montana,285,20.9
+Brain and mind,Alzheimer's disease,Midwest,Nebraska,698,28.5
+Brain and mind,Alzheimer's disease,West,Nevada,779,27.3
+Brain and mind,Alzheimer's disease,Northeast,New Hampshire,436,24.8
+Brain and mind,Alzheimer's disease,Northeast,New Jersey,2829,23.6
+Brain and mind,Alzheimer's disease,West,New Mexico,572,22.7
+Brain and mind,Alzheimer's disease,Northeast,New York,3521,13.2
+Brain and mind,Alzheimer's disease,South,North Carolina,4289,37.3
+Brain and mind,Alzheimer's disease,Midwest,North Dakota,387,36.5
+Brain and mind,Alzheimer's disease,Midwest,Ohio,5117,33.6
+Brain and mind,Alzheimer's disease,South,Oklahoma,1752,39.4
+Brain and mind,Alzheimer's disease,West,Oregon,1850,36.0
+Brain and mind,Alzheimer's disease,Northeast,Pennsylvania,4213,21.7
+Brain and mind,Alzheimer's disease,Northeast,Rhode Island,435,27.3
+Brain and mind,Alzheimer's disease,South,South Carolina,2549,45.0
+Brain and mind,Alzheimer's disease,Midwest,South Dakota,444,36.9
+Brain and mind,Alzheimer's disease,South,Tennessee,3522,46.7
+Brain and mind,Alzheimer's disease,South,Texas,9545,38.5
+Brain and mind,Alzheimer's disease,West,Utah,991,42.1
+Brain and mind,Alzheimer's disease,Northeast,Vermont,370,42.9
+Brain and mind,Alzheimer's disease,South,Virginia,2549,27.6
+Brain and mind,Alzheimer's disease,West,Washington,3710,46.0
+Brain and mind,Alzheimer's disease,South,West Virginia,770,30.6
+Brain and mind,Alzheimer's disease,Midwest,Wisconsin,2428,31.6
+Brain and mind,Alzheimer's disease,West,Wyoming,212,32.7
+Heart and blood vessels,Stroke,South,Alabama,2931,50.0
+Heart and blood vessels,Stroke,West,Alaska,190,35.1
+Heart and blood vessels,Stroke,West,Arizona,2681,30.8
+Heart and blood vessels,Stroke,South,Arkansas,1612,43.8
+Heart and blood vessels,Stroke,West,California,16355,37.6
+Heart and blood vessels,Stroke,West,Colorado,1988,35.8
+Heart and blood vessels,Stroke,Northeast,Connecticut,1403,27.8
+Heart and blood vessels,Stroke,South,Delaware,571,46.2
+Heart and blood vessels,Stroke,South,District of Columbia,246,35.9
+Heart and blood vessels,Stroke,South,Florida,12602,38.9
+Heart and blood vessels,Stroke,South,Georgia,4399,43.5
+Heart and blood vessels,Stroke,West,Hawaii,764,37.5
+Heart and blood vessels,Stroke,West,Idaho,726,38.5
+Heart and blood vessels,Stroke,Midwest,Illinois,6020,38.9
+Heart and blood vessels,Stroke,Midwest,Indiana,3150,40.2
+Heart and blood vessels,Stroke,Midwest,Iowa,1416,32.8
+Heart and blood vessels,Stroke,Midwest,Kansas,1355,37.7
+Heart and blood vessels,Stroke,South,Kentucky,2050,39.4
+Heart and blood vessels,Stroke,South,Louisiana,2460,47.4
+Heart and blood vessels,Stroke,Northeast,Maine,736,37.5
+Heart and blood vessels,Stroke,South,Maryland,2820,40.2
+Heart and blood vessels,Stroke,Northeast,Massachusetts,2367,26.5
+Heart and blood vessels,Stroke,Midwest,Michigan,5002,39.3
+Heart and blood vessels,Stroke,Midwest,Minnesota,2250,32.6
+Heart and blood vessels,Stroke,South,Mississippi,1723,51.1
+Heart and blood vessels,Stroke,Midwest,Missouri,3159,41.0
+Heart and blood vessels,Stroke,West,Montana,487,35.6
+Heart and blood vessels,Stroke,Midwest,Nebraska,760,31.5
+Heart and blood vessels,Stroke,West,Nevada,1137,35.9
+Heart and blood vessels,Stroke,Northeast,New Hampshire,514,28.9
+Heart and blood vessels,Stroke,Northeast,New Jersey,3474,30.2
+Heart and blood vessels,Stroke,West,New Mexico,878,34.8
+Heart and blood vessels,Stroke,Northeast,New York,6264,24.6
+Heart and blood vessels,Stroke,South,North Carolina,5098,43.0
+Heart and blood vessels,Stroke,Midwest,North Dakota,337,35.4
+Heart and blood vessels,Stroke,Midwest,Ohio,6425,42.8
+Heart and blood vessels,Stroke,South,Oklahoma,1947,43.3
+Heart and blood vessels,Stroke,West,Oregon,2066,39.9
+Heart and blood vessels,Stroke,Northeast,Pennsylvania,6700,36.5
+Heart and blood vessels,Stroke,Northeast,Rhode Island,425,29.4
+Heart and blood vessels,Stroke,South,South Carolina,2691,44.9
+Heart and blood vessels,Stroke,Midwest,South Dakota,414,36.7
+Heart and blood vessels,Stroke,South,Tennessee,3519,45.0
+Heart and blood vessels,Stroke,South,Texas,10790,41.3
+Heart and blood vessels,Stroke,West,Utah,888,36.2
+Heart and blood vessels,Stroke,Northeast,Vermont,249,28.9
+Heart and blood vessels,Stroke,South,Virginia,3555,37.5
+Heart and blood vessels,Stroke,West,Washington,3028,36.9
+Heart and blood vessels,Stroke,South,West Virginia,1058,41.8
+Heart and blood vessels,Stroke,Midwest,Wisconsin,2513,33.5
+Heart and blood vessels,Stroke,West,Wyoming,190,28.4
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Alabama,3484,57.8
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Alaska,204,35.9
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Arizona,3802,42.7
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Arkansas,2517,66.7
+"Lungs, kidneys and metabolism",Chronic lung disease,West,California,13881,32.2
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Colorado,2604,45.6
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,Connecticut,1471,30.4
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Delaware,526,40.8
+"Lungs, kidneys and metabolism",Chronic lung disease,South,District of Columbia,137,19.6
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Florida,12619,39.0
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Georgia,4866,46.2
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Hawaii,378,19.0
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Idaho,925,47.3
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Illinois,5732,37.6
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Indiana,4375,55.2
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Iowa,1939,46.5
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Kansas,1832,51.7
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Kentucky,3480,64.5
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Louisiana,2467,46.6
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,Maine,982,48.7
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Maryland,2079,29.9
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,Massachusetts,2842,32.5
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Michigan,5688,44.3
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Minnesota,2464,36.3
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Mississippi,2037,58.3
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Missouri,3940,50.7
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Montana,752,53.5
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Nebraska,1224,52.6
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Nevada,1633,50.0
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,New Hampshire,755,43.0
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,New Jersey,3227,28.6
+"Lungs, kidneys and metabolism",Chronic lung disease,West,New Mexico,1143,44.2
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,New York,7258,28.9
+"Lungs, kidneys and metabolism",Chronic lung disease,South,North Carolina,5540,45.3
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,North Dakota,358,38.3
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Ohio,7312,48.5
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Oklahoma,3035,65.9
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Oregon,2088,39.7
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,Pennsylvania,6667,37.1
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,Rhode Island,521,36.2
+"Lungs, kidneys and metabolism",Chronic lung disease,South,South Carolina,2983,47.9
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,South Dakota,505,45.3
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Tennessee,4657,57.4
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Texas,10650,40.5
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Utah,826,32.1
+"Lungs, kidneys and metabolism",Chronic lung disease,Northeast,Vermont,375,43.0
+"Lungs, kidneys and metabolism",Chronic lung disease,South,Virginia,3363,34.9
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Washington,3177,38.1
+"Lungs, kidneys and metabolism",Chronic lung disease,South,West Virginia,1681,64.3
+"Lungs, kidneys and metabolism",Chronic lung disease,Midwest,Wisconsin,2834,38.3
+"Lungs, kidneys and metabolism",Chronic lung disease,West,Wyoming,366,53.8
+"Lungs, kidneys and metabolism",Diabetes,South,Alabama,1173,19.8
+"Lungs, kidneys and metabolism",Diabetes,West,Alaska,130,19.3
+"Lungs, kidneys and metabolism",Diabetes,West,Arizona,2054,23.7
+"Lungs, kidneys and metabolism",Diabetes,South,Arkansas,1180,32.4
+"Lungs, kidneys and metabolism",Diabetes,West,California,9595,22.1
+"Lungs, kidneys and metabolism",Diabetes,West,Colorado,1017,17.2
+"Lungs, kidneys and metabolism",Diabetes,Northeast,Connecticut,694,14.5
+"Lungs, kidneys and metabolism",Diabetes,South,Delaware,244,19.1
+"Lungs, kidneys and metabolism",Diabetes,South,District of Columbia,138,20.1
+"Lungs, kidneys and metabolism",Diabetes,South,Florida,6172,20.2
+"Lungs, kidneys and metabolism",Diabetes,South,Georgia,2348,21.5
+"Lungs, kidneys and metabolism",Diabetes,West,Hawaii,299,15.9
+"Lungs, kidneys and metabolism",Diabetes,West,Idaho,394,20.3
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Illinois,2927,19.2
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Indiana,2096,26.6
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Iowa,918,22.8
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Kansas,874,25.2
+"Lungs, kidneys and metabolism",Diabetes,South,Kentucky,1474,27.7
+"Lungs, kidneys and metabolism",Diabetes,South,Louisiana,1272,23.9
+"Lungs, kidneys and metabolism",Diabetes,Northeast,Maine,395,19.8
+"Lungs, kidneys and metabolism",Diabetes,South,Maryland,1439,20.3
+"Lungs, kidneys and metabolism",Diabetes,Northeast,Massachusetts,1321,15.1
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Michigan,2798,22.1
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Minnesota,1312,19.3
+"Lungs, kidneys and metabolism",Diabetes,South,Mississippi,1164,33.3
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Missouri,1605,21.0
+"Lungs, kidneys and metabolism",Diabetes,West,Montana,292,21.6
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Nebraska,575,25.0
+"Lungs, kidneys and metabolism",Diabetes,West,Nevada,609,18.3
+"Lungs, kidneys and metabolism",Diabetes,Northeast,New Hampshire,340,19.2
+"Lungs, kidneys and metabolism",Diabetes,Northeast,New Jersey,1908,16.9
+"Lungs, kidneys and metabolism",Diabetes,West,New Mexico,673,26.5
+"Lungs, kidneys and metabolism",Diabetes,Northeast,New York,4176,16.8
+"Lungs, kidneys and metabolism",Diabetes,South,North Carolina,2903,23.6
+"Lungs, kidneys and metabolism",Diabetes,Midwest,North Dakota,194,21.8
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Ohio,3740,25.2
+"Lungs, kidneys and metabolism",Diabetes,South,Oklahoma,1398,30.6
+"Lungs, kidneys and metabolism",Diabetes,West,Oregon,1243,23.9
+"Lungs, kidneys and metabolism",Diabetes,Northeast,Pennsylvania,3704,21.1
+"Lungs, kidneys and metabolism",Diabetes,Northeast,Rhode Island,275,18.8
+"Lungs, kidneys and metabolism",Diabetes,South,South Carolina,1535,24.5
+"Lungs, kidneys and metabolism",Diabetes,Midwest,South Dakota,263,24.9
+"Lungs, kidneys and metabolism",Diabetes,South,Tennessee,1915,24.0
+"Lungs, kidneys and metabolism",Diabetes,South,Texas,5832,21.2
+"Lungs, kidneys and metabolism",Diabetes,West,Utah,596,22.9
+"Lungs, kidneys and metabolism",Diabetes,Northeast,Vermont,163,19.2
+"Lungs, kidneys and metabolism",Diabetes,South,Virginia,1967,20.1
+"Lungs, kidneys and metabolism",Diabetes,West,Washington,1812,21.6
+"Lungs, kidneys and metabolism",Diabetes,South,West Virginia,864,34.0
+"Lungs, kidneys and metabolism",Diabetes,Midwest,Wisconsin,1433,19.4
+"Lungs, kidneys and metabolism",Diabetes,West,Wyoming,121,18.1
+Heart and blood vessels,Heart disease,South,Alabama,13110,223.2
+Heart and blood vessels,Heart disease,West,Alaska,814,135.0
+Heart and blood vessels,Heart disease,West,Arizona,12398,141.9
+Heart and blood vessels,Heart disease,South,Arkansas,8270,223.8
+Heart and blood vessels,Heart disease,West,California,62797,142.9
+Heart and blood vessels,Heart disease,West,Colorado,7060,122.7
+Heart and blood vessels,Heart disease,Northeast,Connecticut,7138,141.6
+Heart and blood vessels,Heart disease,South,Delaware,1990,158.4
+Heart and blood vessels,Heart disease,South,District of Columbia,1284,189.8
+Heart and blood vessels,Heart disease,South,Florida,46440,145.8
+Heart and blood vessels,Heart disease,South,Georgia,18389,175.8
+Heart and blood vessels,Heart disease,West,Hawaii,2575,129.8
+Heart and blood vessels,Heart disease,West,Idaho,3084,162.5
+Heart and blood vessels,Heart disease,Midwest,Illinois,25394,163.3
+Heart and blood vessels,Heart disease,Midwest,Indiana,14445,183.2
+Heart and blood vessels,Heart disease,Midwest,Iowa,7180,167.4
+Heart and blood vessels,Heart disease,Midwest,Kansas,5723,158.0
+Heart and blood vessels,Heart disease,South,Kentucky,10343,195.9
+Heart and blood vessels,Heart disease,South,Louisiana,11260,214.4
+Heart and blood vessels,Heart disease,Northeast,Maine,2844,143.5
+Heart and blood vessels,Heart disease,South,Maryland,11653,164.5
+Heart and blood vessels,Heart disease,Northeast,Massachusetts,12140,134.7
+Heart and blood vessels,Heart disease,Midwest,Michigan,25187,196.1
+Heart and blood vessels,Heart disease,Midwest,Minnesota,8230,119.1
+Heart and blood vessels,Heart disease,South,Mississippi,7944,231.6
+Heart and blood vessels,Heart disease,Midwest,Missouri,14820,191.1
+Heart and blood vessels,Heart disease,West,Montana,2164,155.0
+Heart and blood vessels,Heart disease,Midwest,Nebraska,3581,149.3
+Heart and blood vessels,Heart disease,West,Nevada,6417,199.3
+Heart and blood vessels,Heart disease,Northeast,New Hampshire,2721,149.7
+Heart and blood vessels,Heart disease,Northeast,New Jersey,18840,162.3
+Heart and blood vessels,Heart disease,West,New Mexico,3896,151.4
+Heart and blood vessels,Heart disease,Northeast,New York,44092,171.2
+Heart and blood vessels,Heart disease,South,North Carolina,18808,156.5
+Heart and blood vessels,Heart disease,Midwest,North Dakota,1326,137.8
+Heart and blood vessels,Heart disease,Midwest,Ohio,28008,186.2
+Heart and blood vessels,Heart disease,South,Oklahoma,10772,237.2
+Heart and blood vessels,Heart disease,West,Oregon,6942,134.0
+Heart and blood vessels,Heart disease,Northeast,Pennsylvania,32312,176.0
+Heart and blood vessels,Heart disease,Northeast,Rhode Island,2339,155.7
+Heart and blood vessels,Heart disease,South,South Carolina,10418,172.0
+Heart and blood vessels,Heart disease,Midwest,South Dakota,1710,150.1
+Heart and blood vessels,Heart disease,South,Tennessee,16019,202.2
+Heart and blood vessels,Heart disease,South,Texas,45346,169.2
+Heart and blood vessels,Heart disease,West,Utah,3749,150.2
+Heart and blood vessels,Heart disease,Northeast,Vermont,1332,152.5
+Heart and blood vessels,Heart disease,South,Virginia,14861,154.5
+Heart and blood vessels,Heart disease,West,Washington,11582,138.8
+Heart and blood vessels,Heart disease,South,West Virginia,4849,192.0
+Heart and blood vessels,Heart disease,Midwest,Wisconsin,11860,157.6
+Heart and blood vessels,Heart disease,West,Wyoming,1001,148.9
+Injury and infection,Influenza and pneumonia,South,Alabama,1176,20.2
+Injury and infection,Influenza and pneumonia,West,Alaska,66,11.7
+Injury and infection,Influenza and pneumonia,West,Arizona,876,10.1
+Injury and infection,Influenza and pneumonia,South,Arkansas,720,19.8
+Injury and infection,Influenza and pneumonia,West,California,6340,14.6
+Injury and infection,Influenza and pneumonia,West,Colorado,577,10.1
+Injury and infection,Influenza and pneumonia,Northeast,Connecticut,675,13.1
+Injury and infection,Influenza and pneumonia,South,Delaware,184,14.9
+Injury and infection,Influenza and pneumonia,South,District of Columbia,79,11.4
+Injury and infection,Influenza and pneumonia,South,Florida,3057,9.6
+Injury and infection,Influenza and pneumonia,South,Georgia,1400,13.8
+Injury and infection,Influenza and pneumonia,West,Hawaii,637,29.6
+Injury and infection,Influenza and pneumonia,West,Idaho,255,13.7
+Injury and infection,Influenza and pneumonia,Midwest,Illinois,2402,15.6
+Injury and infection,Influenza and pneumonia,Midwest,Indiana,1078,13.8
+Injury and infection,Influenza and pneumonia,Midwest,Iowa,578,13.2
+Injury and infection,Influenza and pneumonia,Midwest,Kansas,546,15.0
+Injury and infection,Influenza and pneumonia,South,Kentucky,932,18.1
+Injury and infection,Influenza and pneumonia,South,Louisiana,785,15.1
+Injury and infection,Influenza and pneumonia,Northeast,Maine,301,15.2
+Injury and infection,Influenza and pneumonia,South,Maryland,990,14.0
+Injury and infection,Influenza and pneumonia,Northeast,Massachusetts,1433,15.9
+Injury and infection,Influenza and pneumonia,Midwest,Michigan,1798,14.2
+Injury and infection,Influenza and pneumonia,Midwest,Minnesota,697,9.9
+Injury and infection,Influenza and pneumonia,South,Mississippi,782,23.0
+Injury and infection,Influenza and pneumonia,Midwest,Missouri,1281,16.7
+Injury and infection,Influenza and pneumonia,West,Montana,185,13.3
+Injury and infection,Influenza and pneumonia,Midwest,Nebraska,393,16.2
+Injury and infection,Influenza and pneumonia,West,Nevada,636,19.6
+Injury and infection,Influenza and pneumonia,Northeast,New Hampshire,230,13.1
+Injury and infection,Influenza and pneumonia,Northeast,New Jersey,1337,11.7
+Injury and infection,Influenza and pneumonia,West,New Mexico,338,13.6
+Injury and infection,Influenza and pneumonia,Northeast,New York,4517,17.7
+Injury and infection,Influenza and pneumonia,South,North Carolina,2076,17.5
+Injury and infection,Influenza and pneumonia,Midwest,North Dakota,147,15.3
+Injury and infection,Influenza and pneumonia,Midwest,Ohio,2243,14.9
+Injury and infection,Influenza and pneumonia,South,Oklahoma,625,13.9
+Injury and infection,Influenza and pneumonia,West,Oregon,573,11.1
+Injury and infection,Influenza and pneumonia,Northeast,Pennsylvania,2718,14.6
+Injury and infection,Influenza and pneumonia,Northeast,Rhode Island,206,13.9
+Injury and infection,Influenza and pneumonia,South,South Carolina,723,12.3
+Injury and infection,Influenza and pneumonia,Midwest,South Dakota,217,19.0
+Injury and infection,Influenza and pneumonia,South,Tennessee,1656,21.3
+Injury and infection,Influenza and pneumonia,South,Texas,2954,11.2
+Injury and infection,Influenza and pneumonia,West,Utah,334,13.3
+Injury and infection,Influenza and pneumonia,Northeast,Vermont,86,9.7
+Injury and infection,Influenza and pneumonia,South,Virginia,1245,13.1
+Injury and infection,Influenza and pneumonia,West,Washington,1041,12.6
+Injury and infection,Influenza and pneumonia,South,West Virginia,458,18.2
+Injury and infection,Influenza and pneumonia,Midwest,Wisconsin,974,12.9
+Injury and infection,Influenza and pneumonia,West,Wyoming,115,17.5
+Brain and mind,Suicide,South,Alabama,836,16.6
+Brain and mind,Suicide,West,Alaska,200,27.0
+Brain and mind,Suicide,West,Arizona,1327,18.2
+Brain and mind,Suicide,South,Arkansas,631,20.8
+Brain and mind,Suicide,West,California,4312,10.5
+Brain and mind,Suicide,West,Colorado,1181,20.3
+Brain and mind,Suicide,Northeast,Connecticut,405,10.5
+Brain and mind,Suicide,South,Delaware,112,11.6
+Brain and mind,Suicide,South,District of Columbia,47,6.6
+Brain and mind,Suicide,South,Florida,3227,14.0
+Brain and mind,Suicide,South,Georgia,1451,13.6
+Brain and mind,Suicide,West,Hawaii,227,15.2
+Brain and mind,Suicide,West,Idaho,392,23.2
+Brain and mind,Suicide,Midwest,Illinois,1474,11.2
+Brain and mind,Suicide,Midwest,Indiana,1092,16.3
+Brain and mind,Suicide,Midwest,Iowa,479,15.0
+Brain and mind,Suicide,Midwest,Kansas,553,19.1
+Brain and mind,Suicide,South,Kentucky,770,16.9
+Brain and mind,Suicide,South,Louisiana,720,15.2
+Brain and mind,Suicide,Northeast,Maine,274,18.9
+Brain and mind,Suicide,South,Maryland,630,9.9
+Brain and mind,Suicide,Northeast,Massachusetts,682,9.5
+Brain and mind,Suicide,Midwest,Michigan,1457,14.1
+Brain and mind,Suicide,Midwest,Minnesota,783,13.9
+Brain and mind,Suicide,South,Mississippi,445,15.0
+Brain and mind,Suicide,Midwest,Missouri,1151,18.5
+Brain and mind,Suicide,West,Montana,311,28.9
+Brain and mind,Suicide,Midwest,Nebraska,275,14.7
+Brain and mind,Suicide,West,Nevada,627,20.3
+Brain and mind,Suicide,Northeast,New Hampshire,265,18.9
+Brain and mind,Suicide,Northeast,New Jersey,795,8.3
+Brain and mind,Suicide,West,New Mexico,491,23.3
+Brain and mind,Suicide,Northeast,New York,1696,8.1
+Brain and mind,Suicide,South,North Carolina,1521,14.3
+Brain and mind,Suicide,Midwest,North Dakota,154,20.1
+Brain and mind,Suicide,Midwest,Ohio,1740,14.8
+Brain and mind,Suicide,South,Oklahoma,756,19.1
+Brain and mind,Suicide,West,Oregon,825,19.0
+Brain and mind,Suicide,Northeast,Pennsylvania,2030,15.0
+Brain and mind,Suicide,Northeast,Rhode Island,129,11.8
+Brain and mind,Suicide,South,South Carolina,838,16.3
+Brain and mind,Suicide,Midwest,South Dakota,191,22.5
+Brain and mind,Suicide,South,Tennessee,1166,16.8
+Brain and mind,Suicide,South,Texas,3778,13.4
+Brain and mind,Suicide,West,Utah,663,22.7
+Brain and mind,Suicide,Northeast,Vermont,112,18.3
+Brain and mind,Suicide,South,Virginia,1179,13.4
+Brain and mind,Suicide,West,Washington,1297,16.9
+Brain and mind,Suicide,South,West Virginia,393,21.1
+Brain and mind,Suicide,Midwest,Wisconsin,926,15.4
+Brain and mind,Suicide,West,Wyoming,157,26.9
+Cancers,Cancer,South,Alabama,10410,170.0
+Cancers,Cancer,West,Alaska,926,139.2
+Cancers,Cancer,West,Arizona,12008,135.8
+Cancers,Cancer,South,Arkansas,6517,173.6
+Cancers,Cancer,West,California,59516,136.8
+Cancers,Cancer,West,Colorado,7829,131.0
+Cancers,Cancer,Northeast,Connecticut,6608,139.6
+Cancers,Cancer,South,Delaware,2085,160.4
+Cancers,Cancer,South,District of Columbia,1031,152.8
+Cancers,Cancer,South,Florida,45131,145.9
+Cancers,Cancer,South,Georgia,17135,154.9
+Cancers,Cancer,West,Hawaii,2456,128.6
+Cancers,Cancer,West,Idaho,3020,153.2
+Cancers,Cancer,Midwest,Illinois,24150,157.9
+Cancers,Cancer,Midwest,Indiana,13462,170.0
+Cancers,Cancer,Midwest,Iowa,6449,158.0
+Cancers,Cancer,Midwest,Kansas,5494,157.2
+Cancers,Cancer,South,Kentucky,10145,185.7
+Cancers,Cancer,South,Louisiana,9513,174.9
+Cancers,Cancer,Northeast,Maine,3391,170.8
+Cancers,Cancer,South,Maryland,10796,151.5
+Cancers,Cancer,Northeast,Massachusetts,12934,149.3
+Cancers,Cancer,Midwest,Michigan,20671,161.3
+Cancers,Cancer,Midwest,Minnesota,9896,146.8
+Cancers,Cancer,South,Mississippi,6526,183.1
+Cancers,Cancer,Midwest,Missouri,12971,167.3
+Cancers,Cancer,West,Montana,2145,152.6
+Cancers,Cancer,Midwest,Nebraska,3502,152.6
+Cancers,Cancer,West,Nevada,5283,155.3
+Cancers,Cancer,Northeast,New Hampshire,2760,153.5
+Cancers,Cancer,Northeast,New Jersey,16264,144.6
+Cancers,Cancer,West,New Mexico,3620,138.3
+Cancers,Cancer,Northeast,New York,34956,141.2
+Cancers,Cancer,South,North Carolina,19474,157.1
+Cancers,Cancer,Midwest,North Dakota,1280,142.6
+Cancers,Cancer,Midwest,Ohio,25643,171.2
+Cancers,Cancer,South,Oklahoma,8203,177.3
+Cancers,Cancer,West,Oregon,8083,154.2
+Cancers,Cancer,Northeast,Pennsylvania,28387,161.0
+Cancers,Cancer,Northeast,Rhode Island,2154,154.2
+Cancers,Cancer,South,South Carolina,10356,162.7
+Cancers,Cancer,Midwest,South Dakota,1715,156.9
+Cancers,Cancer,South,Tennessee,14302,173.4
+Cancers,Cancer,South,Texas,40668,146.5
+Cancers,Cancer,West,Utah,3161,120.3
+Cancers,Cancer,Northeast,Vermont,1434,164.5
+Cancers,Cancer,South,Virginia,15064,152.6
+Cancers,Cancer,West,Washington,12664,148.4
+Cancers,Cancer,South,West Virginia,4654,179.4
+Cancers,Cancer,Midwest,Wisconsin,11318,153.2
+Cancers,Cancer,West,Wyoming,948,136.1
+"Lungs, kidneys and metabolism",Kidney disease,South,Alabama,980,16.5
+"Lungs, kidneys and metabolism",Kidney disease,West,Alaska,54,9.9
+"Lungs, kidneys and metabolism",Kidney disease,West,Arizona,540,6.2
+"Lungs, kidneys and metabolism",Kidney disease,South,Arkansas,725,19.7
+"Lungs, kidneys and metabolism",Kidney disease,West,California,3887,8.9
+"Lungs, kidneys and metabolism",Kidney disease,West,Colorado,503,8.9
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,Connecticut,554,11.2
+"Lungs, kidneys and metabolism",Kidney disease,South,Delaware,205,16.1
+"Lungs, kidneys and metabolism",Kidney disease,South,District of Columbia,67,10.0
+"Lungs, kidneys and metabolism",Kidney disease,South,Florida,3172,10.1
+"Lungs, kidneys and metabolism",Kidney disease,South,Georgia,1942,18.6
+"Lungs, kidneys and metabolism",Kidney disease,West,Hawaii,208,10.7
+"Lungs, kidneys and metabolism",Kidney disease,West,Idaho,170,9.0
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Illinois,2565,16.8
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Indiana,1440,18.5
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Iowa,367,8.8
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Kansas,541,15.0
+"Lungs, kidneys and metabolism",Kidney disease,South,Kentucky,1024,19.4
+"Lungs, kidneys and metabolism",Kidney disease,South,Louisiana,1076,20.6
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,Maine,260,13.0
+"Lungs, kidneys and metabolism",Kidney disease,South,Maryland,830,11.9
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,Massachusetts,1193,13.4
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Michigan,1874,14.7
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Minnesota,537,7.7
+"Lungs, kidneys and metabolism",Kidney disease,South,Mississippi,741,21.7
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Missouri,1515,19.6
+"Lungs, kidneys and metabolism",Kidney disease,West,Montana,129,9.2
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Nebraska,226,9.5
+"Lungs, kidneys and metabolism",Kidney disease,West,Nevada,299,9.0
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,New Hampshire,169,9.4
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,New Jersey,1591,13.9
+"Lungs, kidneys and metabolism",Kidney disease,West,New Mexico,330,12.9
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,New York,2296,9.1
+"Lungs, kidneys and metabolism",Kidney disease,South,North Carolina,2040,17.1
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,North Dakota,122,12.9
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Ohio,2237,15.0
+"Lungs, kidneys and metabolism",Kidney disease,South,Oklahoma,461,10.2
+"Lungs, kidneys and metabolism",Kidney disease,West,Oregon,377,7.3
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,Pennsylvania,2898,15.9
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,Rhode Island,176,11.6
+"Lungs, kidneys and metabolism",Kidney disease,South,South Carolina,950,15.5
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,South Dakota,75,6.8
+"Lungs, kidneys and metabolism",Kidney disease,South,Tennessee,1140,14.4
+"Lungs, kidneys and metabolism",Kidney disease,South,Texas,4256,16.0
+"Lungs, kidneys and metabolism",Kidney disease,West,Utah,384,15.4
+"Lungs, kidneys and metabolism",Kidney disease,Northeast,Vermont,29,3.3
+"Lungs, kidneys and metabolism",Kidney disease,South,Virginia,1618,16.9
+"Lungs, kidneys and metabolism",Kidney disease,West,Washington,439,5.3
+"Lungs, kidneys and metabolism",Kidney disease,South,West Virginia,436,17.1
+"Lungs, kidneys and metabolism",Kidney disease,Midwest,Wisconsin,922,12.5
+"Lungs, kidneys and metabolism",Kidney disease,West,Wyoming,63,9.5

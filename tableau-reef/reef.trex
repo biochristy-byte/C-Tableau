@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.datadivers.vizext.reef" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Reef: nested circle packing. One to three dimension levels become circles inside circles, sized by a measure. Click a group to zoom into it with a smooth eased transition, and use the breadcrumb to climb back out.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8770/src/index.html</url>
+    </source-location>
+    <icon/>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="level1">
+      <display-name resource-id="enc-level1">Level 1</display-name>
+      <data-spec><data-type>string</data-type></data-spec>
+      <role-spec><role-type>discrete-dimension</role-type></role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-c"/>
+      <tooltip resource-id="tip-level1">The outer groups. Required.</tooltip>
+    </encoding>
+
+    <encoding id="level2">
+      <display-name resource-id="enc-level2">Level 2</display-name>
+      <data-spec><data-type>string</data-type></data-spec>
+      <role-spec><role-type>discrete-dimension</role-type></role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-c"/>
+      <tooltip resource-id="tip-level2">Optional. Circles inside each Level 1 group.</tooltip>
+    </encoding>
+
+    <encoding id="level3">
+      <display-name resource-id="enc-level3">Level 3</display-name>
+      <data-spec><data-type>string</data-type></data-spec>
+      <role-spec><role-type>discrete-dimension</role-type></role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-c"/>
+      <tooltip resource-id="tip-level3">Optional. Circles inside each Level 2 group.</tooltip>
+    </encoding>
+
+    <encoding id="size">
+      <display-name resource-id="enc-size">Size</display-name>
+      <data-spec><data-type>numeric</data-type></data-spec>
+      <role-spec><role-type>continuous-measure</role-type></role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="size"/>
+      <tooltip resource-id="tip-size">The measure that sets each circle's area.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name"><text locale="en_US">Reef</text></resource>
+    <resource id="enc-level1"><text locale="en_US">Level 1</text></resource>
+    <resource id="enc-level2"><text locale="en_US">Level 2</text></resource>
+    <resource id="enc-level3"><text locale="en_US">Level 3</text></resource>
+    <resource id="enc-size"><text locale="en_US">Size</text></resource>
+    <resource id="tip-level1"><text locale="en_US">The outer groups. Required.</text></resource>
+    <resource id="tip-level2"><text locale="en_US">Optional. Circles inside each Level 1 group.</text></resource>
+    <resource id="tip-level3"><text locale="en_US">Optional. Circles inside each Level 2 group.</text></resource>
+    <resource id="tip-size"><text locale="en_US">The measure that sets each circle's area.</text></resource>
+  </resources>
+</manifest>
