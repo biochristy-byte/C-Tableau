@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.datadivers.vizext.tidelines" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Ridgeline (joy plot): one smoothed density ridge per category on a shared scale, with ocean-tide fills, median and quartile ticks, and a settings panel inside the viz.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <!-- 1.12 is the floor because this extension uses worksheetContent, which
+         the shipped type definitions tag as "since 1.12.0 and Tableau 2024.2". -->
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8775/src/index.html</url>
+    </source-location>
+    <icon/>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="category">
+      <display-name resource-id="enc-category">Category</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-c"/>
+      <tooltip resource-id="tip-category">The dimension that gives each ridge its own row.</tooltip>
+    </encoding>
+
+    <encoding id="value">
+      <display-name resource-id="enc-value">Value</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-v"/>
+      <tooltip resource-id="tip-value">The numeric measure whose distribution is drawn. One row per observation.</tooltip>
+    </encoding>
+
+    <encoding id="color">
+      <display-name resource-id="enc-color">Colour</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="color"/>
+      <tooltip resource-id="tip-color">Optional. Colours each ridge by this dimension when Ridge colour is set to By field.</tooltip>
+    </encoding>
+
+    <encoding id="label">
+      <display-name resource-id="enc-label">Label</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="text"/>
+      <tooltip resource-id="tip-label">Optional. Display name written beside each ridge instead of the Category value.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Tide Lines</text>
+    </resource>
+    <resource id="enc-category">
+      <text locale="en_US">Category</text>
+    </resource>
+    <resource id="enc-value">
+      <text locale="en_US">Value</text>
+    </resource>
+    <resource id="enc-color">
+      <text locale="en_US">Colour</text>
+    </resource>
+    <resource id="enc-label">
+      <text locale="en_US">Label</text>
+    </resource>
+    <resource id="tip-category">
+      <text locale="en_US">The dimension that gives each ridge its own row.</text>
+    </resource>
+    <resource id="tip-value">
+      <text locale="en_US">The numeric measure whose distribution is drawn. One row per observation.</text>
+    </resource>
+    <resource id="tip-color">
+      <text locale="en_US">Optional. Colours each ridge by this dimension.</text>
+    </resource>
+    <resource id="tip-label">
+      <text locale="en_US">Optional. Display name written beside each ridge.</text>
+    </resource>
+  </resources>
+</manifest>

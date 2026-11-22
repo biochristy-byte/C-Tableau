@@ -1,0 +1,24 @@
+TIDE LINES (RIDGELINE) FOR TABLEAU - QUICK START
+=================================================
+
+Needs: Tableau Desktop 2024.2 or newer (the free edition works).
+Tableau Public: works while you author; viewers see "not supported" until Exchange approval.
+For a public audience use the C-Tableau Viz pages instead. See README.md.
+
+1. Unzip this folder somewhere permanent, like your Desktop. Do not run it from inside the zip.
+
+2. Double-click  Start-TideLines.bat
+   A black window opens and says "Tide Lines server is running." LEAVE IT OPEN the whole time
+   you use the chart. Closing it makes the chart go blank.
+   (If Windows shows a blue "protected your PC" box: More info > Run anyway.)
+
+3. In Tableau, open a worksheet. For the example, connect to example/birth-weight.csv.
+
+4. Marks card > the mark type dropdown > Viz Extensions > Add Extension
+   > Access Local Viz Extensions > pick  tide-lines.trex  from this folder. Click Allow.
+
+5. Drag "Mother group" onto Category and "Birth weight (g)" onto Value.
+   Put "Baby ID" on Detail so every baby is its own row (or turn off Analysis > Aggregate Measures).
+   Optional: "Mother smoked in pregnancy" on Colour, "Short name" on Label.
+
+6. Hover the chart and click the gear in the top right for every setting.

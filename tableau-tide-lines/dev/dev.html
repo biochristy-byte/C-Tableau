@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tide Lines development harness</title>
+  <link rel="stylesheet" href="../src/css/tidelines.css">
+  <style>
+    /* Harness chrome only. None of it ships inside the extension. */
+    html, body { overflow: auto; height: auto; background: #eef1f4; }
+    body { font: 14px/1.45 "Segoe UI", system-ui, Arial, sans-serif; color: #10202c; padding: 14px; }
+    .hz { max-width: 1680px; margin: 0 auto; }
+    h1 { font-size: 16px; margin: 0 0 4px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; background: #fff; border: 1px solid #c9d2da; border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+    .fld { display: flex; flex-direction: column; gap: 4px; }
+    .fld label { font-size: 14px; font-weight: 600; }
+    .fld select { height: 32px; border: 1px solid #8a9aa6; border-radius: 6px; padding: 0 6px; font: inherit; background: #fff; }
+    #stage { position: relative; width: 900px; height: 520px; overflow: hidden; border: 1px solid #8a9aa6; border-radius: 8px; }
+    .evt { margin-top: 8px; font: 14px ui-monospace, Consolas, monospace; background: #fff; border: 1px solid #c9d2da; border-radius: 6px; padding: 7px 9px; min-height: 34px; }
+  </style>
+</head>
+<body>
+<div class="hz">
+  <h1>Tide Lines development harness</h1>
+  <div>Runs the shipping extension code against a mock of the Tableau Extensions API. URL options: fixture, size (WxH), theme (light or dark).</div>
+  <div class="bar">
+    <div class="fld"><label for="fx">Dataset</label><select id="fx"></select></div>
+    <div class="fld"><label for="sz">Stage size</label>
+      <select id="sz"><option>900x520</option><option>1600x1000</option><option>300x300</option><option>640x400</option><option>420x640</option></select></div>
+    <div class="fld"><label for="th">Worksheet background</label>
+      <select id="th"><option value="light">Light</option><option value="dark">Dark (Data Divers navy)</option></select></div>
+  </div>
+  <div id="stage"><div id="tl-root"><div id="tl-chart"></div></div></div>
+  <div class="evt" id="evt">Tableau API calls from the extension appear here.</div>
+</div>
+
+<script src="fixtures.js"></script>
+<script src="mock-tableau.js"></script>
+<script src="../src/js/kde.js"></script>
+<script src="../src/js/layout.js"></script>
+<script src="../src/js/palettes.js"></script>
+<script src="../src/js/schema.js"></script>
+<script src="../src/js/render.js"></script>
+<script src="../src/js/settings-panel.js"></script>
+<script>
+  /* Parse a small CSV (quoted fields allowed) into the mock's fixture shape. */
+  window.TL_parseCsv = function (text) {
+    var rows = [], row = [], cur = '', q = false, i, c;
+    for (i = 0; i < text.length; i++) {
+      c = text.charAt(i);
+      if (q) { if (c === '"') { if (text.charAt(i + 1) === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n') { row.push(cur.replace(/\r$/, '')); rows.push(row); row = []; cur = ''; }
+      else cur += c;
+    }
+    if (cur || row.length) { row.push(cur); rows.push(row); }
+    var cols = rows.shift();
+    return { columns: cols, rows: rows.filter(function (r) { return r.length === cols.length; }).map(function (r) {
+      var o = {};
+      cols.forEach(function (k, j) { var n = Number(r[j]); o[k] = r[j] !== '' && isFinite(n) && k.indexOf('ID') < 0 ? n : r[j]; });
+      return o;
+    }) };
+  };
+  (function () {
+    var q = new URLSearchParams(location.search), fx = document.getElementById('fx'), M = window.TL_MOCK;
+    var sz = q.get('size') || '900x520', th = q.get('theme') || 'light', st = document.getElementById('stage');
+    var p = sz.split('x'); st.style.width = p[0] + 'px'; st.style.height = p[1] + 'px';
+    document.getElementById('sz').value = sz; document.getElementById('th').value = th;
+    M.worksheet.backgroundColor = th === 'dark' ? '#081f33' : '#ffffff';
+    Object.keys(window.TL_FIXTURES).concat(['birth']).forEach(function (k) {
+      var o = document.createElement('option'); o.value = k; o.textContent = k === 'birth' ? 'Birth weights (real data)' : window.TL_FIXTURES[k].label; fx.appendChild(o);
+    });
+    function loadFixture (key) {
+      if (key === 'birth') {
+        return fetch('../example/birth-weight.csv').then(function (r) { return r.text(); }).then(function (t) {
+          window.TL_FIXTURES.birth = window.TL_parseCsv(t);
+          M.worksheet._encodings = { category: { name: 'Mother group', fieldId: 'a' }, value: { name: 'Birth weight (g)', fieldId: 'b' },
+            color: { name: 'Mother smoked in pregnancy', fieldId: 'c' }, label: { name: 'Short name', fieldId: 'd' } };
+        });
+      }
+      M.worksheet._encodings = { category: { name: 'Group', fieldId: 'a' }, value: { name: 'Value', fieldId: 'b' }, color: { name: 'Segment', fieldId: 'c' }, label: { name: 'Short', fieldId: 'd' } };
+      return Promise.resolve();
+    }
+    var first = q.get('fixture') || 'typical';
+    fx.value = first;
+    window.TL_READY = loadFixture(first).then(function () {
+      M.worksheet._fixtureKey = first;
+      return new Promise(function (res) { var s = document.createElement('script'); s.src = '../src/js/tidelines.js'; s.onload = res; document.body.appendChild(s); });
+    });
+    fx.addEventListener('change', function () { loadFixture(fx.value).then(function () { M.setFixture(fx.value); }); });
+    document.getElementById('th').addEventListener('change', function () { M.setBackground(this.value === 'dark' ? '#081f33' : '#ffffff'); });
+    document.getElementById('sz').addEventListener('change', function () { var p2 = this.value.split('x'); st.style.width = p2[0] + 'px'; st.style.height = p2[1] + 'px'; window.dispatchEvent(new Event('resize')); });
+    var evt = document.getElementById('evt');
+    function show (m) { evt.textContent = new Date().toLocaleTimeString() + '  ' + m; }
+    window.addEventListener('tl-mock-select', function (e) { show('select ' + JSON.stringify(e.detail.sel) + ' ' + e.detail.type); });
+    window.addEventListener('tl-mock-hover', function (e) { show('hoverTupleAsync(' + e.detail.tuple + ')'); });
+    if (window.ResizeObserver) new ResizeObserver(function () { window.dispatchEvent(new Event('resize')); }).observe(st);
+  })();
+</script>
+</body>
+</html>

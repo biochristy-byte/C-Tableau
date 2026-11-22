@@ -1,0 +1,10 @@
+{
+  "name": "tableau-tide-lines-viz-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Tableau viz extension that draws a ridgeline (joy plot) with a full in-viz settings panel.",
+  "scripts": {
+    "test": "node test/run.js && python test/mock_render.py && python test/standin_test.py"
+  },
+  "license": "MIT"
+}
