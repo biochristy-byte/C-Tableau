@@ -5,7 +5,7 @@
   "description": "A Tableau viz extension: 2D density contours of a scatter, drawn like a bathymetry chart.",
   "scripts": {
     "start": "http-server . -p 8772 -c-1 --cors",
-    "test": "node test/run.js && python test/render_test.py"
+    "test": "node test/run.js && python test/render_test.py && python test/panel_test.py && python test/standin_test.py"
   },
   "devDependencies": { "http-server": "^14.1.1" },
   "license": "MIT"

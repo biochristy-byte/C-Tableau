@@ -169,56 +169,7 @@ def main():
                 check_text(page, f'{fx} fixture', 'svg text, .dl-empty, .dl-legend span')
                 ctx.close()
 
-            # ---- panel, steppers, persistence, copy, no sliders, no dialogs
-            for tname, bg in THEMES.items():
-                ctx, page, errs = open_page(browser, f'fx=tumors&bg={bg}&settings=' + json.dumps({'multi': 'small'}), 800, 3300, tname)
-                ctx.grant_permissions(['clipboard-read', 'clipboard-write'])
-                check(f'panel {tname}: panel starts closed', page.locator('.xp-panel').is_hidden())
-                page.click('.xp-gear')
-                check(f'panel {tname}: opens', page.locator('.xp-panel').is_visible())
-                check(f'panel {tname}: no range sliders anywhere', page.locator('input[type=range]').count() == 0)
-                for d in page.locator('.xp-group').all():
-                    d.evaluate('e => e.open = true')
-                nodes = check_text(page, f'panel {tname}', '.xp-panel .xp-title, .xp-panel .xp-sum, .xp-panel .xp-label, .xp-panel .xp-help, .xp-panel .xp-btn, .xp-panel .xp-chip, .xp-panel .xp-unit',
-                                   'getComputedStyle(document.querySelector(".xp-panel")).backgroundColor')
-                check(f'panel {tname}: examined many panel labels ({len(nodes)})', len(nodes) >= 40)
-                # stepper: + on levels changes the band count, persists a STRING setting
-                before = int(page.get_attribute('#dl-root', 'data-bands'))
-                page.click('.xp-row[data-key=levels] .xp-sbtn >> nth=1')
-                page.wait_for_timeout(120)
-                after = int(page.get_attribute('#dl-root', 'data-bands'))
-                check(f'panel {tname}: levels + redraws ({before} -> {after})', after > before)
-                page.wait_for_timeout(600)
-                saved = page.evaluate('DL_MOCK.settings.getAll()')
-                check(f'panel {tname}: saved to extension settings as string', saved.get('depthlines.levels') == '9', str(saved.get('depthlines.levels')))
-                check(f'panel {tname}: saveAsync called', page.evaluate('DL_MOCK.settings.saves') >= 1)
-                # typed value
-                page.fill('.xp-row[data-key=levels] .xp-num', '5'); page.press('.xp-row[data-key=levels] .xp-num', 'Enter')
-                page.wait_for_timeout(120)
-                check(f'panel {tname}: typed 5 levels', page.locator('.dl-panel[data-panel="0"] path.dl-band[data-g="0"]').count() <= 5)
-                # chip group
-                page.click('.xp-row[data-key=multi] .xp-chip[data-value=overlay]')
-                page.wait_for_timeout(100)
-                check(f'panel {tname}: chip switches to overlay (1 panel)', page.get_attribute('#dl-root', 'data-panels') == '1' and page.locator('.dl-panel').count() == 1 and page.locator('.dl-ptitle').count() == 0)
-                # copy settings
-                page.click('.xp-foot .xp-btn:has-text("Copy settings")')
-                page.wait_for_timeout(200)
-                clip = page.evaluate('navigator.clipboard.readText()')
-                try:
-                    obj = json.loads(clip)
-                except Exception:
-                    obj = {}
-                check(f'panel {tname}: Copy settings puts valid JSON on the clipboard', obj.get('levels') == 5 and obj.get('multi') == 'overlay' and len(obj) >= 25, clip[:80])
-                # paste settings back (inline box, no dialog)
-                page.click('.xp-foot .xp-btn:has-text("Paste settings")')
-                page.fill('.xp-paste-text', json.dumps({'levels': 6, 'ramp': 'sunrise'}))
-                page.click('.xp-paste .xp-btn')
-                page.wait_for_timeout(120)
-                check(f'panel {tname}: pasted settings applied', page.evaluate('DL.app.state.settings.levels') == 6 and page.evaluate('DL.app.state.settings.ramp') == 'sunrise')
-                check(f'panel {tname}: no console errors or dialogs through the whole tour', not errs, str(errs[:2]))
-                if tname == 'light':
-                    page.screenshot(path=str(prev / 'settings-panel-light.png'), clip={'x': 0, 'y': 0, 'width': 800, 'height': 900})
-                ctx.close()
+            # ---- the settings panel has its own gate: test/panel_test.py
 
             # ---- interaction pushes back to Tableau
             ctx, page, errs = open_page(browser, 'fx=tumors&bg=ffffff&settings=' + json.dumps({'points': True, 'multi': 'small'}), 900, 650)

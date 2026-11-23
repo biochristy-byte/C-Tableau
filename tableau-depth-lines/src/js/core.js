@@ -1,6 +1,5 @@
 /* Shared helpers for the Data Divers house extensions: color math, contrast,
- * number formatting, tick picking, label thinning and the settings-schema
- * factory. This file is identical in Depth Lines and Sketchbook on purpose.
+ * number formatting, tick picking and label thinning. This file is identical in Depth Lines and Sketchbook on purpose.
  * Nothing here touches Tableau. */
 (function (global) {
   'use strict';
@@ -103,53 +102,10 @@
     return removed;
   }
 
-  /* ------------------------------------------------------ settings schema */
-
-  function makeSchema (groups) {
-    var DEFAULTS = {}, OPTS = {};
-    groups.forEach(function (g) {
-      g.options.forEach(function (o) { DEFAULTS[o.key] = o.def; OPTS[o.key] = o; });
-    });
-    function coerce (key, v) {
-      var o = OPTS[key];
-      if (!o) return v;
-      switch (o.type) {
-        case 'toggle':
-          if (v === true || v === 'true' || v === 1 || v === '1') return true;
-          if (v === false || v === 'false' || v === 0 || v === '0') return false;
-          return o.def;
-        case 'number': {
-          var n = typeof v === 'number' ? v : (v === '' || v === null || v === undefined ? NaN : Number(v));
-          if (!isFinite(n)) return o.def;
-          if (o.min !== undefined) n = Math.max(o.min, n);
-          if (o.max !== undefined) n = Math.min(o.max, n);
-          n = Math.round(n * 10000) / 10000;
-          return o.int ? Math.round(n) : n;
-        }
-        case 'segmented':
-        case 'select':
-          return o.choices.some(function (c) { return c.value === v; }) ? v : o.def;
-        case 'color':
-          return parseColor(String(v)) ? hex(parseColor(String(v))) : o.def;
-        default:
-          return v === null || v === undefined ? o.def : String(v);
-      }
-    }
-    function resolve (stored) {
-      var out = {};
-      Object.keys(DEFAULTS).forEach(function (k) {
-        out[k] = stored && Object.prototype.hasOwnProperty.call(stored, k) && stored[k] !== undefined ? coerce(k, stored[k]) : DEFAULTS[k];
-      });
-      return out;
-    }
-    return { GROUPS: groups, DEFAULTS: DEFAULTS, OPTS: OPTS, coerce: coerce, resolve: resolve };
-  }
-
   global.HX = {
     parseColor: parseColor, hex: hex, luminance: luminance, contrast: contrast, mix: mix,
     pickText: pickText, isDark: isDark, INK_DARK: INK_DARK, INK_LIGHT: INK_LIGHT,
-    niceStep: niceStep, ticks: ticks, formatNumber: formatNumber, thin: thin, rectsOverlap: rectsOverlap,
-    makeSchema: makeSchema
+    niceStep: niceStep, ticks: ticks, formatNumber: formatNumber, thin: thin, rectsOverlap: rectsOverlap
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.HX;
 })(typeof window !== 'undefined' ? window : globalThis);

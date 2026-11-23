@@ -71,12 +71,14 @@
    * density does not change when the viz is resized. */
   function bandwidthPx (pct, w, h) { return Math.max(3, pct / 100 * Math.min(w, h)); }
 
-  /* `levels` thresholds from `floor` (a share of the peak) up to 95% of it.
-   * An explicit array means the stepper is exact: levels contours, no more. */
-  function thresholdsFor (max, levels, floorPct) {
-    var out = [], lo = floorPct / 100, hi = 0.95;
+  /* `levels` thresholds from `floor` (a share of the peak) up to `ceil` (95% unless set). An explicit array means the
+   * stepper is exact: levels contours, no more. mode 'log' spaces them geometrically, crowding them toward the shallow edge. */
+  function thresholdsFor (max, levels, floorPct, ceilPct, mode) {
+    var out = [], lo = floorPct / 100, hi = (ceilPct === undefined ? 95 : ceilPct) / 100;
+    if (!(hi > lo)) hi = Math.min(0.99, lo + 0.05);
     for (var i = 0; i < levels; i++) {
-      var f = levels === 1 ? lo : lo + (hi - lo) * i / (levels - 1);
+      var u = levels === 1 ? 0 : i / (levels - 1);
+      var f = mode === 'log' ? lo * Math.pow(hi / lo, u) : lo + (hi - lo) * u;
       out.push(max * f);
     }
     return out;
@@ -126,7 +128,7 @@
   function computeBands (groups, w, h, s) {
     var d3 = global.d3;
     var bw = bandwidthPx(s.bandwidth, w, h);
-    var cell = Math.min(w, h) < 420 ? 2 : 4;
+    var cell = s.cell === 'fine' ? 2 : s.cell === 'medium' ? 4 : s.cell === 'coarse' ? 8 : (Math.min(w, h) < 420 ? 2 : 4);
     var fns = groups.map(function (g) {
       var dens = d3.contourDensity()
         .x(function (d) { return d.px; }).y(function (d) { return d.py; }).weight(function (d) { return d.w; })
@@ -136,7 +138,7 @@
     var sharedMax = Math.max.apply(null, fns.map(function (f) { return f.max; }).concat([0]));
     return groups.map(function (g, gi) {
       var max = s.scale === 'each' || groups.length === 1 ? fns[gi].max : sharedMax;
-      var th = thresholdsFor(max, s.levels, s.floor);
+      var th = thresholdsFor(max, s.levels, s.floor, s.ceil, s.thresholds);
       var levels = th.map(function (v, i) {
         var c = fns[gi](v);
         return { index: i, frac: th.length > 1 ? i / (th.length - 1) : 0.5, value: v, coordinates: c.coordinates, d: pathOf(c.coordinates), closed: ringsClosed(c.coordinates) };

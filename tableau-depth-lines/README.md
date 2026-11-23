@@ -24,14 +24,46 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
   ramp flips so the densest water is the brightest.
 - **Click a band** to select every point inside it in Tableau. **Hover a point** to
   highlight its mark. Hover a band for its point count.
-- **Settings in the viz.** The gear opens a panel; everything is saved in the workbook
-  through Tableau's extension settings. **Copy settings** gives the JSON the
-  C-Tableau Viz pages flow accepts; **Paste settings** takes it back.
+- **Settings in the viz, in a floating panel.** The gear opens the shared C-Tableau settings panel
+  (`lib/ctab-panel`, the same one every house extension uses). Drag it by its title bar (it stays inside the frame),
+  minimize it, close it, or press Escape. Under 420px wide it becomes a full-frame sheet. Everything is saved in the
+  workbook through Tableau's extension settings; **Copy settings** gives the flat JSON the C-Tableau Viz pages flow
+  accepts, **Paste settings** takes it back, and there is an Undo, a search box over every setting, and Reset this tab / Reset all.
 - **No sliders anywhere.** Steppers you can type into, chips, dropdowns, color boxes.
 - Inter (bundled) at 14px and up, text at 7:1 contrast or better on light and dark,
   the Data Divers palette by default, follows the worksheet background.
 - One 520 ms eased fade-in on the first draw, then nothing moves. Density is computed
   before anything is drawn, so a published viz never jitters.
+
+## Settings (90 across 17 tabs)
+
+| Tab | What it sets |
+| --- | --- |
+| Contours | Bandwidth, grid detail, number of depth bands, shallowest and deepest band (share of the peak), even or shallow-crowded spacing |
+| Bands | Fill on/off and opacity, water tint, contour lines on/off, width, solid/dashed/dotted, a heavier index line every N bands |
+| Points | Show points, size, opacity, shape (circle, square, diamond), color |
+| Category | Overlay or small multiples, shared or per-category depth scale, columns, gap, panel titles |
+| Axes | Axis lines and labels, color, tick density, axis titles (your own text), fixed X and Y ranges |
+| Grid | On/off, solid/dashed/dotted, width, color |
+| Legend | On/off, top or bottom, the depth note, ramp width |
+| Colors | Palette (Data Divers plus six colorblind-safe sets), reverse, per-category names, colors, order and hide; depth ramp, reverse, line color |
+| Labels | Show labels, size (never under 14px), weight, color, panel-title wrapping, contour value labels |
+| Number format | Decimals, thousands separator, K/M short form, multiplier, prefix, suffix |
+| Tooltip | On/off, size, swatch, placement, width |
+| Fonts | Font, title text, size, weight |
+| Background | Worksheet, custom or transparent; padding; border color, width, corner radius |
+| Animation | Entrance on/off, duration, easing, hover fade |
+| Interaction | Click selects, highlight on hover, dim the others to N%, send hover to Tableau, show the gear |
+| Fields | Pick X, Y, Category and Weight by hand instead of using the shelves |
+| Panel | The panel's own theme (light, dark, match the chart, custom) |
+
+Workbooks saved before the panel existed keep their look: `fontSize` is read as `labelSize` (and the title size), `title` as
+the title text, `theme` as the background mode, `catPalette` as the palette, and `selectEnabled` and `hoverEnabled` as
+`selectOn` and `hoverPush`. Every other saved key kept its name. One visible difference: the default category colors are now the
+shared Data Divers palette (the Okabe-Ito choice carries over unchanged).
+
+Previews of the panel: [previews/settings-panel-1280x800.png](previews/settings-panel-1280x800.png) and
+[previews/settings-panel-mobile-390.png](previews/settings-panel-mobile-390.png).
 
 ## Install
 
@@ -69,8 +101,11 @@ cloud is wider and has two peaks, the benign one is one tight hill.
 | Command | What it proves |
 | --- | --- |
 | `node test/run.js` | The maths, no browser: contours are closed, nested, deterministic, exact in count; bandwidth, weights, shared scale; settings coercion; contrast and ticks. |
-| `python test/render_test.py` | Playwright: 24 renders (3 sizes x light and dark x 4 scenarios) for drawn bands, 0 console errors, no horizontal scroll, text 14px or more, 7:1 contrast, no overlapping labels; the settings panel, steppers, persistence, Copy and Paste settings, selection and hover push-back, resize, determinism and the entrance animation. |
-| `python test/standin_test.py` | The chart on the real Viz pages stand-in, with every way settings arrive. |
+| `python test/render_test.py` | Playwright: 24 renders (3 sizes x light and dark x 4 scenarios) for drawn bands, 0 console errors, no horizontal scroll, text 14px or more, 7:1 contrast, no overlapping labels; selection and hover push-back, resize, determinism and the entrance animation. |
+| `python test/panel_test.py` | The panel in Chromium: gear opens it, drag clamps to the frame, minimize, close, Escape, Copy and Paste round-trip, live re-render, saved as strings, no range input, no browser dialog, text 14px and 7:1 on every tab, the 390px sheet. It then flips **every one of the 90 settings** and requires the render (or the Tableau calls) to change, and loads old saved keys. |
+| `python test/standin_test.py` | The chart on the real Viz pages stand-in, with every way settings arrive, plus Copy settings. |
+| `python tools/sabotage_check.py` | Breaks one thing at a time and shows the matching gate go RED, then restores the file byte-exact and shows it GREEN. |
+| `python ../shared/ctab-panel/sync_check.py` | `lib/ctab-panel` is byte-identical to `shared/ctab-panel`. |
 
 What none of them prove: that Tableau itself drives the extension. The mock is shaped
 from Tableau's published API types, not from a live Tableau. Tuple ids for selection
@@ -78,7 +113,7 @@ are 1-based row positions, the same assumption Lollipop makes, and are unconfirm
 
 ## Files
 
-`src/` the extension. `lib/` vendored d3-array and d3-contour (ISC) and Inter (OFL), each with its
+`src/` the extension. `lib/` vendored d3-array and d3-contour (ISC), Inter (OFL) and `ctab-panel/` (the shared settings panel, an exact copy of `shared/ctab-panel`), each with its
 license. `dev/` mock Tableau and fixtures. `data/` example data. `tools/` fixtures and thumbnail
 builders. `test/` the gates.
 

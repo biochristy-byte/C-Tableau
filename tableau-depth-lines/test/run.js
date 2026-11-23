@@ -10,11 +10,11 @@ const ROOT = path.join(__dirname, '..');
 const sandbox = { console };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-for (const f of ['lib/d3-array.min.js', 'lib/d3-contour.min.js', 'src/js/core.js', 'src/js/schema.js', 'src/js/engine.js']) {
+for (const f of ['lib/d3-array.min.js', 'lib/d3-contour.min.js', 'lib/ctab-panel/ctab-panel.js', 'src/js/core.js', 'src/js/settings.js', 'src/js/engine.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox, { filename: f });
 }
-const { HX, DL, d3 } = sandbox;
-const E = DL.engine, S = DL.schema;
+const { HX, DL, d3, CTabPanel: CP } = sandbox;
+const E = DL.engine, S = DL.settings;
 
 const MIN_CHECKS = 60;
 let n = 0; const fails = [];
@@ -31,7 +31,7 @@ function blob (seed, cx, cy, sx, sy, count, w) {
   return out;
 }
 try {
-const base = S.resolve({});
+const base = S.DEFAULTS;
 const W = 500, H = 400;
 function area (coords) { // polygon area, outer rings minus holes
   let a = 0;
@@ -68,20 +68,44 @@ eq('ticks nice 0..100', Array.from(tk), [0, 20, 40, 60, 80, 100]);
 ok('ticks stay inside the range', HX.ticks(3.2, 17.9, 6).every(t => t >= 3.2 && t <= 17.9));
 eq('ticks of a flat range', Array.from(HX.ticks(5, 5, 4)), [5]);
 
-/* ---------------- schema: Tableau stores every setting as a string */
-eq('schema coerces "14" to number', S.coerce('fontSize', '14'), 14);
-eq('schema clamps fontSize to the 14px floor', S.coerce('fontSize', '9'), 14);
-eq('schema coerces "false" to boolean', S.coerce('fill', 'false'), false);
-eq('schema coerces "true" to boolean', S.coerce('points', 'true'), true);
-eq('schema rejects bad choice', S.coerce('multi', 'nonsense'), 'overlay');
-eq('schema rounds integer options', S.coerce('levels', '8.6'), 9);
-eq('schema clamps levels', S.coerce('levels', '999'), 24);
-eq('schema bad hex falls back', S.coerce('bgColor', 'zzz'), S.DEFAULTS.bgColor);
-eq('schema number NaN falls back', S.coerce('bandwidth', 'abc'), S.DEFAULTS.bandwidth);
-eq('resolve of nothing equals defaults', S.resolve({}), S.DEFAULTS);
-ok('no option has a slider type', S.GROUPS.every(g => g.options.every(o => ['toggle', 'number', 'segmented', 'select', 'color', 'text'].includes(o.type))));
-ok('fontSize minimum is 14', S.OPTS.fontSize.min === 14);
-ok('schema has options', Object.keys(S.DEFAULTS).length >= 25, String(Object.keys(S.DEFAULTS).length));
+/* ---------------- settings: Tableau stores every setting as a string */
+const rowOf = k => S.prepared.rows.find(r => r.key === k);
+const co = (k, v) => CP.coerce(rowOf(k), v);
+eq('settings coerce "9" to a number', co('levels', '9'), 9);
+eq('settings clamp labelSize to the 14px floor', co('labelSize', '9'), 14);
+eq('settings coerce "false" to boolean', co('fill', 'false'), false);
+eq('settings coerce "true" to boolean', co('points', 'true'), true);
+eq('settings reject a bad choice', co('multi', 'nonsense'), undefined);
+eq('settings clamp levels to 24', co('levels', '999'), 24);
+eq('settings clamp bandwidth to 0.5', co('bandwidth', '0'), 0.5);
+eq('settings keep a valid hex color', co('bgColor', '#abcdef'), '#abcdef');
+eq('settings reject a bad hex', co('bgColor', 'zzz'), undefined);
+ok('no row is a slider', S.prepared.rows.every(r => ['check', 'number', 'chips', 'select', 'color', 'text', 'font', 'palette', 'field', 'list', 'note'].includes(r.type)));
+ok('every number row that carries text has a 14px floor', ['labelSize', 'valueLabelSize', 'tipSize', 'titleSize'].every(k => rowOf(k).min >= 14));
+const nSet = S.KEYS.length;
+ok('at least 40 settings (' + nSet + ')', nSet >= 40);
+const tabsUsed = new Set(S.prepared.rows.map(r => r.tab));
+ok('at least 7 tabs carry settings (' + tabsUsed.size + ')', tabsUsed.size >= 7);
+ok('the standard tabs are all present', ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields'].every(t => S.schema.tabs.some(x => x.id === t)));
+ok('chart tabs: contours, bands, points, category, axes, grid, legend', ['contours', 'bands', 'points', 'category', 'axes', 'grid', 'legend'].every(t => S.schema.tabs.some(x => x.id === t)));
+ok('every old saved key still exists or has a LEGACY entry', ['bandwidth', 'levels', 'floor', 'fill', 'lines', 'lineWidth', 'sea', 'points', 'pointSize', 'pointOpacity', 'multi', 'scale', 'cols', 'ramp', 'reverse', 'lineInk', 'axes', 'axisTitles', 'grid', 'legend', 'showGear'].every(k => S.KEYS.includes(k))
+  && ['fontSize', 'title', 'theme', 'catPalette', 'selectEnabled', 'hoverEnabled'].every(k => S.LEGACY.some(m => m.old === k)));
+/* the old key is read as a fallback: run each LEGACY map */
+const lg = k => S.LEGACY.find(m => m.old === k).map;
+eq('LEGACY fontSize 18 -> labelSize 18 and titleSize 23', lg('fontSize')('18'), { labelSize: 18, titleSize: 23 });
+eq('LEGACY title "Hi" -> titleText and showTitle', lg('title')('Hi'), { titleText: 'Hi', showTitle: true });
+eq('LEGACY empty title carries nothing', lg('title')(''), null);
+eq('LEGACY theme dark -> custom navy background', lg('theme')('dark'), { bgMode: 'custom', bgColor: '#081f33' });
+eq('LEGACY theme light -> custom white background', lg('theme')('light'), { bgMode: 'custom', bgColor: '#ffffff' });
+eq('LEGACY theme auto carries nothing (worksheet is the default)', lg('theme')('auto'), null);
+eq('LEGACY catPalette okabe -> palette okabe', lg('catPalette')('okabe'), { palette: 'okabe' });
+eq('LEGACY selectEnabled -> selectOn', lg('selectEnabled')('false'), { selectOn: 'false' });
+eq('LEGACY hoverEnabled -> hoverPush', lg('hoverEnabled')('true'), { hoverPush: 'true' });
+const fake = { _v: { 'depthlines.levels': '11', 'depthlines.fontSize': '20' }, get (k) { return this._v[k]; }, set (k, v) { this._v[k] = String(v); }, getAll () { return this._v; }, saveAsync () { return Promise.resolve(); } };
+const store = CP.createStore({ rows: S.prepared.rows, settings: fake, prefix: 'depthlines.' });
+store.load();
+eq('a stored old key (levels 11) loads through the store', store.get().levels, 11);
+ok('every default is valid for its own row', S.prepared.rows.filter(r => r.type !== 'note' && r.type !== 'list' && r.type !== 'field').every(r => CP.coerce(r, r.def) !== undefined || r.def === ''), S.prepared.rows.filter(r => r.type !== 'note' && r.type !== 'list' && r.type !== 'field' && CP.coerce(r, r.def) === undefined && r.def !== '').map(r => r.key).join());
 
 /* ---------------- engine: ramps, scales, domains */
 eq('rampColor shallow end', E.rampColor('abyss', false, 0, false), '#e2f4f7');
@@ -104,6 +128,12 @@ ok('domain of nothing is safe', E.domainOf([], 0.1)[1] > E.domainOf([], 0.1)[0])
   ok('thresholds: stay below the peak at ' + L, t[t.length - 1] < 1 && t[0] > 0);
 });
 near('thresholds start at the floor share', E.thresholdsFor(200, 4, 10)[0], 20, 1e-9);
+near('thresholds end at the ceiling share', E.thresholdsFor(200, 4, 10, 80)[3], 160, 1e-9);
+near('thresholds default ceiling is 95%', E.thresholdsFor(100, 4, 10)[3], 95, 1e-9);
+const lin = E.thresholdsFor(1, 6, 6), lgm = E.thresholdsFor(1, 6, 6, 95, 'log');
+ok('log spacing keeps the same ends as even spacing', Math.abs(lgm[0] - lin[0]) < 1e-9 && Math.abs(lgm[5] - lin[5]) < 1e-9);
+ok('log spacing crowds the bands toward the shallow edge (middle band lower)', lgm[2] < lin[2] && lgm[3] < lin[3]);
+ok('log spacing is strictly increasing', lgm.every((v, i) => i === 0 || v > lgm[i - 1]));
 
 /* ---------------- engine: pure geometry */
 const sq = [[[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]], [[3, 3], [3, 7], [7, 7], [7, 3], [3, 3]]]];
