@@ -25,6 +25,7 @@ S = [
     ("hover fade has no easing (a hard jump)", "src/css/radar.css", ".rd-s { cursor: pointer; transition: opacity var(--rd-ms, .18s) ease;", ".rd-s { cursor: pointer; transition: none;", "browser"),
     ("click-isolate leaves the others visible", "src/css/radar.css", ".rd-svg.rd-iso .rd-s:not(.is-on) { opacity: 0;", ".rd-svg.rd-iso .rd-s:not(.is-on) { opacity: 1;", "browser"),
     ("a same-size ResizeObserver callback redraws the chart (cuts a hover fade short)", "src/js/radar.js", "if (w === lastW && h === lastH) return false;", "", "browser"),
+    ("ring value labels drawn under the filled shapes again (the fills hide them)", "src/js/render.js", "    if (gRing) g.appendChild(gRing);", "    if (false) g.appendChild(gRing);", "browser"),
     ("small-multiples titles are not fitted to their cell", "src/js/render.js", "var ttext = M.fitLine(pn.title, tw0, function (t) { return tmeas(t, tsz); });", "var ttext = pn.title;", "browser"),
     ("settings prefix changed (saved and copied keys no longer match the Viz pages flow)", "src/js/radar.js", "var PREFIX = 'radar.';", "var PREFIX = 'rdr.';", "browser"),
     ("legend buttons lose their series key (the Series shelf no longer reaches the legend)", "src/js/render.js", "b.type = 'button'; b.setAttribute('data-key', x.key);", "b.type = 'button'; b.setAttribute('data-k', x.key);", "standin"),

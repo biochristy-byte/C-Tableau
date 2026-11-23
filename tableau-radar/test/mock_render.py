@@ -275,6 +275,9 @@ def panel_behaviour(b, port):
     after = pg.evaluate("[...document.querySelectorAll('.rd-s[data-key=Africa] .rd-dot')].map(c => c.getAttribute('cx') + ',' + c.getAttribute('cy')).join('|')")
     check("per-axis scale moves the dots", before != after)
     check("per-axis ring labels read as a share of each axis range (percent)", pg.evaluate("[...document.querySelectorAll('.rd-ringlabel')].every(t => /%$/.test(t.textContent))") and pg.evaluate("document.querySelectorAll('.rd-ringlabel').length") > 0)
+    check("ring value labels paint above the filled shapes, with a background halo",
+          pg.evaluate("(() => { const r = document.querySelector('.rd-ringlabels'), s = document.querySelector('.rd-series'), t = document.querySelector('.rd-ringlabel');"
+                      " return !!(r && s && t) && !!(s.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING) && t.getAttribute('paint-order') === 'stroke' && +t.getAttribute('stroke-width') >= 2; })()"))
     pg.click(".cp-chip[data-k=scaleMode][data-v=shared]")
     # benchmark
     pg.click(".cp-tab[data-t='benchmark']"); pg.click(".cp-chip[data-k=benchMode][data-v=series]")

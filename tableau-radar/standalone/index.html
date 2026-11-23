@@ -289,23 +289,28 @@ html, body { overflow: hidden; }
     ApiVersion: { Latest: '1.13' } };
   for (var k in ET) if (Object.prototype.hasOwnProperty.call(ET, k)) global.tableau[k] = ET[k];
 
-  // ---- Exit pill: only when the page is opened on its own. Inside a frame or with ?embed=1 it never shows.
+  // ---- Exit / Back pill: the one top-left control. Only when the page is opened on its own. Inside a frame or with ?embed=1 it never shows.
+  // Came from another page (a referrer and more than one history entry): Back is history.back(), even across sites. Otherwise it goes to C-Tableau.
   var solo = true;
   try { solo = global.top === global.self; } catch (e) { solo = false; }
   if (/[?&]embed=1(&|$)/.test(global.location.search)) solo = false;
   if (solo) {
     document.documentElement.classList.add('ctab-solo');
     var st = document.createElement('style');
-    st.textContent = 'html.ctab-solo #root{top:52px !important}' +
-      '.ctab-exit{position:fixed;z-index:2147483000;top:max(10px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));display:inline-flex;align-items:center;gap:.5em;' +
-      'font:600 14px/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.04em;color:#f3f5f7;background:rgba(8,31,51,.94);border:1px solid rgba(60,196,209,.7);' +
-      'border-radius:999px;padding:11px 16px;text-decoration:none;box-shadow:0 6px 20px rgba(4,18,29,.5)}' +
-      '.ctab-exit:hover,.ctab-exit:focus-visible{color:#8fe3ec;border-color:#8fe3ec}.ctab-exit:focus-visible{outline:2px solid #8fe3ec;outline-offset:3px}';
+    st.textContent = 'html.ctab-solo #root{top:60px !important}' +
+      '.ctab-exit{position:fixed;z-index:2147483000;top:max(8px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));display:inline-flex;align-items:center;gap:8px;' +
+      'min-height:44px;min-width:44px;box-sizing:border-box;font:600 16px/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#f3f5f7;background:#081f33;border:2px solid #7fdce6;' +
+      'border-radius:999px;padding:0 16px 0 12px;text-decoration:none;box-shadow:0 6px 20px rgba(4,18,29,.5)}' +
+      '.ctab-exit:hover{color:#7fdce6}.ctab-exit:focus-visible{outline:3px solid #f7c96a;outline-offset:2px}.ctab-exit svg{flex:none}';
     var add = function () {
       if (document.querySelector('.ctab-exit')) return;
       var a = document.createElement('a');
-      a.className = 'ctab-exit dd-exit'; a.href = V.home || 'https://c-tableau.netlify.app/'; a.setAttribute('aria-label', 'Exit to C-Tableau');
-      a.textContent = '× Exit';
+      a.className = 'ctab-exit dd-exit'; a.href = V.home || 'https://c-tableau.netlify.app/'; a.setAttribute('data-ctab-back', '1');
+      a.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Back</span>';
+      a.addEventListener('click', function (e) {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (document.referrer && global.history.length > 1) { e.preventDefault(); global.history.back(); }
+      });
       document.body.appendChild(a); document.head.appendChild(st);
     };
     if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
@@ -1373,7 +1378,7 @@ html, body { overflow: hidden; }
   function pointAt(cx, cy, r, theta) { return { x: cx + r * Math.cos(theta), y: cy + r * Math.sin(theta) }; }
   function f2(v) { return (Math.round(v * 100) / 100).toString(); }
 
-  /* Points of one series at animation progress t (0 centre, 1 full). Missing values: 'zero' pins to the centre, 'skip' drops the point. */
+  /* Points of one series at animation progress t (0 center, 1 full). Missing values: 'zero' pins to the center, 'skip' drops the point. */
   function seriesPoints(s, sc, cx, cy, R, thetas, missing, t) {
     var pts = [];
     s.values.forEach(function (v, i) {
@@ -1633,7 +1638,7 @@ html, body { overflow: hidden; }
 
   /* ---------------------------------------------------------------- layout */
 
-  /* One radar inside a w x h cell. measure(text) -> px. Returns the centre, radius and the label boxes that fit. */
+  /* One radar inside a w x h cell. measure(text) -> px. Returns the center, radius and the label boxes that fit. */
   function layoutRadar(w, h, p, s, measure, labelTexts) {
     var n = p.axes.length, pad = 6, fs = s.labelSize, lh = Math.round(fs * 1.28), gap = s.axisLabelDist;
     var thetas = p.axes.map(function (a, i) { return M.angleOf(i, n, s.rotation, s.direction === 'ccw' ? -1 : 1); });
@@ -1938,8 +1943,9 @@ html, body { overflow: hidden; }
       });
       boxes.push(b);
     });
+    var gRing = null;
     if (s.ringLabels && R >= 36) { // a ring value beside a radar smaller than this reads as noise
-      var gRing = svgEl('g', { 'class': 'rd-ringlabels' }, g), rs = s.ringLabelSize, t0 = th[0];
+      gRing = svgEl('g', { 'class': 'rd-ringlabels' }, g); var rs = s.ringLabelSize, t0 = th[0];
       var tickFmt = s, allInt = !sc.ticks || sc.ticks.every(function (v) { return Math.abs(v - Math.round(v)) < 1e-9; });
       if (allInt) { tickFmt = {}; Object.keys(s).forEach(function (kk) { tickFmt[kk] = s[kk]; }); tickFmt.numDecimals = 0; }
       for (k = 1; k <= rings; k++) {
@@ -2003,6 +2009,7 @@ html, body { overflow: hidden; }
         });
       }
     });
+    if (gRing) g.appendChild(gRing); // ring values paint above the filled shapes (with their halo) so a fill never hides them
     this.anims.forEach(function (f) { f(1); }); // final geometry first, so a stalled animation still leaves a finished chart
   };
 

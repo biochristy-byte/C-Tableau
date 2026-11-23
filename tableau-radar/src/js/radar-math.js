@@ -110,7 +110,7 @@
   function pointAt(cx, cy, r, theta) { return { x: cx + r * Math.cos(theta), y: cy + r * Math.sin(theta) }; }
   function f2(v) { return (Math.round(v * 100) / 100).toString(); }
 
-  /* Points of one series at animation progress t (0 centre, 1 full). Missing values: 'zero' pins to the centre, 'skip' drops the point. */
+  /* Points of one series at animation progress t (0 center, 1 full). Missing values: 'zero' pins to the center, 'skip' drops the point. */
   function seriesPoints(s, sc, cx, cy, R, thetas, missing, t) {
     var pts = [];
     s.values.forEach(function (v, i) {

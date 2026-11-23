@@ -15,12 +15,12 @@ indicator). It is the data behind the Radar preview.
 published under Creative Commons Attribution-NonCommercial-ShareAlike 3.0 IGO (CC BY-NC-SA 3.0 IGO). I only
 selected the indicators and the year, shortened the indicator names for the Axis column, and kept WHO's own
 wording in `Indicator long name`. WHO does not endorse this chart. Keep the credit and the non-commercial
-licence if you reuse the file.
+license if you reuse the file.
 
 **Why it is a good radar.** Africa is the lowest region on all seven spokes (a UHC index of 48 against 82 in the
 Americas), and the gap is widest on skilled birth care, 67.3% in Africa against 98.9% in Europe. The Global row makes
 a natural benchmark: on the Benchmark tab choose A series, then pick Global, to see it as a dashed ring. All the
-values sit between 48 and 99, so a shared 0 to 100 scale keeps the regions honestly comparable.
+values sit between 48 and 99, so a shared 0 to 100 scale keeps the regions comparable.
 
 `dark-settings.json` is a settings file (the shape the Copy settings button produces) that gives the navy
 Data Divers look used for the preview and the standalone page.

@@ -19,24 +19,24 @@ it aims to be the most complete: the settings below, no sliders, and every text 
   so it never leaves the outer ring.
 - **Filled or outline only**, fill opacity, line width, dots and value labels.
 - **One shared scale or each axis its own.** Shared keeps axes comparable; per-axis stretches each spoke from its own
-  lowest to highest value, and the rings then read as a share of that range. Centre value (zero, lowest, custom) and
+  lowest to highest value, and the rings then read as a share of that range. Center value (zero, lowest, custom) and
   outer ring (rounded up, custom) are settable.
 - **Rings**: 1 to 10 rings, polygon or circle, solid, dashed or dotted, tinted bands, ring value labels.
 - **Axis labels wrap at a width you set, up to a number of lines you set, at 14px or larger.** If the chart is too
   small for every label, fewer are drawn and a note says "Showing 5 of 7 axis labels". The type is never shrunk to
   make room.
 - **A benchmark or target**: pick one of the series (it leaves the series list and is drawn as a dashed ring), or type
-  one value for every axis. Name, dash style, width, colour and tint are settable.
+  one value for every axis. Name, dash style, width, color and tint are settable.
 - **Sort the axes** (data order, name, average, or your own order from a list on the Axes tab) and the series, rotate the chart, run the axes clockwise or
   counter-clockwise.
 - **Hover highlights a series and dims the others with an eased fade; click isolates it** (click again, or click the
   background, to release). The legend does the same. Selection and hover go back into Tableau.
 - **A floating settings panel** (the same one as the other Data Divers extensions): click the gear, drag the panel by its
   title bar, minimize it, Escape closes it. It has 16 tabs and 95 settings: Layout, Rings, Axes, Series, Benchmark,
-  Legend, then Marks, Colors (the Data Divers palette plus six colour-blind-safe ones, per-series overrides), Labels,
+  Legend, then Marks, Colors (the Data Divers palette plus six colorblind-safe ones, per-series overrides), Labels,
   Number format, Tooltip, Fonts, Background and border, Animation, Interaction, Fields. It has a search box, Reset
   this tab, Reset all, Undo, **Copy settings** and **Paste settings**. Below 420px wide it becomes a full-frame sheet.
-- **No sliders.** Numbers are typed steppers, choices are chips and dropdowns, colours are colour inputs. No browser
+- **No sliders.** Numbers are typed steppers, choices are chips and dropdowns, colors are color inputs. No browser
   dialogs.
 - **Settings are saved in the workbook** through Tableau's extension settings, and Copy settings produces the JSON the
   C-Tableau Viz pages accept.
@@ -80,11 +80,11 @@ Label. The data are credited in `example/README.md`.
 | "A radar needs at least 3 axes" | The Axis dimension has fewer than 3 values. Pick a dimension with 3 or more. |
 | "Axis labels are hidden: the chart is too small" | There is no room for 14px labels. Enlarge the chart; labels are never made smaller. |
 | "Showing 5 of 7 axis labels" | Labels would overlap. Make the viz bigger, wrap them onto more lines (Labels tab), or shorten the names with the Label shelf. |
-| One outline collapses to the centre | Its values are missing. Missing values can sit at the centre or be skipped (Layout tab, Missing values). |
+| One outline collapses to the center | Its values are missing. Missing values can sit at the center or be skipped (Layout tab, Missing values). |
 | Every series looks the same shape | They share one scale and are close in value. Try Each axis its own on the Rings tab. |
 | Blank in a PDF or PowerPoint export | Tableau draws all viz extensions blank in those exports. |
 | Two tooltips | Tableau's own tooltip shows when Send hover to Tableau is on. Turn it off on the Interaction tab, or clear the Marks card Tooltip. |
-| Text is lower contrast on a grey sheet | On a mid-grey background 7:1 is mathematically out of reach (black reaches about 4.7:1), so it uses the best of black or white. |
+| Text is lower contrast on a gray sheet | On a mid-gray background 7:1 is mathematically out of reach (black reaches about 4.7:1), so it uses the best of black or white. |
 
 ## Try it without Tableau
 

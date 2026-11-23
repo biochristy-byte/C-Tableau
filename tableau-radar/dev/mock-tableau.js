@@ -1,5 +1,5 @@
 /* A stand-in for the Tableau Extensions API, shaped from the published type
- * declarations in @tableau/extensions-api-types 1.17.0 and the behaviour of
+ * declarations in @tableau/extensions-api-types 1.17.0 and the behavior of
  * the official ConnectedScatterplot sample.
  *
  * It exists so the renderer, the settings panel, the number formatting and the

@@ -254,7 +254,7 @@ for (const [w, h] of [[900, 520], [1600, 1000], [420, 640], [300, 300], [640, 40
 const roomy = lay(1600, 1000, names7).L;
 eq('with room, all 7 labels are kept', roomy.labels.length, 7);
 const tight = lay(300, 300, names7).L;
-ok('at 300x300 the radar still draws, with labels kept or honestly dropped', tight.R > 20 && (tight.labelsOff || tight.labels.length + tight.hidden === 7));
+ok('at 300x300 the radar still draws, with labels kept or dropped', tight.R > 20 && (tight.labelsOff || tight.labels.length + tight.hidden === 7));
 const dense = lay(420, 300, Array.from({ length: 24 }, (_, i) => 'Axis number ' + (i + 1))).L;
 ok('24 long axis names in a small frame: overlapping labels are dropped (some hidden), none overlap', dense.hidden > 0 || dense.labelsOff, JSON.stringify([dense.hidden, dense.labelsOff]));
 const noLab = lay(500, 400, names7, { labelsOn: false }).L;

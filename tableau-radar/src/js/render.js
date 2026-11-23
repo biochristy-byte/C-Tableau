@@ -55,7 +55,7 @@
 
   /* ---------------------------------------------------------------- layout */
 
-  /* One radar inside a w x h cell. measure(text) -> px. Returns the centre, radius and the label boxes that fit. */
+  /* One radar inside a w x h cell. measure(text) -> px. Returns the center, radius and the label boxes that fit. */
   function layoutRadar(w, h, p, s, measure, labelTexts) {
     var n = p.axes.length, pad = 6, fs = s.labelSize, lh = Math.round(fs * 1.28), gap = s.axisLabelDist;
     var thetas = p.axes.map(function (a, i) { return M.angleOf(i, n, s.rotation, s.direction === 'ccw' ? -1 : 1); });
@@ -360,8 +360,9 @@
       });
       boxes.push(b);
     });
+    var gRing = null;
     if (s.ringLabels && R >= 36) { // a ring value beside a radar smaller than this reads as noise
-      var gRing = svgEl('g', { 'class': 'rd-ringlabels' }, g), rs = s.ringLabelSize, t0 = th[0];
+      gRing = svgEl('g', { 'class': 'rd-ringlabels' }, g); var rs = s.ringLabelSize, t0 = th[0];
       var tickFmt = s, allInt = !sc.ticks || sc.ticks.every(function (v) { return Math.abs(v - Math.round(v)) < 1e-9; });
       if (allInt) { tickFmt = {}; Object.keys(s).forEach(function (kk) { tickFmt[kk] = s[kk]; }); tickFmt.numDecimals = 0; }
       for (k = 1; k <= rings; k++) {
@@ -425,6 +426,7 @@
         });
       }
     });
+    if (gRing) g.appendChild(gRing); // ring values paint above the filled shapes (with their halo) so a fill never hides them
     this.anims.forEach(function (f) { f(1); }); // final geometry first, so a stalled animation still leaves a finished chart
   };
 
