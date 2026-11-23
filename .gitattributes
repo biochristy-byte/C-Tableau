@@ -1,0 +1,9 @@
+# Keep source files LF on every checkout: several extensions sabotage-test by byte-exact sha256 restore.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
+*.ico binary
+*.bat text eol=crlf
+*.ps1 text eol=crlf
