@@ -14,6 +14,14 @@
 
   function nameOf(v) { return v === null || v === undefined || v === '' ? '(blank)' : String(v); }
 
+  /* Same word, ignoring case, spacing and a plural s: keep the parent's name. */
+  function foldName(parent, child) {
+    var stem = function (t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, '').replace(/(es|s)$/, ''); };
+    var a = stem(parent), b = stem(child);
+    if (child === '(blank)' || !b || a === b || a.indexOf(b) === 0 || b.indexOf(a) === 0) return parent;
+    return parent + ': ' + child;
+  }
+
   /* rows: [{ path: [l1, l2, l3], value, color, tuple }]. Returns { root, dropped }. */
   function buildTree(rows, levels, sortMode) {
     var top = { name: 'All', depthIdx: -1, kids: new Map(), pathNames: [] };
@@ -40,13 +48,25 @@
         node.cat[ck] = (node.cat[ck] || 0) + v;
       }
     });
+    /* A group with exactly one child draws a ring hugging its only circle. Fold the two
+     * into one circle (the child's children and path), named for the parent, or
+     * "Parent: Child" when the child's name adds something. The root is never folded. */
+    function collapse(d, isRoot) {
+      while (!isRoot && d.children && d.children.length === 1) {
+        var kid = d.children[0];
+        kid.name = foldName(d.name, kid.name);
+        d = kid;
+      }
+      if (d.children) d.children = d.children.map(function (c) { return collapse(c, false); });
+      return d;
+    }
     function plain(n) {
       var o = { name: n.name, pathNames: n.pathNames, depthIdx: n.depthIdx };
       if (n.kids.size) o.children = Array.from(n.kids.values()).map(plain);
       else { o.leafValue = n.leafValue || 0; o.tuples = n.tuples || []; o.cw = n.cw; o.cs = n.cs; o.cat = n.cat; }
       return o;
     }
-    var data = plain(top);
+    var data = collapse(plain(top), true);
     var root = d3.hierarchy(data, function (d) { return d.children; }).sum(function (d) { return d.children ? 0 : d.leafValue; });
     if (sortMode === 'size') root.sort(function (a, b) { return b.value - a.value || (a.data.name < b.data.name ? -1 : 1); });
     else if (sortMode === 'name') root.sort(function (a, b) { return a.data.name < b.data.name ? -1 : (a.data.name > b.data.name ? 1 : 0); });

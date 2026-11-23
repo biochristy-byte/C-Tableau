@@ -90,6 +90,27 @@ const emptyTree = layout.buildTree([], 2, 'size'); eq('no rows gives a root with
 const cmix = layout.buildTree([{ path: ['A'], value: 3, color: 10 }, { path: ['A'], value: 1, color: 20 }], 1, 'size').root.leaves()[0].data;
 near('numeric colour is a size-weighted mean on merge', cmix.cs / cmix.cw, 12.5);
 
+/* ------------------------------------------------- single-child chains */
+function singles(root) { return root.descendants().filter((n) => n.parent && n.children && n.children.length === 1).map((n) => n.data.name); }
+function groupsOf(root) { return root.descendants().filter((n) => n.parent && n.children).length; }
+const cancers = t3.root.descendants().filter((n) => n.data.name === 'Cancers');
+eq('real data: Cancers has one child in the source, so it folds into ONE circle', cancers.length, 1);
+eq('real data: the folded Cancers circle holds the 4 regions directly', cancers[0].children.map((c) => c.data.name).sort(), ['Midwest', 'Northeast', 'South', 'West']);
+ok('real data: no separate Cancer circle remains', !t3.root.descendants().some((n) => n.data.name === 'Cancer'));
+eq('real data: a folded circle keeps its full path for selection', cancers[0].children[0].data.pathNames.length, 3);
+eq('real data: folding keeps the total', Math.round(t3.root.value), Math.round(sumReal));
+eq('real data: no group has exactly one child', singles(t3.root), []);
+const chain = layout.buildTree([{ path: ['Heart', 'Heart disease', 'Valve'], value: 4 }, { path: ['Heart', 'Heart disease', 'Valve'], value: 2 }, { path: ['Lung', 'Asthma', 'Child'], value: 3 }, { path: ['Lung', 'Asthma', 'Adult'], value: 3 }, { path: ['Gut', 'Colon', 'Polyp'], value: 1 }, { path: ['Gut', 'Colon', 'Polyp'], value: 2 }], 3, 'name');
+eq('a 3-step chain folds into one leaf named Parent: Child', chain.root.leaves().filter((l) => l.data.name === 'Heart: Valve').length, 1);
+eq('chain leaves keep every folded name', chain.root.leaves().map((l) => l.data.name).sort(), ['Adult', 'Child', 'Gut: Colon: Polyp', 'Heart: Valve']);
+eq('Lung with one child Asthma folds to the circle Lung: Asthma holding Child and Adult', chain.root.descendants().filter((n) => n.data.name === 'Lung: Asthma' && n.children && n.children.length === 2).length, 1);
+eq('chain data: no group has exactly one child', singles(chain.root), []);
+eq('a plural parent folds to the parent name', layout.buildTree([{ path: ['Cancers', 'Cancer'], value: 1 }, { path: ['Other', 'x'], value: 1 }, { path: ['Other', 'y'], value: 1 }], 2, 'name').root.leaves().map((l) => l.data.name).sort(), ['Cancers', 'x', 'y']);
+eq('a one-level tree keeps its leaves (root is never folded)', layout.buildTree([{ path: ['Solo'], value: 1 }], 1, 'name').root.children.map((c) => c.data.name), ['Solo']);
+eq('a blank only child folds into the parent name', layout.buildTree([{ path: ['Beta', null], value: 1 }, { path: ['Other', 'x'], value: 1 }, { path: ['Other', 'y'], value: 1 }], 2, 'name').root.leaves().map((l) => l.data.name).sort(), ['Beta', 'x', 'y']);
+ok('big random tree: no single-child group (' + groupsOf(layout.buildTree(bigRowsEarly(), 3, 'size').root) + ' groups checked)', singles(layout.buildTree(bigRowsEarly(), 3, 'size').root).length === 0);
+function bigRowsEarly() { const r = (function () { let q = 777; return () => (q = (q * 1664525 + 1013904223) % 4294967296) / 4294967296; })(); return Array.from({ length: 600 }, (_, i) => ({ path: ['G' + (i % 9), 'S' + (i % 41), 'L' + i], value: 1 + r() * 9, tuple: i })); }
+
 /* ------------------------------------------------------------------ pack */
 function checkPack(name, root) {
   let worst = 0, pairs = 0, parents = 0, leafRatio = [];
@@ -154,6 +175,11 @@ let chipTotal = 0;
 ok('label planner placed chips at all (not vacuously empty)', chipTotal > 20, String(chipTotal));
 const tinyOnly = layout.planLabels([{ id: 'x', group: false, x: 50, y: 50, r: 6, texts: ['A very long name'], prio: 0 }], { x0: 0, y0: 0, x1: 100, y1: 100 }, (t) => t.length * 8, 14, 8, 5);
 eq('a circle too small for its label gets no chip', tinyOnly.length, 0);
+
+const noStub = planFor(root3, [900, 560], 14).chips.every((c) => c.text.indexOf('…') < 0 && c.text.indexOf('...') < 0);
+ok('planner output never contains an ellipsis', noStub);
+const src = fs.readFileSync(path.join(ROOT, 'src/js/render.js'), 'utf8');
+ok('renderer builds no truncated label text', src.indexOf('…') < 0 && !/slice\(0, -1\)/.test(src));
 
 /* --------------------------------------------------------------- report */
 const MIN_CHECKS = 80;

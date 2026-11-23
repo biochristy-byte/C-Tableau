@@ -22,7 +22,10 @@ circle-packing extension when this was checked on 11/22/2026.
   labels fade back in when the move settles. Escape, the breadcrumb, or a click
   on the surrounding circle climbs back out. Reduced-motion users get an
   instant zoom.
-- **Labels that never collide**: every label is a solid chip that sits fully
+- **Labels that never collide**: each label shows in full or not at all (no
+  truncated stubs, the tooltip and zoom reveal hidden names), and only the focus
+  level and its direct children carry one. A group with a single child folds
+  into one circle. Every label is a solid chip that sits fully
   inside its own circle, so the text is 14 px or larger and 7:1 against its
   chip in light and dark, whatever colour the circle behind it is.
 - **28 settings** in 6 groups (data, colours, layout, labels, zoom, appearance)

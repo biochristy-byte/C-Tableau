@@ -43,7 +43,9 @@ def audit(page, tag):
     check(tag + ': circles drawn (non-empty)', a['shown'] >= 5, a['shown'])
     check(tag + ': no horizontal scroll', not a['hscroll'])
     check(tag + ': no slider inputs', a['ranges'] == 0)
-    check(tag + ': chip labels present', len(a['chips']) >= 1, len(a['chips']))
+    wide = page.viewport_size['width'] >= 500   # a 300 px stage has no circle big enough for a whole name, so it may show none
+    check(tag + ': chip labels present', len(a['chips']) >= 1 or not wide, len(a['chips']))
+    p = pills(page, tag)
     check(tag + ': chip labels never overlap (%d chips)' % len(a['chips']), a['overlaps'] == 0, a['overlaps'])
     count(len(a['chips']))
     check(tag + ': breadcrumb, legend and gear never overlap (%d boxes)' % a['htmlCount'], a['htmlOverlaps'] == 0, a['htmlOverlaps'])
@@ -57,6 +59,30 @@ def audit(page, tag):
     check(tag + ': first font in every stack is sans-serif', not fams and all('sans-serif' in t['family'].lower() for t in a['text']), fams[:2])
     count(len(a['text']))
     return a
+
+PILLS = r"""() => {
+  const r = RF.app.state.renderer, f = r.focus, out = [];
+  document.querySelectorAll('.rf-chip').forEach(g => {
+    const n = r.nodes[+g.getAttribute('data-i')], rc = g.querySelector('rect').getBoundingClientRect();
+    out.push({ text: g.querySelector('text').textContent, l: rc.left, r: rc.right, t: rc.top, b: rc.bottom,
+               level: n === f ? 'focus' : (n.parent === f ? 'child' : 'deeper'), groupKids: n.children ? n.children.length : 0 });
+  });
+  const groups = r.nodes.filter(n => n.parent && n.children);
+  return { pills: out, oneKid: groups.filter(n => n.children.length === 1).map(n => n.data.name), crumbs: [...document.querySelectorAll('.rf-crumb')].map(e => e.textContent) };
+}"""
+def pills(page, tag):
+    """The three label rules, measured on every visible pill: whole text or none, only the focus level
+    and its direct children carry a pill, and no pill overlaps any other pill. Returns the pill count."""
+    d = page.evaluate(PILLS); ps = d['pills']
+    stubs = [q['text'] for q in ps if '…' in q['text'] or '...' in q['text']]
+    check(tag + ': no pill carries an ellipsis (%d pills)' % len(ps), not stubs, stubs[:3])
+    deeper = [q['text'] for q in ps if q['level'] == 'deeper']
+    check(tag + ': only the focus circle and its direct children are labelled', not deeper, deeper[:3])
+    lap = sum(1 for i in range(len(ps)) for j in range(i + 1, len(ps)) if ps[i]['l'] < ps[j]['r'] and ps[i]['r'] > ps[j]['l'] and ps[i]['t'] < ps[j]['b'] and ps[i]['b'] > ps[j]['t'])
+    check(tag + ': zero pill-on-pill overlaps over all %d pairs' % (len(ps) * (len(ps) - 1) // 2), lap == 0, lap)
+    check(tag + ': no group circle has exactly one child (no hugging ring)', not d['oneKid'], d['oneKid'])
+    count(len(ps))
+    return len(ps)
 
 def open_page(browser, w, h, query, scheme='light'):
     ctx = browser.new_context(viewport={'width': w, 'height': h}, color_scheme=scheme, permissions=['clipboard-read', 'clipboard-write'])
@@ -257,6 +283,26 @@ with sync_playwright() as p:
     page.evaluate("() => { const r = RF.app.state.renderer; r.zoomTo(r.root.children[0]); }")
     check('reduced motion: zoom completes in the same frame', page.evaluate("() => !document.querySelector('#rf-chart').classList.contains('rf-zooming') && RF.app.state.renderer.focus.depth === 1"))
     ctx.close()
+
+    # ---- 9. label rules at the root and after zooming into EACH group, 3 sizes x light and dark
+    for (w, h) in SIZES:
+        for theme, bg in THEMES.items():
+            ctx, page, errs = open_page(browser, w, h, 'fixture=causes&bg=' + bg, theme)
+            tag = 'sweep %dx%d %s' % (w, h, theme)
+            total = pills(page, tag + ' root')
+            names = page.evaluate("() => RF.app.state.renderer.root.children.map(n => n.data.name)")
+            check(tag + ': five top-level groups to zoom into', len(names) == 5, names)
+            check(tag + ': collapsed chain is one circle (Cancers, no Cancer ring)', page.evaluate("() => { const n = RF.app.state.renderer.nodes.map(x => x.data.name); return n.indexOf('Cancers') >= 0 && n.indexOf('Cancer') < 0; }"))
+            for i, nm in enumerate(names):
+                page.evaluate("(i) => { const r = RF.app.state.renderer; r.zoomTo(r.root.children[i]); }", i)
+                page.wait_for_timeout(100); settle(page)
+                total += pills(page, tag + ' zoomed into ' + nm)
+                if nm == 'Cancers':
+                    d = page.evaluate(PILLS)
+                    check(tag + ': zooming into the folded group shows one crumb step: ' + str(d['crumbs']), d['crumbs'] == ['All', 'Cancers'], d['crumbs'])
+                page.evaluate("() => { const r = RF.app.state.renderer; r.zoomTo(r.root); }"); page.wait_for_timeout(100); settle(page)
+            check(tag + ': sweep examined pills (%d)' % total, total >= (10 if w >= 900 else 0), total)
+            check(tag + ': 0 console errors', not errs, errs[:2]); ctx.close()
 
     # ---- 8. dark worksheet + preview shots
     if SHOTS:

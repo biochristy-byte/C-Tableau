@@ -80,11 +80,16 @@
     this.nodes = this.root.descendants();
     this.treeKey = key;
     this._indexColors(model);
-    var f = this.root, i;
-    for (i = 0; i < prevPath.length; i++) {
-      var nx = f.children && f.children.filter(function (c) { return c.data.name === prevPath[i]; })[0];
-      if (!nx) break; f = nx;
-    }
+    var f = this.root, nx;
+    do {   // a folded circle owns several path steps, so match each child by its whole path prefix
+      var have = f.data.pathNames.length;
+      nx = f.children && f.children.filter(function (c) {
+        var pn = c.data.pathNames; if (pn.length > prevPath.length) return false;
+        for (var j = 0; j < pn.length; j++) if (pn[j] !== prevPath[j]) return false;
+        return pn.length > have;
+      })[0];
+      if (nx) f = nx;
+    } while (nx);
     this.focus = f; this.selected = null; this.hovered = null; this.anim = null;
     // circle elements
     this.gCircles.textContent = '';
@@ -121,7 +126,7 @@
   P._colorOf = function (n, s) {
     var pal = C.palette(s.palette);
     if (s.colorMode === 'single') return s.singleColor;
-    if (s.colorMode === 'depth') return pal[Math.max(0, n.depth - 1) % pal.length];
+    if (s.colorMode === 'depth') return pal[Math.max(0, n.data.depthIdx) % pal.length];
     if (s.colorMode === 'field') {
       if (n.catKey !== undefined && this.catIndex[n.catKey] !== undefined) return pal[this.catIndex[n.catKey] % pal.length];
       if (n.numVal !== undefined && this.numRange) {
@@ -182,22 +187,19 @@
     if (!s.labels || this.anim) return;
     var v = this.view, fs = Math.max(14, s.fontSize), cands = [];
     var padX = 8, padY = 5, chipH = fs + padY * 2;
-    f.descendants().forEach(function (n) {
-      if (n === f || n.shown === false) return;
+    /* Only the focus circle and its direct children get a chip. Deeper circles stay
+     * unlabelled until you zoom to them, so a group chip never sits on a child chip. */
+    [f].concat(f.children || []).forEach(function (n) {
+      if (!n.parent || n.shown === false) return;
       var group = !!n.children;
       if (group && !s.groupLabels) return;
       var x = v.ox + n.x * v.k, y = v.oy + n.y * v.k, r = n.r * v.k;
       if (r < chipH * 0.62) return;
       if (x + r < 0 || x - r > self.w || y + r < 0 || y - r > self.h) return;
       var name = n.data.name, val = C.fmt(n.value, s.valueFormat), texts = [];
-      var maxW = Math.max(10, 2 * Math.sqrt(Math.max(0, (r - 3) * (r - 3) - (chipH / 2) * (chipH / 2))) - padX * 2);
+      /* A label shows in full or not at all: no truncated stubs. The tooltip and zoom reveal hidden names. */
       if (s.showValues) texts.push(name + '  ' + val);
       texts.push(name);
-      var t = name;
-      if (self._measure(t) > maxW) {
-        while (t.length > 1 && self._measure(t + '…') > maxW) t = t.slice(0, -1);
-        if (t.length > 1 || self._measure(t + '…') <= maxW) texts.push(t.replace(/\s+$/, '') + '…');
-      }
       cands.push({ id: n.idx, group: group, x: x, y: y, r: r, texts: texts, prio: (n.parent === f ? 0 : 1) + (group ? 0 : 0.5) });
     });
     var placed = L.planLabels(cands, { x0: 2, y0: 2, x1: this.w - 2, y1: this.h - 2 }, function (t) { return self._measure(t); }, fs, padX, padY);
