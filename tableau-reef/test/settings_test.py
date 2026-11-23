@@ -50,7 +50,7 @@ SIG = r"""() => {
   const cs = (el, p) => el ? getComputedStyle(el)[p] : '';
   const gear = document.querySelector('.cp-gear').getBoundingClientRect();
   const calm = () => ({
-    html: chart.outerHTML, root: rootEl.getAttribute('style') + '|' + rootEl.className, page: document.body.style.cssText + '|' + document.documentElement.style.cssText,
+    html: (() => { const cl = chart.cloneNode(true), t = cl.querySelector('.rf-tip'); if (t) t.remove(); return cl.outerHTML; })(), root: rootEl.getAttribute('style') + '|' + rootEl.className, page: document.body.style.cssText + '|' + document.documentElement.style.cssText,
     gear: [gear.left, gear.top].map(Math.round).join(','),
     css: [cs(lf && lf.el, 'transitionDuration'), cs(chart.querySelector('.rf-labels'), 'animationDuration'), cs(chart.querySelector('.rf-chip text'), 'fontWeight'), cs(chart.querySelector('.rf-chip text'), 'fill'),
           cs(chart.querySelector('.rf-crumb'), 'backgroundColor'), cs(lf && lf.el, 'strokeDasharray')].join('|')
