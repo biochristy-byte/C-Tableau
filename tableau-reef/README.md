@@ -28,15 +28,16 @@ circle-packing extension when this was checked on 11/22/2026.
   into one circle. Every label is a solid chip that sits fully
   inside its own circle, so the text is 14 px or larger and 7:1 against its
   chip in light and dark, whatever colour the circle behind it is.
-- **28 settings** in 6 groups (data, colours, layout, labels, zoom, appearance)
-  in a gear panel inside the viz. **No sliders**: steppers you can type into,
-  chip groups, dropdowns and colour inputs. No browser dialogs.
+- **90 settings on 14 tabs** (Colors, Packing, Depth, Zoom, Rings, Labels, Legend, Number format, Tooltip, Fonts, Background,
+  Animation, Interaction, Fields, plus the built-in Panel tab) in a floating panel inside the viz,
+  the same one as the other Data Divers extensions: click the gear, drag it by its title bar, minimize it,
+  Escape closes it, and below 420px wide it becomes a full-frame sheet. Every setting has a plain-language help line, a search box
+  finds a setting by name, and the Panel tab holds Reset all, Undo, **Copy settings** and **Paste settings** (the JSON the C-Tableau
+  Viz pages flow accepts). **No sliders**: steppers you can type into, chip groups, dropdowns and colour inputs. No browser dialogs.
 - **Selection and hover push back into Tableau.** Clicking a circle selects the
   marks under it by value on every level it sits at.
-- **Copy settings** puts the whole configuration on the clipboard as JSON, and
-  **Paste settings** applies one. That JSON is what the C-Tableau Viz pages flow
-  accepts.
-- **Settings are saved in the workbook** through Tableau's extension settings.
+- **Settings are saved in the workbook** through Tableau's extension settings. A workbook saved before the panel change keeps its look:
+  the old font stack and number format are read as the new Font and Compact numbers settings.
 - **Background**: follows the worksheet, or light, dark or a custom colour.
 
 ## What else you need
@@ -96,11 +97,13 @@ many. Leaf area is proportional to the measure.
 ```
 node test/run.js                 unit tests: packing has no overlaps, area is proportional
                                  to value, zoom maths, label placement, settings coercion
+python test/settings_test.py     every one of the 90 settings is changed and must change the render
 python test/render_test.py       Playwright, headless Chromium, against the mock Tableau API:
                                  3 sizes x light and dark, zoom smoothness, panel, copy and
                                  paste, stress with 1,200 leaves
-python test/standin_test.py      drives the extension with the real C-Tableau Viz pages stand-in
+python test/standin_test.py      drives the extension with the real C-Tableau Viz pages stand-in (legacy settings and Copy-settings JSON)
 python tools/sabotage.py         breaks one thing per gate and requires RED, then restores
+python ../shared/ctab-panel/sync_check.py   lib/ctab-panel must match shared/ctab-panel byte for byte
 python test/render_test.py --shots   also writes preview/*.png and preview/thumbnail.jpg
 ```
 
