@@ -136,7 +136,7 @@
       return { group: grpF ? r[grpF] : '', source: r[srcF], target: r[tgtF], weight: wtF ? r[wtF] : undefined, targetGroup: tgF ? r[tgF] : '' };
     });
     model.rows = rows;
-    /* Every group in first-appearance order (this fixes its palette colour), then the Colors tab list on top. */
+    /* Every group in first-appearance order (this fixes its palette color), then the Colors tab list on top. */
     var full = layoutLib.buildGraph(rows), seen = {}, groups = [];
     full.nodes.forEach(function (n) { if (!seen[n.group]) { seen[n.group] = true; groups.push(n.group); } });
     state.groupList = groups;
@@ -190,7 +190,7 @@
 
   /* --------------------------------------------------------------- render */
 
-  /* The Colors tab list: per-group name, colour and visibility. The palette colour is what the group would get
+  /* The Colors tab list: per-group name, color and visibility. The palette color is what the group would get
    * with no override, so Reset restores it. */
   function groupItemsFor (theme) {
     var groups = state.groupList || [], pc = theme && theme.groups && theme.groups.length ? theme.groups : ['#c9d6e0'];

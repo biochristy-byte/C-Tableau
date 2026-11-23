@@ -3,7 +3,7 @@
 Hierarchical edge bundling for Tableau. Nodes sit on a circle, grouped by a
 parent dimension, and every link is a curve that bends in through its group
 hubs, so the dense web of a network collapses into readable bundles. Hover a
-node and its links light up: outgoing in one colour, incoming in another, the
+node and its links light up: outgoing in one color, incoming in another, the
 rest eased down to a whisper. It is free, MIT licensed, and runs in the free
 edition of Tableau Desktop.
 
@@ -24,7 +24,7 @@ for the lit links.
 - **Real hierarchical edge bundling**: `d3.cluster` on a radial tree, links
   drawn with `d3.lineRadial` and `curveBundle`. The **beta** stepper runs from
   0 (straight chords) to 1 (tight bundles).
-- **Hover a node**: its outgoing and incoming links light in two colours, with
+- **Hover a node**: its outgoing and incoming links light in two colors, with
   a glow and a small synapse bulb at the far end, and every other link eases
   down. The fade is easeInOut, and a hover that changes mid-fade starts from
   what is on screen. Click pins a node and selects its marks in Tableau.
@@ -57,11 +57,11 @@ because the panel now drags). Copy settings and Paste settings are in the panel 
 | --- | --- |
 | Layout | bundling strength (beta), gap between groups, group order (data, A to Z, biggest first, my order), order inside a group, rotate, clockwise or counter-clockwise, chart size |
 | Nodes | node size, circle or square, size by links or by weight (and the biggest multiple), outline width, soft halo, halo size and strength |
-| Links | opacity, line ends, stacking, width follows weight (thinnest, thickest, square root, linear or log), hide links lighter than a floor, colour by source group, target group or one colour |
-| Hover | which links light up (both, outgoing, incoming), outgoing and incoming colours, lit width and opacity, glow and its reach, synapse bulbs and their size, dimmed links, dimmed nodes, how far the hovered and connected nodes grow, fade time |
+| Links | opacity, line ends, stacking, width follows weight (thinnest, thickest, square root, linear or log), hide links lighter than a floor, color by source group, target group or one color |
+| Hover | which links light up (both, outgoing, incoming), outgoing and incoming colors, lit width and opacity, glow and its reach, synapse bulbs and their size, dimmed links, dimmed nodes, how far the hovered and connected nodes grow, fade time |
 | Group arcs | draw the arcs, thickness, distance from the labels, overhang, opacity, group names and their weight |
-| Colors | group colours (four palettes), reverse them, per-group name, colour, show or hide, and order (a list) |
-| Labels | node labels on or off, text size (never under 14px), what to keep first when space runs out, distance from the node, longest label, weight, value labels, text colour |
+| Colors | group colors (four palettes), reverse them, per-group name, color, show or hide, and order (a list) |
+| Labels | node labels on or off, text size (never under 14px), what to keep first when space runs out, distance from the node, longest label, weight, value labels, text color |
 | Number format | decimals, thousands separator, short form, multiply by, prefix, suffix (used by the readout and value labels) |
 | Tooltip | the hover readout, its size, swatches, corner or follow the pointer, maximum width |
 | Fonts | font family, an optional title and its size and weight |
@@ -80,7 +80,7 @@ because the panel now drags). Copy settings and Paste settings are in the panel 
 | --- | --- |
 | **Tableau Desktop 2024.2 or newer** | Viz extensions need 2024.2 at minimum. Free Edition works. |
 | **Node.js** (or Python 3) | Tableau loads the extension from a local server. `Start-Neurons.bat` needs nothing but Windows PowerShell. |
-| **One file from Tableau** | The Extensions API library. It is Tableau's, so it is not in this folder: [lib/README.md](lib/README.md) shows where to get it. The d3 modules are already here, vendored in `lib/d3` (ISC licence, no CDN at runtime). |
+| **One file from Tableau** | The Extensions API library. It is Tableau's, so it is not in this folder: [lib/README.md](lib/README.md) shows where to get it. The d3 modules are already here, vendored in `lib/d3` (ISC license, no CDN at runtime). |
 
 **Tableau Public: you can author with it, but viewers will not see it.** A
 self-hosted `.trex` loads in Tableau Public Desktop, but visitors to the
@@ -134,7 +134,7 @@ an empty one. Drag the stage corner to test resize.
 ## Tests
 
 ```bash
-node test/run.js          # layout, schema, legacy keys and colour maths, no browser
+node test/run.js          # layout, schema, legacy keys and color maths, no browser
 python test/render.py     # Playwright render gates, headless Chromium (A to G)
 python test/sabotage.py   # breaks the subject of each gate once: RED, restored byte-exact, GREEN
 python ../shared/ctab-panel/sync_check.py   # the vendored panel matches shared/ byte for byte
@@ -179,9 +179,9 @@ src/js/layout.js        pure maths: graph, cluster, bundling, label fit
 src/js/render.js        canvas links, SVG nodes and labels, the eased fade
 src/js/settings.js      the schema (ctab-panel rows) and the legacy-key carry-over
 lib/ctab-panel/         the shared floating settings panel (vendored byte-for-byte)
-src/js/palettes.js      colour maths and the 7 to 1 theme resolver
+src/js/palettes.js      color maths and the 7 to 1 theme resolver
 src/js/neurons.js       the Tableau adapter
-lib/d3/                 vendored d3-path, d3-shape, d3-hierarchy and licences
+lib/d3/                 vendored d3-path, d3-shape, d3-hierarchy and licenses
 dev/                    mock Tableau API, fixtures, harness
 test/                   run.js (node), render.py (Playwright), sabotage.py
 data/                   the example
@@ -190,4 +190,4 @@ data/                   the example
 ## License
 
 MIT for this extension. The vendored d3 modules are ISC, Mike Bostock; their
-licences sit beside them in `lib/d3`.
+licenses sit beside them in `lib/d3`.

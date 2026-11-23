@@ -1,14 +1,14 @@
-/* Neurons Viz Extension - colour palettes and colour maths.
+/* Neurons Viz Extension - color palettes and color maths.
  *
- * Categorical palettes are colourblind-conscious by default. The ramp helpers
+ * Categorical palettes are colorblind-conscious by default. The ramp helpers
  * interpolate in linear-light sRGB rather than naively in gamma space, so a
  * light-to-dark ramp does not go muddy through the middle.
  */
 (function (global) {
   'use strict';
 
-  /* Group colour sets. Each is tuned for a dark background; resolveTheme()
-   * pulls any colour toward the ink until it clears 3 to 1 on the actual
+  /* Group color sets. Each is tuned for a dark background; resolveTheme()
+   * pulls any color toward the ink until it clears 3 to 1 on the actual
    * background, so the same set serves a white sheet too. */
   var PALETTES = {
     diver: ['#ff6b6b', '#b9a2ff', '#7be0a7', '#6fa8ff', '#ff9ecb', '#ffb38a', '#5fd0c4', '#c9d6e0'],
@@ -45,7 +45,7 @@
     return c * 255;
   }
 
-  /* Interpolate two hex colours at t in [0,1], in linear light. */
+  /* Interpolate two hex colors at t in [0,1], in linear light. */
   function mix (fromHex, toHex, t) {
     t = clamp(t, 0, 1);
     var a = hexToRgb(fromHex), b = hexToRgb(toHex);
@@ -61,7 +61,7 @@
     return 0.2126 * toLinear(c.r) + 0.7152 * toLinear(c.g) + 0.0722 * toLinear(c.b);
   }
 
-  /* Contrast ratio between two colours, 1 to 21. */
+  /* Contrast ratio between two colors, 1 to 21. */
   function contrast (a, b) {
     var la = luminance(a), lb = luminance(b);
     var hi = Math.max(la, lb), lo = Math.min(la, lb);
@@ -73,7 +73,7 @@
     return contrast(bg, '#ffffff') >= contrast(bg, '#000000') ? '#ffffff' : '#000000';
   }
 
-  /* Stable categorical assignment: same key always gets the same colour for a
+  /* Stable categorical assignment: same key always gets the same color for a
    * given ordered key list, so re-sorting the chart does not reshuffle hues. */
   function categorical (paletteName, keys) {
     var pal = PALETTES[paletteName] || PALETTES.colorblind10;
@@ -100,14 +100,14 @@
   /* Fade `ink` toward `surface` until the contrast ratio lands on `target`.
    *
    * A fixed mix cannot do this job. `mix` interpolates in linear light, which
-   * is right for a colour ramp and badly wrong for grey text: a 38% mix of
+   * is right for a color ramp and badly wrong for gray text: a 38% mix of
    * near-black into white lands at 2.4:1, well under the 4.5:1 a reader needs.
    * Solving for the ratio instead means secondary text is legible on white, on
    * navy, and on whatever a workbook's background happens to be.
    *
    * Contrast falls monotonically as t goes 0 to 1, so a bisection is exact
    * enough in 24 steps and cannot get stuck. If there is no room to fade, the
-   * original colour is returned rather than something unreadable.
+   * original color is returned rather than something unreadable.
    */
   function fadeToContrast (ink, surface, target) {
     if (contrast(ink, surface) <= target) return ink;
@@ -125,7 +125,7 @@
     dark: { surface: '#20262e', ink: '#eef1f5' }
   };
 
-  /* Every colour in the settings panel, derived from one surface and one ink.
+  /* Every color in the settings panel, derived from one surface and one ink.
    *
    * Returned as a map of CSS custom property name to value, so applying a
    * theme is a loop of setProperty and nothing else knows the maths. Pure, so
@@ -133,10 +133,10 @@
    *
    *   light / dark    fixed presets
    *   match           takes the chart background, picks readable ink for it
-   *   custom          both colours come from the settings
+   *   custom          both colors come from the settings
    *
-   * The two derived greys (soft ink, hairline) are mixes of ink into surface
-   * rather than fixed greys, which is what keeps the panel legible on a dark
+   * The two derived grays (soft ink, hairline) are mixes of ink into surface
+   * rather than fixed grays, which is what keeps the panel legible on a dark
    * navy or a warm cream instead of only on white.
    */
   function panelVars (s, chartBg) {
@@ -145,7 +145,7 @@
 
     if (theme === 'custom') {
       surface = hex(s.panelBg, '#ffffff');
-      /* An explicitly picked text colour is honoured as picked. */
+      /* An explicitly picked text color is honored as picked. */
       ink = hex(s.panelText, readableOn(surface));
     } else if (theme === 'match') {
       surface = hex(chartBg, '#ffffff');
@@ -153,7 +153,7 @@
        * Pure black or white on a light or dark surface is harsh, so step it
        * back 8% toward the surface, but only while that still clears WCAG AA
        * for body text. On a mid tone there is no contrast to spare, so the
-       * pure colour is kept and legibility beats softness. */
+       * pure color is kept and legibility beats softness. */
       var pure = readableOn(surface);
       var softened = mix(pure, surface, 0.08);
       ink = contrast(softened, surface) >= 4.5 ? softened : pure;
@@ -164,16 +164,16 @@
     }
 
     /* What decides the chrome is which way the ink runs, not how dark the
-     * surface is. A mid grey reads as "dark" by luminance but takes black
+     * surface is. A mid gray reads as "dark" by luminance but takes black
      * text, and treating it as dark lifted the second surface toward the
-     * ink, which quietly cost the derived greys a point of contrast. */
+     * ink, which quietly cost the derived grays a point of contrast. */
     var inkIsLight = luminance(ink) > luminance(surface);
     var surfaceIsDark = luminance(surface) < 0.35;
     var accent = hex(s && s.panelAccent, '#3cc4d1');
 
     /* Group headers and the footer sit on surface-2, which is always a step
      * toward the ink. That makes it the harder background of the two, so the
-     * greys are solved against it rather than against the panel surface.
+     * grays are solved against it rather than against the panel surface.
      * Solved against the surface instead, secondary text measured 4.37 on a
      * group header: under the floor, on the row a reader looks at most. */
     var surface2 = inkIsLight ? lighten(surface, 0.07) : darken(surface, 0.035);

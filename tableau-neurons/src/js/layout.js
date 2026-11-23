@@ -131,7 +131,7 @@
 
   /* d3.cluster on a root -> group -> leaf tree, radial: x is the angle
    * (0 at 12 o'clock, clockwise), y the radius. Leaves sit at R, group hubs
-   * at R/2, the root at the centre. Links are the path leaf -> hubs -> leaf,
+   * at R/2, the root at the center. Links are the path leaf -> hubs -> leaf,
    * drawn with lineRadial + curveBundle.beta(beta). */
   function layout (graph, o) {
     var d3 = D3();

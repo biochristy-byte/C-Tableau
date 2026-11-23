@@ -1,11 +1,11 @@
 /* Neurons Viz Extension - renderer.
  *
- * Links are drawn on a canvas (hundreds of eased, coloured, glowing curves per
+ * Links are drawn on a canvas (hundreds of eased, colored, glowing curves per
  * frame is cheap there and keeps draw order right); nodes, labels, group arcs
  * and the hit targets are SVG, so text stays crisp and hover is native.
  *
  * Motion: one eased transition (easeInOutCubic over `fadeMs`) moves every
- * link's colour, opacity and width between "resting" and "focused". The loop
+ * link's color, opacity and width between "resting" and "focused". The loop
  * only runs while a transition is in flight, so an idle chart costs nothing.
  * A retarget in mid-fade starts from the values on screen, so it never jumps.
  */
@@ -237,7 +237,7 @@
     this.svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
     this.svg.setAttribute('aria-label', 'Hierarchical edge bundling of ' + graph.nodes.length + ' nodes and ' + graph.links.length + ' links');
 
-    /* Group colours are keyed by first appearance in the data, so re-ordering
+    /* Group colors are keyed by first appearance in the data, so re-ordering
      * the ring never reshuffles hues. */
     var self0 = this, gcolor = {}, gpal = {}, gname = {};
     var gi = 0, ov = this.groupItems || {};

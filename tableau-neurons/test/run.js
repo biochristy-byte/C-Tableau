@@ -207,7 +207,7 @@ section('labels: never upside down', 3600, t => {
 });
 
 /* ---- 8. plan: sizes, text floor, the note */
-section('plan: 300x300 to 1600x1000, 14px floor, honest note', 60, t => {
+section('plan: 300x300 to 1600x1000, 14px floor, a plain note', 60, t => {
   const sizes = [[300, 300], [300, 600], [600, 500], [900, 600], [1200, 760], [1600, 1000], [1600, 400]];
   const tiny = L.buildGraph([
     { group: 'A', source: 'a', target: 'b', weight: 1 }, { group: 'A', source: 'b', target: 'c', weight: 1 },

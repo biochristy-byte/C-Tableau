@@ -3,7 +3,7 @@
   <worksheet-extension id="com.datadivers.vizext.neurons" extension-version="1.0.0">
     <default-locale>en_US</default-locale>
     <name resource-id="name"/>
-    <description>Neurons: hierarchical edge bundling. Nodes sit on a circle grouped by a parent dimension, and every link is a bundled curve that pulls through its group hubs. Hover a node to light its outgoing and incoming links; every colour, label and curve setting lives in a panel inside the viz.</description>
+    <description>Neurons: hierarchical edge bundling. Nodes sit on a circle grouped by a parent dimension, and every link is a bundled curve that pulls through its group hubs. Hover a node to light its outgoing and incoming links; every color, label and curve setting lives in a panel inside the viz.</description>
     <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
     <!-- 1.12 is the floor because worksheetContent arrived in 1.12 (Tableau 2024.2). -->
     <min-api-version>1.12</min-api-version>
