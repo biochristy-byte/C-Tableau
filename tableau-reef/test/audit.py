@@ -30,7 +30,7 @@ AUDIT = r"""() => {
     const el = t.parentElement; if (!el) continue;
     const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
     if (cs.display === 'none' || cs.visibility === 'hidden' || (r.width === 0 && r.height === 0)) continue;
-    if (el.closest('.rf-panel:not(.open)')) continue;
+    if (el.closest('.cp-panel[hidden]')) continue;
     let bg, fg = parse(cs.color);
     if (el instanceof SVGElement) { const g = el.closest('.rf-chip'); const rect = g && g.querySelector('rect'); bg = parse(getComputedStyle(rect).fill); fg = parse(getComputedStyle(el).fill); bg = bg.slice(0, 3); }
     else bg = bgOf(el);
@@ -51,7 +51,7 @@ AUDIT = r"""() => {
   });
   for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) { const a = rects[i], b = rects[j]; if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) out.overlaps++; }
   // HTML chips (breadcrumb, legend) must not overlap each other or the gear
-  const html = [...document.querySelectorAll('.rf-crumb, .rf-key, .rf-gear, .ctab-exit')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.getBoundingClientRect());
+  const html = [...document.querySelectorAll('.rf-crumb, .rf-key, .cp-gear, .ctab-exit')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.getBoundingClientRect());
   out.htmlOverlaps = 0; for (let i = 0; i < html.length; i++) for (let j = i + 1; j < html.length; j++) { const a = html[i], b = html[j]; if (a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5) out.htmlOverlaps++; }
   out.htmlCount = html.length;
   return out;

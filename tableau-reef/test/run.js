@@ -9,13 +9,15 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
-const sandbox = { console, Math, Map, Set, Array, Object, JSON, Number, String, isFinite, parseFloat, parseInt };
+const CP = require(path.join(ROOT, 'lib', 'ctab-panel', 'ctab-panel.js'));
+const SET = require(path.join(ROOT, 'src', 'js', 'settings.js'));
+const sandbox = { console, Math, Map, Set, Array, Object, JSON, Number, String, isFinite, parseFloat, parseInt, CTabPanel: CP };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 function load(rel) { vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), sandbox, { filename: rel }); }
 load('lib/d3-hierarchy.min.js');
-['src/js/schema.js', 'src/js/colors.js', 'src/js/layout.js'].forEach(load);
-const { schema, colors, layout } = sandbox.RF;
+['src/js/colors.js', 'src/js/layout.js'].forEach(load);
+const { colors, layout } = sandbox.RF;
 
 let pass = 0; const failures = [];
 function ok(name, cond, detail) { if (cond) pass++; else failures.push(name + (detail ? '\n    ' + detail : '')); }
@@ -31,28 +33,55 @@ const real = csv(path.join(ROOT, 'example', 'us-deaths-by-cause-2017.csv'));
 const toRows = (rs, f) => rs.map((r, i) => ({ path: f.path.map((k) => r[k]), value: Number(r[f.size]), color: null, tuple: i + 1 }));
 
 /* ---------------------------------------------------------- settings */
-const base = schema.resolve({});
-eq('defaults resolve to the schema defaults', base, schema.DEFAULTS);
-eq('"14" coerces to the number 14', schema.coerce('fontSize', '14'), 14);
-eq('label size never goes below 14', schema.coerce('fontSize', '9'), 14);
-eq('label size caps at 28', schema.coerce('fontSize', '99'), 28);
-eq('"false" coerces to false', schema.coerce('labels', 'false'), false);
-eq('"true" coerces to true', schema.coerce('labels', 'true'), true);
-eq('junk toggle falls back to default', schema.coerce('labels', 'banana'), true);
-eq('number out of range clamps', schema.coerce('zoomMs', '99999'), 2000);
-eq('bad colour falls back', schema.coerce('singleColor', 'red'), '#3cc4d1');
-eq('good colour kept, lower-cased', schema.coerce('singleColor', '#ABCDEF'), '#abcdef');
-eq('unknown choice falls back', schema.coerce('palette', 'nope'), 'reef');
-eq('columns select keeps any string', schema.coerce('colorField', 'Age-adjusted death rate'), 'Age-adjusted death rate');
-eq('empty string means default', schema.coerce('gap', ''), 5);
-const types = new Set(); schema.GROUPS.forEach((g) => g.options.forEach((o) => types.add(o.type)));
-ok('no slider control type exists in the schema', !types.has('slider') && !types.has('range'), [...types].join());
-ok('panel and css contain no range input', !/type\s*=\s*['"]range['"]|input\[type=range\]/.test(fs.readFileSync(path.join(ROOT, 'src/js/panel.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'src/css/reef.css'), 'utf8')));
-ok('panel never calls a browser dialog', !/\b(prompt|alert|confirm)\s*\(/.test(fs.readFileSync(path.join(ROOT, 'src/js/panel.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'src/js/app.js'), 'utf8')));
-ok('default palette is the reef palette', base.palette === 'reef' && colors.PALETTES.reef[0] === '#f08f8f' && colors.PALETTES.reef.indexOf('#3cc4d1') > -1 && colors.PALETTES.reef.indexOf('#f2b84b') > -1);
-// every select/segmented default is one of its own choices
-schema.GROUPS.forEach((g) => g.options.forEach((o) => { if ((o.type === 'select' || o.type === 'segmented') && Array.isArray(o.choices)) ok('default of ' + o.key + ' is a listed choice', o.choices.some((c) => c.value === o.def)); }));
-
+const rows = SET.prepared.rows, byKey = {}; rows.forEach((r) => { byKey[r.key] = r; });
+const settable = rows.filter((r) => r.type !== 'note');
+const tabsUsed = new Set(settable.map((r) => r.tab));
+ok('at least 40 settings (' + settable.length + ')', settable.length >= 40);
+ok('at least 7 tabs (' + tabsUsed.size + '): ' + [...tabsUsed].join(', '), tabsUsed.size >= 7);
+ok('has the standard tabs and the Reef tabs', ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields', 'packing', 'depth', 'zoom', 'rings', 'legend'].every((t) => tabsUsed.has(t)), [...tabsUsed].join());
+ok('no slider row type exists in the schema', rows.every((r) => r.type !== 'slider' && r.type !== 'range'));
+const defs = CP.defaultsOf(rows);
+eq('SET.DEFAULTS is the defaults of the rows', SET.DEFAULTS, defs);
+// every default survives the string round trip the Tableau settings store applies
+let rt = 0;
+settable.forEach((r) => { const s = r.type === 'list' ? JSON.stringify(defs[r.key]) : String(defs[r.key]); const c = CP.coerce(r, s); if (JSON.stringify(c) === JSON.stringify(defs[r.key])) rt++; else failures.push('default of ' + r.key + ' does not survive a string round trip: ' + JSON.stringify(c)); });
+ok('all ' + settable.length + ' defaults survive a string round trip', rt === settable.length);
+settable.forEach((r) => { if (r.type === 'select' || r.type === 'chips') ok('default of ' + r.key + ' is one of its choices', r.opts.some((o) => o.value === String(defs[r.key]))); });
+settable.forEach((r) => { if (r.type === 'number') ok('number ' + r.key + ' has its default inside min and max', defs[r.key] >= r.min && defs[r.key] <= r.max); });
+ok('every text size floor is 14px', ['fontSize', 'tipSize', 'titleSize'].every((k) => byKey[k].min === 14));
+ok('every when points at a real key', rows.every((r) => { const ws = !r.when ? [] : Array.isArray(r.when) ? r.when : [r.when]; return ws.every((w) => typeof w === 'function' || byKey[w.key]); }));
+// the keys Reef shipped with are all still there, with the values they shipped with
+const OLD = { colorMode: 'group', colorField: '', sort: 'size', palette: 'reef', rampName: 'reef', singleColor: '#3cc4d1', groupFill: 18, leafOpacity: 92, ringWidth: 1.5, gap: 5, hideBelow: 2, margin: 12, legend: true,
+  labels: true, groupLabels: true, showValues: true, fontSize: 14, zoomOnClick: true, zoomMs: 700, breadcrumb: true, intro: true, theme: 'worksheet', customBg: '#0d2b45', tooltips: true, selectEnabled: true, gearCorner: 'tr' };
+Object.keys(OLD).forEach((k) => eq('saved key ' + k + ' kept with its old default', defs[k], OLD[k]));
+// coercion
+eq('"14" coerces to the number 14', CP.coerce(byKey.fontSize, '14'), 14);
+eq('label size never goes below 14', CP.coerce(byKey.fontSize, '9'), 14);
+eq('label size caps at 28', CP.coerce(byKey.fontSize, '99'), 28);
+eq('"false" coerces to false', CP.coerce(byKey.labels, 'false'), false);
+eq('number out of range clamps', CP.coerce(byKey.zoomMs, '99999'), 2000);
+eq('bad colour is refused', CP.coerce(byKey.singleColor, 'red'), undefined);
+eq('good colour kept, lower-cased', CP.coerce(byKey.singleColor, '#ABCDEF'), '#abcdef');
+eq('unknown palette is refused', CP.coerce(byKey.palette, 'nope'), undefined);
+eq('every old palette id still loads', ['reef', 'lagoon', 'sunset', 'datadivers', 'kelp', 'colorblind10'].map((v) => CP.coerce(byKey.palette, v)), ['reef', 'lagoon', 'sunset', 'datadivers', 'kelp', 'colorblind10']);
+eq('every old theme id still loads', ['worksheet', 'light', 'dark', 'custom'].map((v) => CP.coerce(byKey.theme, v)), ['worksheet', 'light', 'dark', 'custom']);
+eq('colour field keeps any column name', CP.coerce(byKey.colorField, 'Age-adjusted death rate'), 'Age-adjusted death rate');
+// old saved settings: font stack and valueFormat are read as a fallback when the new key is empty
+function fake(obj) { return { v: Object.assign({}, obj), get(k) { return this.v[k]; }, set(k, x) { this.v[k] = String(x); }, getAll() { return Object.assign({}, this.v); }, saveAsync() { return Promise.resolve(); } }; }
+function loaded(obj) { const st = CP.createStore({ rows: SET.prepared.rows, settings: SET.withLegacy(fake(obj)), prefix: 'reef.' }); return st.load(); }
+const STACKS = { 'Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif': 'worksheet', '"Segoe UI", system-ui, Roboto, Arial, sans-serif': 'segoe', 'Arial, Helvetica, sans-serif': 'arial',
+  '"Helvetica Neue", Helvetica, Arial, sans-serif': 'helvetica', '"Trebuchet MS", Tahoma, sans-serif': 'trebuchet', 'Verdana, Geneva, sans-serif': 'verdana' };
+Object.keys(STACKS).forEach((k) => eq('old fontFamily ' + k.slice(0, 22) + ' reads as font ' + STACKS[k], loaded({ 'reef.fontFamily': k }).font, STACKS[k]));
+eq('old valueFormat plain reads as numCompact false', loaded({ 'reef.valueFormat': 'plain' }).numCompact, false);
+eq('old valueFormat compact reads as numCompact true', loaded({ 'reef.valueFormat': 'compact' }).numCompact, true);
+eq('nothing saved: numCompact keeps the old compact look', loaded({}).numCompact, true);
+eq('a saved new key beats the old one', loaded({ 'reef.font': 'verdana', 'reef.fontFamily': 'Arial, Helvetica, sans-serif' }).font, 'verdana');
+eq('an unknown old stack falls back to the default font', loaded({ 'reef.fontFamily': 'Papyrus, fantasy' }).font, 'worksheet');
+const old = loaded({ 'reef.palette': 'sunset', 'reef.fontSize': '16', 'reef.colorMode': 'field', 'reef.zoomMs': '500', 'reef.theme': 'dark', 'reef.labels': 'false', 'reef.gap': '9', 'reef.tooltips': 'false' });
+eq('an old workbook keeps palette, label size, colour mode, zoom time, theme, labels, gap, tooltips', [old.palette, old.fontSize, old.colorMode, old.zoomMs, old.theme, old.labels, old.gap, old.tooltips], ['sunset', 16, 'field', 500, 'dark', false, 9, false]);
+ok('settings.js never calls a browser dialog or draws a range input', !/\b(prompt|alert|confirm)\s*\(|type\s*=\s*['"]range['"]/.test(fs.readFileSync(path.join(ROOT, 'src/js/settings.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'src/js/app.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'src/js/render.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'src/css/reef.css'), 'utf8')));
+ok('the old panel is gone (no src/js/panel.js)', !fs.existsSync(path.join(ROOT, 'src/js/panel.js')));
+ok('default palette is the reef palette', defs.palette === 'reef' && colors.PALETTES.reef[0] === '#f08f8f' && colors.PALETTES.reef.indexOf('#3cc4d1') > -1);
 /* --------------------------------------------------------- colour maths */
 function near(name, a, b, tol) { ok(name, Math.abs(a - b) <= (tol || 1e-6), 'expected ~' + b + ' got ' + a); }
 near('black on white is 21:1', colors.contrast('#000000', '#ffffff'), 21, 1e-9);
@@ -181,8 +210,22 @@ ok('planner output never contains an ellipsis', noStub);
 const src = fs.readFileSync(path.join(ROOT, 'src/js/render.js'), 'utf8');
 ok('renderer builds no truncated label text', src.indexOf('…') < 0 && !/slice\(0, -1\)/.test(src));
 
+// new layout levers
+{
+  const rowsA = toRows(real, F3);
+  const r0 = layout.pack(layout.buildTree(rowsA, 3, 'size').root, 5), r1 = layout.pack(layout.buildTree(rowsA, 3, 'size').root, 5, { topGap: 30 }), r2 = layout.pack(layout.buildTree(rowsA, 3, 'size').root, 5, { groupPad: 20 });
+  ok('topGap spreads the top-level groups (the first group shrinks against the fixed frame)', r1.children[0].r < r0.children[0].r, r0.children[0].r + ' vs ' + r1.children[0].r);
+  ok('groupPad leaves more room inside nested groups (leaves shrink)', r2.leaves()[0].r < r0.leaves()[0].r);
+  const down = layout.buildTree(rowsA, 3, 'size').root.children.map((c) => c.data.name), up = layout.buildTree(rowsA, 3, 'size', { reverse: true }).root.children.map((c) => c.data.name);
+  eq('reverse flips the sort order of the top-level groups', up, down.slice().reverse());
+  ok('fold:false keeps single-child rings (more circles than the folded tree)', layout.buildTree(rowsA, 3, 'size', { fold: false }).root.descendants().length > layout.buildTree(rowsA, 3, 'size').root.descendants().length);
+  eq('ease endpoints for all three curves', ['inout', 'out', 'linear'].map((n) => [layout.ease(n, 0), layout.ease(n, 1)]), [[0, 1], [0, 1], [0, 1]]);
+  ok('ease curves differ at 25%', new Set(['inout', 'out', 'linear'].map((n) => layout.ease(n, 0.25).toFixed(4))).size === 3);
+  near('viewFor scale halves the zoom at sizePct 50', layout.viewFor({ x: 500, y: 500, r: 500 }, 900, 560, 0, 0, 12, 0.5).k * 2, layout.viewFor({ x: 500, y: 500, r: 500 }, 900, 560, 0, 0, 12, 1).k, 1e-9);
+}
+
 /* --------------------------------------------------------------- report */
-const MIN_CHECKS = 80;
+const MIN_CHECKS = 185;
 const total = pass + failures.length;
 console.log('Reef unit tests: ' + pass + ' passed, ' + failures.length + ' failed, ' + total + ' checks run (minimum ' + MIN_CHECKS + ')');
 if (failures.length) { console.log('\nFAILURES\n' + failures.map((f) => ' - ' + f).join('\n')); }

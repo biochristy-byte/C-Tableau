@@ -23,7 +23,8 @@
   }
 
   /* rows: [{ path: [l1, l2, l3], value, color, tuple }]. Returns { root, dropped }. */
-  function buildTree(rows, levels, sortMode) {
+  function buildTree(rows, levels, sortMode, opts) {
+    opts = opts || {};
     var top = { name: 'All', depthIdx: -1, kids: new Map(), pathNames: [] };
     var dropped = 0;
     rows.forEach(function (r) {
@@ -66,22 +67,28 @@
       else { o.leafValue = n.leafValue || 0; o.tuples = n.tuples || []; o.cw = n.cw; o.cs = n.cs; o.cat = n.cat; }
       return o;
     }
-    var data = collapse(plain(top), true);
+    var data = opts.fold === false ? plain(top) : collapse(plain(top), true);
     var root = d3.hierarchy(data, function (d) { return d.children; }).sum(function (d) { return d.children ? 0 : d.leafValue; });
-    if (sortMode === 'size') root.sort(function (a, b) { return b.value - a.value || (a.data.name < b.data.name ? -1 : 1); });
-    else if (sortMode === 'name') root.sort(function (a, b) { return a.data.name < b.data.name ? -1 : (a.data.name > b.data.name ? 1 : 0); });
+    var dir = opts.reverse ? -1 : 1;
+    if (sortMode === 'size') root.sort(function (a, b) { return dir * (b.value - a.value || (a.data.name < b.data.name ? -1 : 1)); });
+    else if (sortMode === 'name') root.sort(function (a, b) { return dir * (a.data.name < b.data.name ? -1 : (a.data.name > b.data.name ? 1 : 0)); });
+    else if (opts.reverse && root.children) root.each(function (n) { if (n.children) n.children.reverse(); });
     return { root: root, dropped: dropped };
   }
 
-  function pack(root, gap) {
-    d3.pack().size([SPAN, SPAN]).padding(gap)(root);
+  /* gap is the padding between circles. opts.topGap adds room between the top-level groups, opts.groupPad adds room
+   * between a nested group's ring and what is inside it. d3 calls padding(parent) once per parent. */
+  function pack(root, gap, opts) {
+    opts = opts || {};
+    var top = opts.topGap || 0, inner = opts.groupPad || 0;
+    d3.pack().size([SPAN, SPAN]).padding(function (parent) { return gap + (parent.depth === 0 ? top : inner); })(root);
     return root;
   }
 
   /* Screen mapping for a focus circle. `top` reserves room for the breadcrumb, `bottom` for the legend. */
-  function viewFor(focus, w, h, top, bottom, margin) {
+  function viewFor(focus, w, h, top, bottom, margin, scale) {
     var availH = Math.max(40, h - top - bottom), avail = Math.max(40, Math.min(w, availH));
-    var k = Math.max(0.0001, (avail / 2 - margin) / focus.r);
+    var k = Math.max(0.0001, (avail / 2 - margin) / focus.r) * (scale || 1);
     return { k: k, ox: w / 2 - focus.x * k, oy: top + availH / 2 - focus.y * k };
   }
   /* Interpolate focus {x,y,r}: width geometric, centre moved so the zoom feels anchored (van Wijk style, simplified). */
@@ -91,6 +98,7 @@
     var u = Math.abs(denom) < 1e-9 ? e : (a.r - r) / denom;
     return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, r: r };
   }
+  function ease(name, t) { t = t < 0 ? 0 : (t > 1 ? 1 : t); return name === 'linear' ? t : name === 'out' ? 1 - Math.pow(1 - t, 3) : easeInOut(t); }
   function easeInOut(t) { t = t < 0 ? 0 : (t > 1 ? 1 : t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
   /* ---- labels ----
@@ -99,7 +107,7 @@
    * A chip sits wholly inside its circle (corner test) and wholly inside bounds, and
    * never touches another chip. Group chips prefer the top of their circle so they
    * leave the middle to the children. */
-  function planLabels(cands, bounds, measure, fontPx, padX, padY) {
+  function planLabels(cands, bounds, measure, fontPx, padX, padY, groupAt) {
     var h = Math.round(fontPx * 1.0 + padY * 2), placed = [];
     var order = cands.slice().sort(function (a, b) { return (a.prio - b.prio) || (b.r - a.r); });
     function inside(cx, cy, r, left, top, w, hh) {
@@ -123,7 +131,7 @@
         var text = variants[vi];
         var tw = Math.ceil(measure(text)) + padX * 2;
         var spots = [];
-        if (c.group) {
+        if (c.group && groupAt !== 'center') {
           var half = tw / 2, rr = c.r - 2;
           if (half < rr) spots.push(c.y - Math.sqrt(rr * rr - half * half) + 1);   // as high as the circle allows
           spots.push(c.y - h / 2);
@@ -142,5 +150,5 @@
   }
 
   global.RF = global.RF || {};
-  global.RF.layout = { SPAN: SPAN, buildTree: buildTree, pack: pack, viewFor: viewFor, lerpFocus: lerpFocus, easeInOut: easeInOut, planLabels: planLabels, nameOf: nameOf };
+  global.RF.layout = { SPAN: SPAN, buildTree: buildTree, pack: pack, viewFor: viewFor, lerpFocus: lerpFocus, easeInOut: easeInOut, ease: ease, planLabels: planLabels, nameOf: nameOf };
 })(typeof window !== 'undefined' ? window : globalThis);

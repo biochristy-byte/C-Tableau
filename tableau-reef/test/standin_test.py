@@ -19,7 +19,11 @@ STANDIN = pathlib.Path('C:/Users/bioch/projects/viz-extensions-hub/hosted/public
 CSV = ROOT / 'example' / 'us-deaths-by-cause-2017.csv'
 MAPPING = {'level1': 'Cause group', 'level2': 'Cause', 'level3': 'Census region', 'size': 'Deaths'}
 PREFIX = 'reef.'
-SETTINGS_COPY = {'palette': 'sunset', 'fontSize': 16, 'colorMode': 'field', 'colorField': 'Age-adjusted death rate', 'rampName': 'lagoon', 'zoomMs': 500, 'theme': 'dark'}
+# what the panel's Copy settings button produces (flat, typed keys), and what a workbook saved before the panel change holds
+SETTINGS_COPY = {'palette': 'sunset', 'fontSize': 16, 'colorMode': 'field', 'colorField': 'Age-adjusted death rate', 'rampName': 'lagoon', 'zoomMs': 500, 'theme': 'dark',
+                 'labelCase': 'upper', 'gap': 9, 'font': 'verdana', 'numCompact': False, 'tipFollow': 'corner'}
+SETTINGS_OLD = {'palette': 'sunset', 'fontSize': 16, 'colorMode': 'field', 'colorField': 'Age-adjusted death rate', 'rampName': 'lagoon', 'zoomMs': 500, 'theme': 'dark',
+                'fontFamily': '"Segoe UI", system-ui, Roboto, Arial, sans-serif', 'valueFormat': 'plain'}
 MIN_SUBJECTS = 40
 
 if not STANDIN.exists():
@@ -57,13 +61,13 @@ class H(http.server.BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/_vz/standin.js': return self.send(STANDIN.read_bytes(), 'application/javascript')
         if path == '/v/test/d/data.json': return self.send(json.dumps(DATA), 'application/json')
-        m = re.fullmatch(r'/v/test/(nopref|pref)/', path)
+        m = re.fullmatch(r'/v/test/(nopref|pref|legacy)/', path)
         if m:
             cfg = {'dataUrl': '/v/test/d/data.json', 'encodings': [{'id': k, 'field': v} for k, v in MAPPING.items()],
-                   'settings': ({PREFIX + k: str(v) for k, v in SETTINGS_COPY.items()} if m.group(1) == 'pref' else SETTINGS_COPY),
-                   'prefix': PREFIX if m.group(1) == 'pref' else '', 'title': 'Standin test', 'home': 'https://c-tableau.netlify.app/'}
+                   'settings': ({PREFIX + k: (str(v).lower() if isinstance(v, bool) else str(v)) for k, v in SETTINGS_COPY.items()} if m.group(1) == 'pref' else {PREFIX + k: str(v) for k, v in SETTINGS_OLD.items()} if m.group(1) == 'legacy' else SETTINGS_COPY),
+                   'prefix': PREFIX if m.group(1) in ('pref', 'legacy') else '', 'title': 'Standin test', 'home': 'https://c-tableau.netlify.app/'}
             return self.send(shell(cfg), 'text/html; charset=utf-8')
-        m = re.fullmatch(r'/v/test/(?:nopref|pref)/x/(.+)', path) or re.fullmatch(r'/v/test/x/(.+)', path)
+        m = re.fullmatch(r'/v/test/(?:nopref|pref|legacy)/x/(.+)', path) or re.fullmatch(r'/v/test/x/(.+)', path)
         f = (ROOT / m.group(1)) if m else None
         if f and f.is_file() and ROOT in f.resolve().parents:
             ct = {'.js': 'application/javascript', '.css': 'text/css', '.html': 'text/html'}.get(f.suffix, 'application/octet-stream')
@@ -77,7 +81,7 @@ BASE = 'http://127.0.0.1:%d' % srv.server_address[1]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    for variant in ('nopref', 'pref'):
+    for variant in ('nopref', 'pref', 'legacy'):
         for (w, h) in [(300, 300), (900, 560), (1600, 1000)]:
             ctx = browser.new_context(viewport={'width': w, 'height': h}); page = ctx.new_page(); errs = []
             page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None); page.on('pageerror', lambda e: errs.append(str(e)))
@@ -88,6 +92,12 @@ with sync_playwright() as p:
             page.wait_for_timeout(1100)
             st = page.evaluate("() => RF.app.state.settings")
             check(tag + ': owner settings reached the extension (palette, size, colour field)', st['palette'] == 'sunset' and st['fontSize'] == 16 and st['colorMode'] == 'field' and st['colorField'] == 'Age-adjusted death rate' and st['zoomMs'] == 500, {k: st[k] for k in ('palette', 'fontSize', 'colorMode', 'colorField', 'zoomMs')})
+            if variant == 'legacy':
+                check(tag + ': a pre-panel workbook (fontFamily stack, valueFormat plain) reads as font segoe, numCompact false', st['font'] == 'segoe' and st['numCompact'] is False, (st['font'], st['numCompact']))
+            else:
+                check(tag + ': Copy-settings keys reached the extension (font, case, gap, compact, tooltip placement)', st['font'] == 'verdana' and st['labelCase'] == 'upper' and st['gap'] == 9 and st['numCompact'] is False and st['tipFollow'] == 'corner', {k: st[k] for k in ('font', 'labelCase', 'gap', 'numCompact', 'tipFollow')})
+                up = page.evaluate("() => [...document.querySelectorAll('.rf-chip text')].every(t => t.textContent === t.textContent.toUpperCase())")
+                check(tag + ': the upper-case label setting changed the drawn chips', up)
             check(tag + ': dark theme setting applied', page.evaluate("() => getComputedStyle(document.getElementById('rf-root')).getPropertyValue('--rf-bg').trim()") == '#0d2b45')
             levels = page.evaluate("() => RF.app.state.model.levelFields")
             check(tag + ': encodings mapped to the owner columns', levels == ['Cause group', 'Cause', 'Census region'], levels)
@@ -99,9 +109,9 @@ with sync_playwright() as p:
             check(tag + ': text 14px+, 7:1 contrast, no chip overlaps, Exit pill clear', not [t for t in a['text'] if t['size'] < 14] and not [t for t in a['text'] if contrast(t['fg'], t['bg']) < 7] and a['overlaps'] == 0 and a['htmlOverlaps'] == 0 and not a['hscroll'], (a['overlaps'], a['htmlOverlaps']))
             check(tag + ': Exit pill present on a solo page', page.evaluate("() => !!document.querySelector('.ctab-exit')"))
             if (w, h) == (900, 560):
-                page.click('.rf-gear'); page.wait_for_timeout(350)
-                check(tag + ': gear panel opens and lists the colour field as a data column', page.evaluate("() => [...document.querySelectorAll('select[aria-label=\"Colour field\"] option')].map(o => o.value).includes('Age-adjusted death rate')"))
-                page.click('.rf-iconbtn'); page.wait_for_timeout(300)
+                page.click('.cp-gear'); page.wait_for_timeout(350)
+                check(tag + ': gear panel opens and lists the colour field as a data column', page.evaluate("() => [...document.querySelectorAll('select[data-k=colorField] option')].map(o => o.value).includes('Age-adjusted death rate')"))
+                page.click('[data-a=close]'); page.wait_for_timeout(300)
                 page.evaluate("() => { const r = RF.app.state.renderer; r.zoomTo(r.root.children[0]); }")
                 page.wait_for_function("() => !document.querySelector('#rf-chart').classList.contains('rf-zooming')", timeout=6000); page.wait_for_timeout(300)
                 check(tag + ': zoom works under the stand-in', page.evaluate("() => RF.app.state.renderer.focus.depth === 1"))
