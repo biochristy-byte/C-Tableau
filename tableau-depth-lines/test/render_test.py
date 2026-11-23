@@ -17,8 +17,8 @@ BASE = f'http://127.0.0.1:{PORT}/dev/dev.html'
 SIZES = [(300, 300), (800, 600), (1600, 1000)]
 THEMES = {'light': 'ffffff', 'dark': '081f33'}
 SCENARIOS = {
-    'overlay-cats': 'fx=tumours',
-    'small-multiples-points': 'fx=tumours&settings=' + json.dumps({'multi': 'small', 'points': True}),
+    'overlay-cats': 'fx=tumors',
+    'small-multiples-points': 'fx=tumors&settings=' + json.dumps({'multi': 'small', 'points': True}),
     'single-no-category': 'fx=single&cat=0',
     'weighted-blobs-3': 'fx=blobs&settings=' + json.dumps({'scale': 'shared'}),
 }
@@ -171,7 +171,7 @@ def main():
 
             # ---- panel, steppers, persistence, copy, no sliders, no dialogs
             for tname, bg in THEMES.items():
-                ctx, page, errs = open_page(browser, f'fx=tumours&bg={bg}&settings=' + json.dumps({'multi': 'small'}), 800, 3300, tname)
+                ctx, page, errs = open_page(browser, f'fx=tumors&bg={bg}&settings=' + json.dumps({'multi': 'small'}), 800, 3300, tname)
                 ctx.grant_permissions(['clipboard-read', 'clipboard-write'])
                 check(f'panel {tname}: panel starts closed', page.locator('.xp-panel').is_hidden())
                 page.click('.xp-gear')
@@ -221,7 +221,7 @@ def main():
                 ctx.close()
 
             # ---- interaction pushes back to Tableau
-            ctx, page, errs = open_page(browser, 'fx=tumours&bg=ffffff&settings=' + json.dumps({'points': True, 'multi': 'small'}), 900, 650)
+            ctx, page, errs = open_page(browser, 'fx=tumors&bg=ffffff&settings=' + json.dumps({'points': True, 'multi': 'small'}), 900, 650)
             band = page.locator('path.dl-band[data-g="1"][data-level="1"]')
             box = band.bounding_box()
             pt = page.locator('circle.dl-pt[data-g="1"]').first
@@ -264,7 +264,7 @@ def main():
             ctx = browser.new_context(viewport={'width': 1000, 'height': 700})
             page = ctx.new_page()
             page.add_init_script("""window.__t=[];(function loop(t){window.__t.push(t);requestAnimationFrame(loop)})(0)""")
-            page.goto(f'{BASE}?fx=tumours&bg=ffffff')
+            page.goto(f'{BASE}?fx=tumors&bg=ffffff')
             page.wait_for_selector('#dl-root[data-ready="1"]', timeout=8000)
             anim = page.evaluate('getComputedStyle(document.querySelector("path.dl-band")).animationName')
             timing = page.evaluate('getComputedStyle(document.querySelector("path.dl-band")).animationTimingFunction')

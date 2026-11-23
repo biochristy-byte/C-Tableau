@@ -17,7 +17,7 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
 - **2D kernel density** with d3-contour `contourDensity`, then marching squares.
   **Bandwidth** and **Depth bands** are steppers. The bands are exact: ask for 8, get 8.
 - **Filled bands, contour lines and points** switch on and off separately.
-- **One contour set per category**: overlaid in category colours, or **small multiples**
+- **One contour set per category**: overlaid in category colors, or **small multiples**
   with one panel per category. The depth scale can be shared (fair comparison) or
   per category (so a sparse category still shows its shape).
 - **Three depth ramps** (Abyss, Sunrise, Mono), reversible. On a dark background the
@@ -27,7 +27,7 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
 - **Settings in the viz.** The gear opens a panel; everything is saved in the workbook
   through Tableau's extension settings. **Copy settings** gives the JSON the
   C-Tableau Viz pages flow accepts; **Paste settings** takes it back.
-- **No sliders anywhere.** Steppers you can type into, chips, dropdowns, colour boxes.
+- **No sliders anywhere.** Steppers you can type into, chips, dropdowns, color boxes.
 - Inter (bundled) at 14px and up, text at 7:1 contrast or better on light and dark,
   the Data Divers palette by default, follows the worksheet background.
 - One 520 ms eased fade-in on the first draw, then nothing moves. Density is computed
@@ -42,7 +42,7 @@ You need Tableau Desktop 2024.2 or newer (Free Edition works), and Python 3 or N
    folder, or `npm start`). Leave it running.
 3. In Tableau: a worksheet, Marks card mark-type dropdown > Viz Extensions > Add
    Extension > **Access Local Viz Extensions** > pick `depth-lines.trex` > Allow.
-4. Drag fields on the shelves. Try `data/wisconsin-tumours.csv`: X = Mean radius,
+4. Drag fields on the shelves. Try `data/wisconsin-tumors.csv`: X = Mean radius,
    Y = Mean concave points, Category = Diagnosis, Sample on Detail.
 
 Tableau reads the `.trex` only when the extension is added: after editing it, remove
@@ -58,9 +58,9 @@ read-only stand-in for the Extensions API, and is tested that way (see below).
 
 ## Example data
 
-`data/wisconsin-tumours.csv`: 569 breast-mass samples, 212 malignant and 357 benign,
+`data/wisconsin-tumors.csv`: 569 breast-mass samples, 212 malignant and 357 benign,
 four measurements each. Wolberg, Mangasarian, Street and Street (1993), UCI Machine
-Learning Repository, Breast Cancer Wisconsin (Diagnostic), licence **CC BY 4.0**.
+Learning Repository, Breast Cancer Wisconsin (Diagnostic), license **CC BY 4.0**.
 See [data/README.md](data/README.md). It makes a good first chart: the malignant
 cloud is wider and has two peaks, the benign one is one tight hill.
 
@@ -79,7 +79,7 @@ are 1-based row positions, the same assumption Lollipop makes, and are unconfirm
 ## Files
 
 `src/` the extension. `lib/` vendored d3-array and d3-contour (ISC) and Inter (OFL), each with its
-licence. `dev/` mock Tableau and fixtures. `data/` example data. `tools/` fixtures and thumbnail
+license. `dev/` mock Tableau and fixtures. `data/` example data. `tools/` fixtures and thumbnail
 builders. `test/` the gates.
 
 MIT licensed. Made by Chris Fryar, Data Divers.

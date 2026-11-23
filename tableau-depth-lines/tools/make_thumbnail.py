@@ -23,8 +23,8 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 base = 'http://127.0.0.1:%d/dev/dev.html' % srv.server_address[1]
 
 SHOTS = [
-    ('thumbnail.jpg', 1280, 790, 'fx=tumours&bg=081f33&still=1&settings=' + json.dumps({'title': 'Two kinds of tumour, two kinds of depth'})),
-    ('preview-small-multiples-dark.png', 1200, 760, 'fx=tumours&bg=081f33&still=1&settings=' + json.dumps({'multi': 'small', 'points': True, 'title': 'Small multiples with points'})),
+    ('thumbnail.jpg', 1280, 790, 'fx=tumors&bg=081f33&still=1&settings=' + json.dumps({'title': 'Two kinds of tumor, two kinds of depth'})),
+    ('preview-small-multiples-dark.png', 1200, 760, 'fx=tumors&bg=081f33&still=1&settings=' + json.dumps({'multi': 'small', 'points': True, 'title': 'Small multiples with points'})),
     ('preview-single-light.png', 1100, 700, 'fx=single&cat=0&bg=ffffff&still=1&settings=' + json.dumps({'ramp': 'abyss', 'levels': 10, 'title': 'One cloud, ten depth bands'})),
     ('preview-sunrise-light.png', 1100, 700, 'fx=blobs&bg=fdf6e3&still=1&settings=' + json.dumps({'multi': 'small', 'ramp': 'sunrise', 'scale': 'shared', 'title': 'Shared depth scale'})),
 ]

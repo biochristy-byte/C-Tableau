@@ -32,17 +32,17 @@
           help: 'Shared uses one set of depth levels so categories compare fairly. Each lets a sparse category show its own shape.' },
         { key: 'cols', label: 'Panel columns', type: 'number', def: 0, min: 0, max: 8, step: 1, int: true, when: { key: 'multi', eq: 'small' },
           help: '0 picks the best fit for the space.' },
-        { key: 'catPalette', label: 'Category colours', type: 'select', def: 'divers',
-          choices: [{ value: 'divers', label: 'Data Divers' }, { value: 'okabe', label: 'Colour-blind safe' }] }
+        { key: 'catPalette', label: 'Category colors', type: 'select', def: 'divers',
+          choices: [{ value: 'divers', label: 'Data Divers' }, { value: 'okabe', label: 'Color-blind safe' }] }
       ]
     },
     {
-      id: 'colour', label: 'Colour', options: [
+      id: 'colour', label: 'Color', options: [
         { key: 'ramp', label: 'Depth ramp', type: 'select', def: 'abyss',
-          choices: [{ value: 'abyss', label: 'Abyss (teal)' }, { value: 'sunrise', label: 'Sunrise (gold)' }, { value: 'mono', label: 'Mono (grey)' }] },
+          choices: [{ value: 'abyss', label: 'Abyss (teal)' }, { value: 'sunrise', label: 'Sunrise (gold)' }, { value: 'mono', label: 'Mono (gray)' }] },
         { key: 'reverse', label: 'Reverse ramp', type: 'toggle', def: false },
-        { key: 'lineInk', label: 'Contour line colour', type: 'segmented', def: 'ink',
-          choices: [{ value: 'ink', label: 'Ink' }, { value: 'band', label: 'Band colour' }] },
+        { key: 'lineInk', label: 'Contour line color', type: 'segmented', def: 'ink',
+          choices: [{ value: 'ink', label: 'Ink' }, { value: 'band', label: 'Band color' }] },
         { key: 'theme', label: 'Theme', type: 'segmented', def: 'auto',
           choices: [{ value: 'auto', label: 'Auto' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'custom', label: 'Custom' }],
           help: 'Auto follows the worksheet background, or the viewer light or dark mode.' },

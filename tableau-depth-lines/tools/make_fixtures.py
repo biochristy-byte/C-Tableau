@@ -1,12 +1,12 @@
-"""Builds dev/fixtures.js (mock Tableau data) from data/wisconsin-tumours.csv plus a few synthetic sets.
+"""Builds dev/fixtures.js (mock Tableau data) from data/wisconsin-tumors.csv plus a few synthetic sets.
 Seeded, so the file is identical every run."""
 import csv, json, random, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
-rows = list(csv.DictReader(open(root / 'data' / 'wisconsin-tumours.csv')))
+rows = list(csv.DictReader(open(root / 'data' / 'wisconsin-tumors.csv')))
 cols = ['Sample', 'Diagnosis', 'Mean radius', 'Mean concave points', 'Mean texture']
 def tbl(cols, rows): return {'columns': cols, 'rows': rows}
 fx = {}
-fx['tumours'] = tbl(cols, [[int(r['Sample']), r['Diagnosis'], float(r['Mean radius']), float(r['Mean concave points']), float(r['Mean texture'])] for r in rows])
+fx['tumors'] = tbl(cols, [[int(r['Sample']), r['Diagnosis'], float(r['Mean radius']), float(r['Mean concave points']), float(r['Mean texture'])] for r in rows])
 rnd = random.Random(7)
 def blob(n, cx, cy, sx, sy, cat, start):
     return [[start + i, cat, round(rnd.gauss(cx, sx), 3), round(rnd.gauss(cy, sy), 3), round(rnd.random() * 5 + 1, 2)] for i in range(n)]

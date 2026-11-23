@@ -30,7 +30,7 @@ def main():
         print(f'RED  port {PORT} already has a server: refusing an inherited server')
         return 1
     s.close()
-    rows = list(csv.DictReader(open(ROOT / 'data' / 'wisconsin-tumours.csv', encoding='utf-8')))
+    rows = list(csv.DictReader(open(ROOT / 'data' / 'wisconsin-tumors.csv', encoding='utf-8')))
     data = {'columns': ['Sample', 'Diagnosis', 'Mean radius', 'Mean concave points'], 'numeric': [True, False, True, True],
             'rows': [[int(r['Sample']), r['Diagnosis'], float(r['Mean radius']), float(r['Mean concave points'])] for r in rows]}
     srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -54,7 +54,7 @@ def main():
                 page.on('console', lambda m: errs.append(m.text) if m.type == 'error' or '[DL]' in m.text else None)
                 page.on('pageerror', lambda e: errs.append(str(e)))
                 page.add_init_script('window.DL_STILL = true')
-                cfg = {'dataUrl': '/_vz/data.json', 'encodings': enc, 'settings': c['settings'], 'prefix': c['prefix'], 'title': 'Tumours', 'home': 'https://c-tableau.netlify.app/'}
+                cfg = {'dataUrl': '/_vz/data.json', 'encodings': enc, 'settings': c['settings'], 'prefix': c['prefix'], 'title': 'Tumors', 'home': 'https://c-tableau.netlify.app/'}
                 page.goto(f'http://127.0.0.1:{PORT}/test/standin.html?cfg=' + urllib.parse.quote(json.dumps(cfg)))
                 try:
                     page.wait_for_selector('#dl-root[data-ready="1"]', timeout=8000)

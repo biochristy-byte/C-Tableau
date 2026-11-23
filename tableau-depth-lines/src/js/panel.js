@@ -1,6 +1,6 @@
 /* In-viz gear settings panel, built from a schema (see core.js makeSchema).
  * Identical in Depth Lines and Sketchbook. No sliders: toggles, steppers you can
- * type into, chip groups, dropdowns and colour inputs. No browser dialogs:
+ * type into, chip groups, dropdowns and color inputs. No browser dialogs:
  * pasting settings uses an inline text box. */
 (function (global) {
   'use strict';

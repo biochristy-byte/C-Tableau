@@ -12,7 +12,7 @@
   if (q.get('still') === '1') global.DL_STILL = true;
 
   var ENC = {
-    tumours: { x: 'Mean radius', y: 'Mean concave points', category: 'Diagnosis' },
+    tumors: { x: 'Mean radius', y: 'Mean concave points', category: 'Diagnosis' },
     blobs: { x: 'Depth', y: 'Count', category: 'Zone', weight: 'Weight' },
     single: { x: 'X', y: 'Y' },
     tiny: { x: 'X', y: 'Y' },
@@ -20,7 +20,7 @@
   };
 
   function MockSheet () {
-    this.name = 'Sheet 1'; this._fx = q.get('fx') || 'tumours'; this._open = null; this._listeners = {};
+    this.name = 'Sheet 1'; this._fx = q.get('fx') || 'tumors'; this._open = null; this._listeners = {};
     this.selected = []; this.hovered = null; this.backgroundColor = q.get('bg') ? '#' + q.get('bg') : undefined;
     this.useCat = q.get('cat') !== '0'; this.useWeight = q.get('weight') !== '0';
   }

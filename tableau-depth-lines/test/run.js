@@ -42,9 +42,9 @@ function area (coords) { // polygon area, outer rings minus holes
   return a;
 }
 
-/* ---------------- core: colour and contrast */
+/* ---------------- core: color and contrast */
 near('contrast black on white is 21', HX.contrast('#000000', '#ffffff'), 21, 0.001);
-near('contrast same colour is 1', HX.contrast('#336699', '#336699'), 1, 0.001);
+near('contrast same color is 1', HX.contrast('#336699', '#336699'), 1, 0.001);
 eq('pickText on white is dark ink', HX.pickText('#ffffff'), HX.INK_DARK);
 eq('pickText on navy is light ink', HX.pickText('#081f33'), HX.INK_LIGHT);
 ['#ffffff', '#081f33', '#000000', '#f2f2f2', '#0d2b45', '#fdf6e3'].forEach(bg =>

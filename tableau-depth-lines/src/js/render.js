@@ -97,7 +97,7 @@
     var bands = E.computeBands(gpts, pw, ph, s);
     this.bands = bands; this.gpts = gpts; this.plot = { w: pw, h: ph };
 
-    /* ---------- colours */
+    /* ---------- colors */
     var seaShallow = E.rampColor(s.ramp, th.dark, 0, s.reverse);
     var gridCol = HX.mix(th.bg, th.ink, 0.2), axisCol = HX.mix(th.bg, th.ink, 0.55);
     function bandColor (gi, frac) { return overlay ? E.catColor(s.catPalette, gi) : E.rampColor(s.ramp, th.dark, frac, s.reverse); }

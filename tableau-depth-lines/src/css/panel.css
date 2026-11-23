@@ -1,5 +1,5 @@
 /* Settings panel styles, shared by Depth Lines and Sketchbook. Every text is
- * 14px or larger. Colours come from --xp-* variables the panel sets from the
+ * 14px or larger. Colors come from --xp-* variables the panel sets from the
  * resolved chart theme, so it keeps 7:1 contrast in light and dark. */
 .xp-root { --xp-bg: #fff; --xp-fg: #0a1018; --xp-line: #6b7580; --xp-field: #eef1f4; --xp-accent: #0a1018; --xp-accent-fg: #f5f8fb; }
 .xp-gear { position: absolute; top: 8px; right: 8px; z-index: 20; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
