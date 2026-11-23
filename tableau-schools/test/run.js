@@ -8,7 +8,9 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
-const sandbox = { console, Math, Map, Set, Array, Object, JSON, Number, String, isFinite, parseFloat, parseInt, performance };
+const CP = require(path.join(ROOT, 'lib', 'ctab-panel', 'ctab-panel.js'));
+const SET = require(path.join(ROOT, 'src', 'js', 'settings.js'));
+const sandbox = { console, Math, Map, Set, Array, Object, JSON, Number, String, isFinite, parseFloat, parseInt, performance, CTabPanel: CP };
 // Fake timers that only count what is left running, so a leaked d3 timer (a simulation still ticking) is visible.
 const live = new Set(); let nextTimer = 1;
 sandbox.setTimeout = () => { const id = nextTimer++; live.add(id); return id; };
@@ -20,8 +22,8 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 function load(rel) { vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), sandbox, { filename: rel }); }
 ['d3-dispatch', 'd3-quadtree', 'd3-timer', 'd3-force', 'd3-hierarchy'].forEach((m) => load('lib/' + m + '.min.js'));
-['src/js/schema.js', 'src/js/colors.js', 'src/js/layout.js'].forEach(load);
-const { schema, colors, layout } = sandbox.SC;
+['src/js/colors.js', 'src/js/layout.js'].forEach(load);
+const { colors, layout } = sandbox.SC;
 
 let pass = 0; const failures = [];
 function ok(name, cond, detail) { if (cond) pass++; else failures.push(name + (detail ? '\n    ' + detail : '')); }
@@ -39,25 +41,53 @@ const itemsOf = (rs) => rs.map((r, i) => ({ id: r.Country + '|' + r.Region, name
 const baseOpt = (w, h) => ({ w, h, pad: 3, minR: 3, areaFill: 0.42, spread: 28, pull: 5, margin: 14, topBand: 30 });
 
 /* ---------------------------------------------------------- settings */
-const base = schema.resolve({});
-eq('defaults resolve to the schema defaults', base, schema.DEFAULTS);
-eq('"14" coerces to the number 14', schema.coerce('fontSize', '14'), 14);
-eq('label size never goes below 14', schema.coerce('fontSize', '9'), 14);
-eq('label size caps at 28', schema.coerce('fontSize', '99'), 28);
-eq('"false" coerces to false', schema.coerce('labels', 'false'), false);
-eq('junk toggle falls back to default', schema.coerce('labels', 'banana'), true);
-eq('number out of range clamps', schema.coerce('animMs', '99999'), 2000);
-eq('cluster pull clamps to 1..10', [schema.coerce('pull', '0'), schema.coerce('pull', '99')], [1, 10]);
-eq('bad colour falls back', schema.coerce('singleColor', 'red'), '#3cc4d1');
-eq('unknown choice falls back', schema.coerce('palette', 'nope'), 'reef');
-eq('empty string means default', schema.coerce('pad', ''), 3);
-const types = new Set(); schema.GROUPS.forEach((g) => g.options.forEach((o) => types.add(o.type)));
-ok('no slider control type exists in the schema', !types.has('slider') && !types.has('range'), [...types].join());
+const rows = SET.prepared.rows, byKey = {}; rows.forEach((r) => { byKey[r.key] = r; });
+const settable = rows.filter((r) => r.type !== 'note');
+const tabsUsed = new Set(settable.map((r) => r.tab));
+ok('at least 40 settings (' + settable.length + ')', settable.length >= 40);
+ok('at least 7 tabs (' + tabsUsed.size + '): ' + [...tabsUsed].join(', '), tabsUsed.size >= 7);
+ok('has the standard tabs and the Schools tabs', ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields', 'layout', 'collision', 'size', 'circles', 'clabels', 'legend'].every((t) => tabsUsed.has(t)), [...tabsUsed].join());
+ok('no slider row type exists in the schema', rows.every((r) => r.type !== 'slider' && r.type !== 'range'));
+const defs = CP.defaultsOf(rows);
+eq('SET.DEFAULTS is the defaults of the rows', SET.DEFAULTS, defs);
+let rt = 0;
+settable.forEach((r) => { const s = r.type === 'list' ? JSON.stringify(defs[r.key]) : String(defs[r.key]); const c = CP.coerce(r, s); if (JSON.stringify(c) === JSON.stringify(defs[r.key])) rt++; else failures.push('default of ' + r.key + ' does not survive a string round trip: ' + JSON.stringify(c)); });
+ok('all ' + settable.length + ' defaults survive a string round trip', rt === settable.length);
+settable.forEach((r) => { if (r.type === 'select' || r.type === 'chips') ok('default of ' + r.key + ' is one of its choices', r.opts.some((o) => o.value === String(defs[r.key]))); });
+settable.forEach((r) => { if (r.type === 'number') ok('number ' + r.key + ' has its default inside min and max', defs[r.key] >= r.min && defs[r.key] <= r.max); });
+ok('every text size floor is 14px', ['fontSize', 'tipSize', 'titleSize'].every((k) => byKey[k].min === 14));
+ok('every when points at a real key', rows.every((r) => { const ws = !r.when ? [] : Array.isArray(r.when) ? r.when : [r.when]; return ws.every((w) => typeof w === 'function' || byKey[w.key]); }));
+// every key Schools shipped with is still there, with the value it shipped with
+const OLD = { colorMode: 'cluster', palette: 'reef', singleColor: '#3cc4d1', opacity: 92, ringWidth: 1.5, areaFill: 42, pad: 3, spread: 28, pull: 5, minRadius: 3, margin: 14, legend: true, labels: true,
+  clusterLabels: true, itemLabels: true, showValues: true, fontSize: 14, intro: true, animMs: 800, theme: 'worksheet', customBg: '#0d2b45', tooltips: true, selectEnabled: true, gearCorner: 'tr' };
+Object.keys(OLD).forEach((k) => eq('saved key ' + k + ' kept with its old default', defs[k], OLD[k]));
+eq('"14" coerces to the number 14', CP.coerce(byKey.fontSize, '14'), 14);
+eq('label size never goes below 14', CP.coerce(byKey.fontSize, '9'), 14);
+eq('label size caps at 28', CP.coerce(byKey.fontSize, '99'), 28);
+eq('"false" coerces to false', CP.coerce(byKey.labels, 'false'), false);
+eq('number out of range clamps', CP.coerce(byKey.animMs, '99999'), byKey.animMs.max);
+eq('cluster pull clamps to 1..10', [CP.coerce(byKey.pull, '0'), CP.coerce(byKey.pull, '99')], [1, 10]);
+eq('bad colour is refused', CP.coerce(byKey.singleColor, 'red'), undefined);
+eq('unknown palette is refused', CP.coerce(byKey.palette, 'nope'), undefined);
+eq('every old palette id still loads', ['reef', 'lagoon', 'sunset', 'datadivers', 'kelp', 'colorblind10'].map((v) => CP.coerce(byKey.palette, v)), ['reef', 'lagoon', 'sunset', 'datadivers', 'kelp', 'colorblind10']);
+eq('every old theme id still loads', ['worksheet', 'light', 'dark', 'custom'].map((v) => CP.coerce(byKey.theme, v)), ['worksheet', 'light', 'dark', 'custom']);
+function fake(obj) { return { v: Object.assign({}, obj), get(k) { return this.v[k]; }, set(k, x) { this.v[k] = String(x); }, getAll() { return Object.assign({}, this.v); }, saveAsync() { return Promise.resolve(); } }; }
+function loaded(obj) { const st = CP.createStore({ rows: SET.prepared.rows, settings: SET.withLegacy(fake(obj)), prefix: 'schools.' }); return st.load(); }
+const STACKS = { 'Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif': 'worksheet', '"Segoe UI", system-ui, Roboto, Arial, sans-serif': 'segoe', 'Arial, Helvetica, sans-serif': 'arial',
+  '"Helvetica Neue", Helvetica, Arial, sans-serif': 'helvetica', '"Trebuchet MS", Tahoma, sans-serif': 'trebuchet', 'Verdana, Geneva, sans-serif': 'verdana' };
+Object.keys(STACKS).forEach((k) => eq('old fontFamily ' + k.slice(0, 22) + ' reads as font ' + STACKS[k], loaded({ 'schools.fontFamily': k }).font, STACKS[k]));
+eq('old valueFormat plain reads as numCompact false', loaded({ 'schools.valueFormat': 'plain' }).numCompact, false);
+eq('old valueFormat compact reads as numCompact true', loaded({ 'schools.valueFormat': 'compact' }).numCompact, true);
+eq('nothing saved: numCompact keeps the old compact look', loaded({}).numCompact, true);
+eq('a saved new key beats the old one', loaded({ 'schools.font': 'verdana', 'schools.fontFamily': 'Arial, Helvetica, sans-serif' }).font, 'verdana');
+eq('an unknown old stack falls back to the default font', loaded({ 'schools.fontFamily': 'Papyrus, fantasy' }).font, 'worksheet');
+const old = loaded({ 'schools.palette': 'sunset', 'schools.fontSize': '16', 'schools.colorMode': 'field', 'schools.animMs': '500', 'schools.theme': 'dark', 'schools.labels': 'false', 'schools.pad': '9', 'schools.tooltips': 'false' });
+eq('an old workbook keeps palette, label size, colour mode, animation time, theme, labels, gap, tooltips', [old.palette, old.fontSize, old.colorMode, old.animMs, old.theme, old.labels, old.pad, old.tooltips], ['sunset', 16, 'field', 500, 'dark', false, 9, false]);
 const src = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-ok('panel and css contain no range input', !/type\s*=\s*['"]range['"]|input\[type=range\]/.test(src('src/js/panel.js') + src('src/css/schools.css')));
-ok('panel and app never call a browser dialog', !/\b(prompt|alert|confirm)\s*\(/.test(src('src/js/panel.js') + src('src/js/app.js')));
-ok('default palette is the reef palette inside the Data Divers colours', base.palette === 'reef' && colors.PALETTES.reef.indexOf('#3cc4d1') > -1 && colors.PALETTES.reef.indexOf('#f2b84b') > -1 && colors.PALETTES.reef.indexOf('#f08f8f') > -1);
-schema.GROUPS.forEach((g) => g.options.forEach((o) => { if ((o.type === 'select' || o.type === 'segmented') && Array.isArray(o.choices)) ok('default of ' + o.key + ' is a listed choice', o.choices.some((c) => c.value === o.def)); }));
+ok('no range input and no browser dialog in the settings, app or renderer', !/\b(prompt|alert|confirm)\s*\(|type\s*=\s*['"]range['"]/.test(src('src/js/settings.js') + src('src/js/app.js') + src('src/js/render.js') + src('src/css/schools.css')));
+ok('the old panel is gone (no src/js/panel.js)', !fs.existsSync(path.join(ROOT, 'src/js/panel.js')));
+const base = old && SET.DEFAULTS;
+ok('default palette is the reef palette inside the Data Divers colours', base.palette === 'reef' && colors.PALETTES.reef.indexOf('#3cc4d1') > -1 && colors.PALETTES.reef.indexOf('#f2b84b') > -1);
 
 /* --------------------------------------------------------- colour maths */
 near('black on white is 21:1', colors.contrast('#000000', '#ffffff'), 21, 1e-9);
@@ -168,7 +198,30 @@ const avoidTest = layout.planChips([{ id: 'c0', mode: 'free', x: 50, y: 50, r: 3
 ok('a free chip skips a spot that would cover a circle', avoidTest.length === 1 && avoidTest[0].y > 60, JSON.stringify(avoidTest));
 
 /* --------------------------------------------------------------- report */
-const MIN_CHECKS = 100;
+/* --------------------------------------------- the new layout levers */
+{
+  const L0 = layout.layoutSchools(realItems, baseOpt(900, 560)), L0sig = JSON.stringify(L0.nodes.map((n) => [n.id, n.x, n.y, n.r]));
+  const same = (o) => JSON.stringify(layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), o)).nodes.map((n) => [n.id, n.x, n.y, n.r])) === L0sig;
+  ok('explicit defaults for every new lever reproduce today\'s layout exactly', same({ sizeScale: 'area', capMedian: 0, density: 60, stretch: true, clusterSort: 'size', clusterDir: false, itemSort: 'size', itemDir: false, padGrow: 0, ticks: 300 }));
+  const flips = { sizeScale: 'soft', capMedian: 3, density: 80, stretch: false, clusterSort: 'name', clusterDir: true, itemSort: 'name', itemDir: true, padGrow: 20, ticks: 120 };
+  Object.keys(flips).forEach((k) => { const o = {}; o[k] = flips[k]; ok('layout lever ' + k + ' changes the layout', !same(o)); });
+  ['soft', 'radius', 'equal'].forEach((sc) => { const r = layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), { sizeScale: sc })); ok('sizeScale ' + sc + ' still has no overlaps', r.maxOverlap <= -0.001, String(r.maxOverlap)); });
+  const eqR = layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), { sizeScale: 'equal', minR: 1 }));
+  ok('equal scale gives every circle the same radius', new Set(eqR.nodes.map((n) => n.r.toFixed(6))).size === 1);
+  const pg = layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), { padGrow: 30 }));
+  ok('padGrow keeps the no-overlap guarantee', pg.maxOverlap <= -0.001, String(pg.maxOverlap));
+  const cap = layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), { capMedian: 3, minR: 1 }));
+  ok('capMedian shrinks the biggest circle', Math.max(...cap.nodes.map((n) => n.r)) < Math.max(...L0.nodes.map((n) => n.r)));
+  const nm = layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), { clusterSort: 'name' })).clusters.map((c) => c.name);
+  eq('clusterSort name orders the clusters A to Z', nm, nm.slice().sort());
+  const nr = layout.layoutSchools(realItems, Object.assign(baseOpt(900, 560), { clusterSort: 'name', clusterDir: true })).clusters.map((c) => c.name);
+  eq('clusterDir reverses the order', nr, nm.slice().reverse());
+  eq('ease linear and out are exact', [layout.ease(0.5, 'linear'), layout.ease(0.5, 'out'), layout.ease(0.5)], [0.5, 0.875, 0.5]);
+  const sp = (pos) => layout.clusterSpots({ cx: 100, cy: 100, R: 40 }, pos).spots(60, 20);
+  ok('cluster name positions: inside offers no outside spot, above is higher than below', sp('inside').length === 0 && sp('above')[0][1] < 100 && sp('below')[0][1] > 100);
+}
+
+const MIN_CHECKS = 210;
 const total = pass + failures.length;
 console.log('Schools unit tests: ' + pass + ' passed, ' + failures.length + ' failed, ' + total + ' checks run (minimum ' + MIN_CHECKS + '), ' + Math.round(pairsChecked).toLocaleString('en-US') + ' circle pairs checked for overlap');
 if (failures.length) console.log('\nFAILURES\n' + failures.map((f) => ' - ' + f).join('\n'));

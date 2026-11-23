@@ -31,11 +31,14 @@ own labelled school.
   get their own name and value inside them.
 - **Colour by** cluster (default), the Colour shelf, or one colour; six palettes
   including a colour-blind safe one.
-- **Settings** in 6 groups in a gear panel inside the viz. **No sliders**:
-  steppers you can type into, chip groups, dropdowns and colour inputs. No
-  browser dialogs. **Copy settings** and **Paste settings** move the whole
-  configuration as JSON (what the C-Tableau Viz pages flow accepts).
-- Settings are saved in the workbook through Tableau's extension settings.
+- **88 settings on 15 tabs** (Colors, Cluster layout, Collisions, Size scale, Circles, Labels, Cluster labels, Legend, Number format,
+  Tooltip, Fonts, Background, Animation, Interaction, Fields, plus the built-in Panel tab) in a floating panel inside the viz,
+  the same one as the other Data Divers extensions: click the gear, drag it by its title bar, minimize it,
+  Escape closes it, and below 420px wide it becomes a full-frame sheet. Every setting has a plain-language help line, a search box
+  finds a setting by name, and the Panel tab holds Reset all, Undo, **Copy settings** and **Paste settings** (the JSON the C-Tableau
+  Viz pages flow accepts). **No sliders**: steppers you can type into, chip groups, dropdowns and colour inputs. No browser dialogs.
+- Settings are saved in the workbook through Tableau's extension settings. A workbook saved before the panel change keeps its look:
+  the old font stack and number format are read as the new Font and Compact numbers settings.
 - Background follows the worksheet, or light, dark or a custom colour.
   Reduced-motion users get no morph.
 
@@ -103,13 +106,15 @@ scale fits the result to the stage so gaps survive the fit.
 node test/run.js                 unit tests: no circle overlaps, area proportional to value,
                                  clustering, determinism, no timer left running, label
                                  placement, settings coercion (2.9 million pairs checked)
+python test/settings_test.py     every one of the 88 settings is changed and must change the render
 python test/render_test.py       Playwright, headless Chromium, against the mock Tableau API:
                                  3 sizes x light and dark, text 14 px and 7:1, no circle or
                                  label overlap measured from the DOM, no jitter across
                                  consecutive frames, morph frame timing, hover, selection,
                                  panel, copy and paste, stress with 1,200 and 2,000 circles
-python test/standin_test.py      drives the extension with the real C-Tableau Viz pages stand-in
+python test/standin_test.py      drives the extension with the real C-Tableau Viz pages stand-in (legacy settings and Copy-settings JSON)
 python tools/sabotage.py         breaks one thing per gate and requires RED, proves each restore
+python ../shared/ctab-panel/sync_check.py   lib/ctab-panel must match shared/ctab-panel byte for byte
                                  byte-exact by sha256, then requires every gate green
 python test/render_test.py --shots   also writes preview/*.png and preview/thumbnail.jpg
 ```

@@ -27,12 +27,12 @@ SABOTAGES = [
      "var fs = Math.max(14, s.fontSize), padX = 8", "var fs = 11, padX = 8",
      ['python', 'test/render_test.py']),
     ('contrast: chip colours made mid-grey on mid-grey', 'src/js/render.js',
-     "chipBg: inkDark ? '#ffffff' : '#081f33', chipInk: inkDark ? INK_DARK : INK_LIGHT",
+     "chipBg: inkDark ? '#ffffff' : '#081f33', chipInk: chipInk",
      "chipBg: '#8a9299', chipInk: '#6f7880'",
      ['python', 'test/render_test.py']),
     ('smoothness: a 45 ms busy-wait added to every morph frame', 'src/js/render.js',
-     "var w0 = performance.now();\n      if (t0 === null)",
-     "var w0 = performance.now(); while (performance.now() - w0 < 45) {}\n      if (t0 === null)",
+     "var w0 = performance.now();",
+     "var w0 = performance.now(); while (performance.now() - w0 < 45) {}",
      ['python', 'test/render_test.py']),
     ('smoothness: the whole layout put back inside one animation frame (no slicing)', 'src/js/render.js',
      "if (job.step(self.anim ? SLICE_MOVING : (self.nodes.length ? SLICE_STILL : SLICE_EMPTY)))", "if (job.step(Infinity))",
@@ -41,13 +41,47 @@ SABOTAGES = [
      "    global.requestAnimationFrame(slice);   // first slice", "    job.step(Infinity); commit();",
      ['python', 'test/render_test.py']),
     ('jitter: circles nudged 0.01 to 0.02 px every frame after they settle', 'src/js/render.js',
-     "this._place(1); this._labels();",
-     "this._place(1); this._labels(); (function (self) { (function j() { self.nodes.forEach(function (n) { n.el.setAttribute('cx', (n.x + Math.random() * 0.02).toFixed(2)); }); requestAnimationFrame(j); })(); })(this);",
+     "this._place(1); this._rings(); this._labels();",
+     "this._place(1); this._rings(); this._labels(); (function (self) { (function j() { self.nodes.forEach(function (n) { n.el.setAttribute('cx', (n.x + Math.random() * 0.02).toFixed(2)); }); requestAnimationFrame(j); })(); })(this);",
      ['python', 'test/render_test.py']),
     ('selection: the classList.toggle(undefined) bug put back (every circle toggles)', 'src/js/render.js',
      "var on = !!(sel && ((sel.node && sel.node === n) || (sel.cluster && sel.cluster === n.cl)));",
      "var on = !!sel && ((sel.node && sel.node === n) || (sel.cluster && sel.cluster === n.cl));",
      ['python', 'test/render_test.py']),
+    # ---- the shared panel and the settings, added with the ctab-panel migration ----
+    ('panel: drag no longer clamped to the frame (lib copy)', 'lib/ctab-panel/ctab-panel.js',
+     "return { x: Math.round(Math.max(0, Math.min(hs.w - w, x))), y: Math.round(Math.max(0, Math.min(hs.h - h, y))) };", "return { x: Math.round(x), y: Math.round(y) };",
+     ['python', 'test/render_test.py']),
+    ('panel: Escape no longer closes it (lib copy)', 'lib/ctab-panel/ctab-panel.js',
+     "if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }", "if (e.key === 'EscapeNever') { e.preventDefault(); e.stopPropagation(); close(); return; }",
+     ['python', 'test/render_test.py']),
+    ('panel: minimize button does nothing (lib copy)', 'lib/ctab-panel/ctab-panel.js',
+     "if (a === 'min') { ps.min = !ps.min;", "if (a === 'min') { ps.min = ps.min;",
+     ['python', 'test/render_test.py']),
+    ('panel: text drops to 13px (lib css copy)', 'lib/ctab-panel/ctab-panel.css',
+     ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 14px; }", ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 13px; }",
+     ['python', 'test/render_test.py']),
+    ('panel: a setting change no longer re-renders the chart (onChange dropped)', 'src/js/app.js',
+     "onChange: function () { redraw(); }, log: log });", "onChange: function () { }, log: log });",
+     ['python', 'test/render_test.py']),
+    ('settings: the outline style row is not wired to the circles', 'src/js/render.js',
+     "if (s.ringStyle === 'dashed') c.setAttribute('stroke-dasharray', '7 5');", "if (false) c.setAttribute('stroke-dasharray', '7 5');",
+     ['python', 'test/settings_test.py']),
+    ('settings: Size scale is ignored by the layout', 'src/js/layout.js',
+     "[o.sizeScale || 'area'] || Math.sqrt;", "['area'] || Math.sqrt;",
+     ['python', 'test/settings_test.py']),
+    ('settings: Cap at a multiple of the median is ignored by the layout', 'src/js/layout.js',
+     "if (o.capMedian > 0) {", "if (false) {",
+     ['python', 'test/settings_test.py']),
+    ('settings: an old workbook font stack is no longer read (legacy fallback gone, unit)', 'src/js/settings.js',
+     "var first = v.split(',')[0].trim().toLowerCase();", "var first = 'nothing';",
+     ['node', 'test/run.js']),
+    ('settings: an old workbook font stack is no longer read (legacy fallback gone, stand-in)', 'src/js/settings.js',
+     "if (LEGACY[key]) { var lv = LEGACY[key](function (old) { return st.get(pre + old); }); if (lv !== undefined) return lv; }", "",
+     ['python', 'test/standin_test.py']),
+    ('settings: standard rows dropped (tooltip, number, title, border, animation rows vanish)', 'src/js/settings.js',
+     "var DROP = { palette: 1, labelLines: 1, valueLabels: 1, valueLabelSize: 1 };", "var DROP = { palette: 1, labelLines: 1, valueLabels: 1, valueLabelSize: 1, tipOn: 1, tipSize: 1, tipSwatch: 1, tipFollow: 1, tipMaxW: 1, numDecimals: 1, numThousands: 1, numCompact: 1, numScale: 1, numPrefix: 1, numSuffix: 1, titleSize: 1, titleWeight: 1, titleText: 1, showTitle: 1, borderOn: 1, borderColor: 1, borderWidth: 1, borderRadius: 1, padding: 1, labelWeight: 1, labelColor: 1, hoverMs: 1, animMs: 1, animEase: 1, dimOthers: 1, hoverOn: 1, hoverPush: 1, paletteReverse: 1, catColors: 1 };",
+     ['node', 'test/run.js']),
     ('stand-in: Colour encoding id misspelled, so the owner mapping no longer matches', 'src/js/app.js',
      "var colorField = has(enc.color) ? enc.color : null;", "var colorField = has(enc.colour) ? enc.colour : null;",
      ['python', 'test/standin_test.py']),
@@ -62,6 +96,14 @@ def run(cmd, cwd):
     tail = [l for l in (r.stdout + r.stderr).strip().splitlines() if l.strip()][-2:]
     return r.returncode, ' | '.join(tail)
 
+import hashlib
+def tree_hash():
+    h = hashlib.sha256()
+    for q in sorted(ROOT.rglob('*')):
+        if q.is_file() and 'preview' not in q.parts and '__pycache__' not in q.parts and '.git' not in q.parts:
+            h.update(str(q.relative_to(ROOT)).encode()); h.update(q.read_bytes())
+    return h.hexdigest()
+before = tree_hash()
 before = tree_hashes(ROOT)
 problems = 0
 for label, rel, old, new, cmd in SABOTAGES:
@@ -91,6 +133,9 @@ for cmd in sorted({tuple(s[4]) for s in SABOTAGES}):
     if code != 0: problems += 1
 after = tree_hashes(ROOT)
 same = before == after
+after_hash = tree_hash()
+print('original tree restored byte-exact (sha256 before == after):', before == after_hash)
+if before != after_hash: problems += 1
 print('original tree unchanged by this run (%d files, sha256 compared): %s' % (len(before), 'yes' if same else 'NO'))
 if not same: problems += 1
 print('sabotage proof:', 'ALL GATES CAN FAIL, EVERY RESTORE IS BYTE-EXACT, THE ORIGINAL IS GREEN' if not problems else '%d PROBLEM(S)' % problems)

@@ -44,7 +44,7 @@
           var b = grid.get((gx + dx) + ',' + (gy + dy)); if (!b) continue;
           for (var q = 0; q < b.length; q++) {
             var j = b[q]; if (j <= i) continue;
-            var c = nodes[j], ddx = c.x - a.x, ddy = c.y - a.y, d = Math.hypot(ddx, ddy), need = a.r + c.r + gap;
+            var c = nodes[j], ddx = c.x - a.x, ddy = c.y - a.y, d = Math.hypot(ddx, ddy), need = a.r + c.r + gap + (a.e || 0) + (c.e || 0);
             if (d >= need) continue;
             if (d < 1e-9) { ddx = Math.cos(i * 2.399); ddy = Math.sin(i * 2.399); d = 1; }
             var push = (need - d) / 2 + 1e-6, ux = ddx / d, uy = ddy / d;
@@ -56,7 +56,7 @@
       return true;
   }
   function relaxPass(nodes, gap, cell) { var st = {}; relaxRows(nodes, gap, cell, st, Infinity, function () { return 0; }); return st.moved; }
-  function relaxCell(nodes, gap) { var rmax = 0; nodes.forEach(function (n) { if (n.r > rmax) rmax = n.r; }); return Math.max(4, 2 * rmax + gap); }
+  function relaxCell(nodes, gap) { var rmax = 0; nodes.forEach(function (n) { var q = n.r + (n.e || 0); if (q > rmax) rmax = q; }); return Math.max(4, 2 * rmax + gap); }
   /* Push overlapping pairs apart until none overlap (by at least `gap`). Grid-bucketed, deterministic. */
   function relax(nodes, gap, maxPasses) {
     var cell = relaxCell(nodes, gap), passes = 0;
@@ -72,19 +72,36 @@
     var n = items.length;
     if (!n) return { result: { nodes: [], clusters: [], scale: 1, maxOverlap: 0, ticks: 0, passes: 0 }, step: function () { return true; } };
     var W = Math.max(40, o.w - 2 * o.margin), H = Math.max(40, o.h - 2 * o.margin - o.topBand);
-    var sumV = 0; items.forEach(function (it) { sumV += it.value; });
-    var k = Math.sqrt(W * H * o.areaFill / (Math.PI * sumV));
-    var nodes = items.map(function (it) {
-      return { id: it.id, name: it.name, cluster: it.cluster, value: it.value, color: it.color, tuple: it.tuple, r: Math.max(o.minR, k * Math.sqrt(it.value)), x: 0, y: 0 };
+    /* How a value becomes a size: area (the default, r grows as the square root), softened (cube root), radius, or all equal. */
+    var scaleFn = { area: Math.sqrt, soft: Math.cbrt, radius: function (v) { return v; }, equal: function () { return 1; } }[o.sizeScale || 'area'] || Math.sqrt;
+    var sumF2 = 0; items.forEach(function (it) { var f = scaleFn(it.value); sumF2 += f * f; });
+    var k = Math.sqrt(W * H * o.areaFill / (Math.PI * sumF2));
+    var rawR = items.map(function (it) { return k * scaleFn(it.value); });
+    if (o.capMedian > 0) {
+      var sortedR = rawR.slice().sort(function (a, b) { return a - b; }), med = sortedR[Math.floor(sortedR.length / 2)], cap = med * o.capMedian;
+      rawR = rawR.map(function (r) { return Math.min(r, cap); });
+    }
+    var nodes = items.map(function (it, i) {
+      var r = Math.max(o.minR, rawR[i]);
+      return { id: it.id, name: it.name, cluster: it.cluster, value: it.value, color: it.color, tuple: it.tuple, r: r, e: (o.padGrow || 0) / 100 * r, ord: i, x: 0, y: 0 };
     });
     // clusters, largest first
     var byC = new Map();
-    nodes.forEach(function (nd) { var c = byC.get(nd.cluster); if (!c) { c = { name: nd.cluster, nodes: [], total: 0 }; byC.set(nd.cluster, c); } c.nodes.push(nd); c.total += nd.value; });
-    var clusters = Array.from(byC.values()).sort(function (a, b) { return b.total - a.total || (a.name < b.name ? -1 : 1); });
+    nodes.forEach(function (nd) { var c = byC.get(nd.cluster); if (!c) { c = { name: nd.cluster, nodes: [], total: 0, ord: byC.size }; byC.set(nd.cluster, c); } c.nodes.push(nd); c.total += nd.value; });
+    var cdir = o.clusterDir ? -1 : 1, idir = o.itemDir ? -1 : 1;
+    var clusters = Array.from(byC.values()).sort(function (a, b) {
+      if (o.clusterSort === 'name') return cdir * (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+      if (o.clusterSort === 'data') return cdir * (a.ord - b.ord);
+      return cdir * (b.total - a.total || (a.name < b.name ? -1 : 1));
+    });
     clusters.forEach(function (c, i) {
-      c.idx = i; c.nodes.sort(function (a, b) { return b.value - a.value || (a.id < b.id ? -1 : 1); });
-      var area = 0; c.nodes.forEach(function (nd) { area += Math.PI * (nd.r + o.pad / 2) * (nd.r + o.pad / 2); nd.cl = c; });
-      c.R = Math.sqrt(area / (Math.PI * 0.6));
+      c.idx = i; c.nodes.sort(function (a, b) {
+        if (o.itemSort === 'name') return idir * (a.name < b.name ? -1 : a.name > b.name ? 1 : (a.id < b.id ? -1 : 1));
+        if (o.itemSort === 'data') return idir * (a.ord - b.ord);
+        return idir * (b.value - a.value || (a.id < b.id ? -1 : 1));
+      });
+      var area = 0; c.nodes.forEach(function (nd) { var q = nd.r + nd.e + o.pad / 2; area += Math.PI * q * q; nd.cl = c; });
+      c.R = Math.sqrt(area / (Math.PI * (o.density || 60) / 100));
     });
     var packed = d3.packSiblings(clusters.map(function (c) { return { r: c.R + o.spread / 2 }; }));
     // stretch the cluster centres toward the stage's aspect ratio, so a wide stage is filled sideways instead of leaving empty sides.
@@ -92,7 +109,7 @@
     var px0 = Infinity, py0 = Infinity, px1 = -Infinity, py1 = -Infinity;
     packed.forEach(function (q, i) { var r = clusters[i].R + o.spread / 2; px0 = Math.min(px0, q.x - r); px1 = Math.max(px1, q.x + r); py0 = Math.min(py0, q.y - r); py1 = Math.max(py1, q.y + r); });
     var asp = (W / H) / Math.max(1e-6, (px1 - px0) / Math.max(1e-6, py1 - py0)), sx = 1, sy = 1;
-    if (clusters.length > 1) { if (asp > 1) sx = Math.min(Math.pow(asp, 0.55), 2); else sy = Math.min(Math.pow(1 / asp, 0.55), 2); }
+    if (clusters.length > 1 && o.stretch !== false) { if (asp > 1) sx = Math.min(Math.pow(asp, 0.55), 2); else sy = Math.min(Math.pow(1 / asp, 0.55), 2); }
     var pcx = (px0 + px1) / 2, pcy = (py0 + py1) / 2;
     clusters.forEach(function (c, i) {
       c.cx = pcx + (packed[i].x - pcx) * sx; c.cy = pcy + (packed[i].y - pcy) * sy;
@@ -107,7 +124,7 @@
       .alphaDecay(1 - Math.pow(0.001, 1 / maxTicks))
       .force('x', d3.forceX(function (d) { return d.cl.cx; }).strength(0.02 * o.pull))
       .force('y', d3.forceY(function (d) { return d.cl.cy; }).strength(0.02 * o.pull))
-      .force('collide', d3.forceCollide(function (d) { return d.r + o.pad / 2; }).iterations(n > 1500 ? 3 : 1));
+      .force('collide', d3.forceCollide(function (d) { return d.r + d.e + o.pad / 2; }).iterations(n > 1500 ? 3 : 1));
     var ticks = 0, phase = 0, oi = 0, worst = -Infinity, overlapAfterSim, passes = 0, cell, rst = {}, job = { result: null };
     // exact max pairwise overlap, resumable by row; returns true when the last row is done
     function overlapRows(deadline, now) {
@@ -216,10 +233,13 @@
 
   /* Places to try a cluster chip: outside the cluster first (above, below, diagonals, sides, a second row),
    * then inside it. Positions depend on the chip size, so these are functions of (width, height). */
-  function clusterSpots(c) {
+  function clusterSpots(c, pos) {
     return {
       spots: function (tw, h) {
         var d = c.R + h / 2 + 4, dx = c.R + tw / 2 + 4, k = c.R * 0.7, o = [];
+        if (pos === 'inside') return o;
+        if (pos === 'above') { o.push([c.cx, c.cy - d], [c.cx, c.cy - d - h - 3]); return o; }
+        if (pos === 'below') { o.push([c.cx, c.cy + d], [c.cx, c.cy + d + h + 3]); return o; }
         o.push([c.cx, c.cy - d], [c.cx, c.cy + d]);
         [-1, 1].forEach(function (sx) { o.push([c.cx + sx * (k * 0.6 + tw * 0.25), c.cy - (k + h / 2 + 4)], [c.cx + sx * (k * 0.6 + tw * 0.25), c.cy + (k + h / 2 + 4)]); });
         [-1, 1].forEach(function (sx) { o.push([c.cx + sx * dx, c.cy]); });
@@ -235,7 +255,7 @@
     };
   }
 
-  function ease(t) { t = t < 0 ? 0 : (t > 1 ? 1 : t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  function ease(t, name) { t = t < 0 ? 0 : (t > 1 ? 1 : t); if (name === 'linear') return t; if (name === 'out') return 1 - Math.pow(1 - t, 3); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
   global.SC = global.SC || {};
   global.SC.layout = { layoutSchools: layoutSchools, layoutJob: layoutJob, planChips: planChips, clusterSpots: clusterSpots, maxOverlap: maxOverlap, relax: relax, ease: ease };

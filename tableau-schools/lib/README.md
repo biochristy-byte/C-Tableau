@@ -31,3 +31,5 @@ version 1.17.0; any `1.latest` build works.
 `.gitignore` skips it so it stays on your machine. The tests do not need it (they
 use a mock), and the C-Tableau Viz pages replace it with their own stand-in.
 The d3 modules load in the order the page lists them; there is no CDN at runtime.
+
+`ctab-panel/` is the shared settings panel, an exact copy of `shared/ctab-panel/` (`python shared/ctab-panel/sync_check.py` fails if it drifts).

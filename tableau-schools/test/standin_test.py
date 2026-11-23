@@ -19,7 +19,11 @@ STANDIN = pathlib.Path('C:/Users/bioch/projects/viz-extensions-hub/hosted/public
 CSV = ROOT / 'example' / 'countries-population-life-expectancy-2021.csv'
 MAPPING = {'item': 'Country', 'cluster': 'Region', 'size': 'Population', 'color': 'Income group'}
 PREFIX = 'schools.'
-SETTINGS_COPY = {'palette': 'sunset', 'fontSize': 16, 'colorMode': 'field', 'areaFill': 50, 'animMs': 500, 'theme': 'dark'}
+# what the panel's Copy settings button produces (flat, typed keys), and what a workbook saved before the panel change holds
+SETTINGS_COPY = {'palette': 'sunset', 'fontSize': 16, 'colorMode': 'field', 'areaFill': 50, 'animMs': 500, 'theme': 'dark',
+                 'labelCase': 'upper', 'hoverMs': 120, 'font': 'verdana', 'numCompact': False}
+SETTINGS_OLD = {'palette': 'sunset', 'fontSize': 16, 'colorMode': 'field', 'areaFill': 50, 'animMs': 500, 'theme': 'dark',
+                'fontFamily': 'Verdana, Geneva, sans-serif', 'valueFormat': 'plain'}
 MIN_SUBJECTS = 40
 
 if not STANDIN.exists():
@@ -57,13 +61,13 @@ class H(http.server.BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/_vz/standin.js': return self.send(STANDIN.read_bytes(), 'application/javascript')
         if path == '/v/test/d/data.json': return self.send(json.dumps(DATA), 'application/json')
-        m = re.fullmatch(r'/v/test/(nopref|pref)/', path)
+        m = re.fullmatch(r'/v/test/(nopref|pref|legacy)/', path)
         if m:
             cfg = {'dataUrl': '/v/test/d/data.json', 'encodings': [{'id': k, 'field': v} for k, v in MAPPING.items()],
-                   'settings': ({PREFIX + k: str(v) for k, v in SETTINGS_COPY.items()} if m.group(1) == 'pref' else SETTINGS_COPY),
-                   'prefix': PREFIX if m.group(1) == 'pref' else '', 'title': 'Standin test', 'home': 'https://c-tableau.netlify.app/'}
+                   'settings': ({PREFIX + k: (str(v).lower() if isinstance(v, bool) else str(v)) for k, v in SETTINGS_COPY.items()} if m.group(1) == 'pref' else {PREFIX + k: str(v) for k, v in SETTINGS_OLD.items()} if m.group(1) == 'legacy' else SETTINGS_COPY),
+                   'prefix': PREFIX if m.group(1) in ('pref', 'legacy') else '', 'title': 'Standin test', 'home': 'https://c-tableau.netlify.app/'}
             return self.send(shell(cfg), 'text/html; charset=utf-8')
-        m = re.fullmatch(r'/v/test/(?:nopref|pref)/x/(.+)', path) or re.fullmatch(r'/v/test/x/(.+)', path)
+        m = re.fullmatch(r'/v/test/(?:nopref|pref|legacy)/x/(.+)', path) or re.fullmatch(r'/v/test/x/(.+)', path)
         f = (ROOT / m.group(1)) if m else None
         if f and f.is_file() and ROOT in f.resolve().parents:
             ct = {'.js': 'application/javascript', '.css': 'text/css', '.html': 'text/html'}.get(f.suffix, 'application/octet-stream')
@@ -77,7 +81,7 @@ BASE = 'http://127.0.0.1:%d' % srv.server_address[1]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    for variant in ('nopref', 'pref'):
+    for variant in ('nopref', 'pref', 'legacy'):
         for (w, h) in [(300, 300), (900, 560), (1600, 1000)]:
             ctx = browser.new_context(viewport={'width': w, 'height': h}); page = ctx.new_page(); errs = []
             page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None); page.on('pageerror', lambda e: errs.append(str(e)))
@@ -89,6 +93,12 @@ with sync_playwright() as p:
             page.wait_for_timeout(300)
             st = page.evaluate("() => SC.app.state.settings")
             check(tag + ': owner settings reached the extension (palette, size, colour mode, area, animation)', st['palette'] == 'sunset' and st['fontSize'] == 16 and st['colorMode'] == 'field' and st['areaFill'] == 50 and st['animMs'] == 500, {k: st[k] for k in ('palette', 'fontSize', 'colorMode', 'areaFill', 'animMs')})
+            if variant == 'legacy':
+                check(tag + ': a pre-panel workbook (fontFamily stack, valueFormat plain) reads as font verdana, numCompact false', st['font'] == 'verdana' and st['numCompact'] is False, (st['font'], st['numCompact']))
+            else:
+                check(tag + ': Copy-settings keys reached the extension (font, letter case, hover time, compact numbers)', st['font'] == 'verdana' and st['labelCase'] == 'upper' and st['hoverMs'] == 120 and st['numCompact'] is False, {k: st[k] for k in ('font', 'labelCase', 'hoverMs', 'numCompact')})
+                up = (w < 900) or page.evaluate("() => { const t = [...document.querySelectorAll('.sc-chip:not(.sc-cchip) text')]; return t.length > 0 && t.every(x => x.textContent === x.textContent.toUpperCase()); }")
+                check(tag + ': the upper-case label setting changed the drawn chips', up)
             check(tag + ': dark theme setting applied', page.evaluate("() => getComputedStyle(document.getElementById('sc-root')).getPropertyValue('--sc-bg').trim()") == '#0d2b45')
             m = page.evaluate("() => ({ item: SC.app.state.model.itemField, cluster: SC.app.state.model.clusterField, color: SC.app.state.model.colorField, size: SC.app.state.model.valueName })")
             check(tag + ': encodings mapped to the owner columns', m == {'item': 'Country', 'cluster': 'Region', 'color': 'Income group', 'size': 'Population'}, m)
@@ -104,9 +114,9 @@ with sync_playwright() as p:
             check(tag + ': positions identical across 20 consecutive frames (no jitter)', len(set(fr)) == 1)
             check(tag + ': Exit pill present on a solo page', page.evaluate("() => !!document.querySelector('.ctab-exit')"))
             if (w, h) == (900, 560):
-                page.click('.sc-gear'); page.wait_for_timeout(350)
-                check(tag + ': gear panel opens and has the Colour by dropdown', page.evaluate("() => !!document.querySelector('select[aria-label=\"Colour by\"]')"))
-                page.click('.sc-iconbtn'); page.wait_for_timeout(300)
+                page.click('.cp-gear'); page.wait_for_timeout(350)
+                check(tag + ': gear panel opens and has the Colour by dropdown', page.evaluate("() => !!document.querySelector('select[data-k=colorMode]')"))
+                page.click('[data-a=close]'); page.wait_for_timeout(300)
                 page.evaluate("() => SC.app.state.renderer.nodes[3].el.dispatchEvent(new MouseEvent('click', { bubbles: true }))")
                 page.wait_for_timeout(150)
                 check(tag + ': clicking a circle marks it and the Tableau selection call is a harmless no-op (no throw)', page.evaluate("() => document.querySelectorAll('.sc-c.sc-sel').length") == 1)

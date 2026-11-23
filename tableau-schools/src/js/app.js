@@ -7,34 +7,10 @@
  */
 (function (global) {
   'use strict';
-  var SC = global.SC, schema = SC.schema, PREFIX = 'schools.';
+  var SC = global.SC, CP = global.CTabPanel, SET = SC.settings, PREFIX = 'schools.';
 
-  var state = { worksheet: null, renderer: null, panel: null, settings: schema.resolve({}), data: null, dataVersion: 0, model: null, saveTimer: null, ready: false };
+  var state = { worksheet: null, renderer: null, panel: null, store: null, settings: SET.DEFAULTS, data: null, dataVersion: 0, model: null, ready: false };
   function log() { if (global.console && console.warn) console.warn.apply(console, ['[SC]'].concat([].slice.call(arguments))); }
-
-  /* ---------------------------------------------------------------- settings */
-  function readStored() {
-    var out = {}, st = global.tableau.extensions.settings;
-    Object.keys(schema.DEFAULTS).forEach(function (k) {
-      try { var v = st.get(PREFIX + k); if (v !== undefined && v !== null) out[k] = v; } catch (e) { /* unreadable key */ }
-    });
-    return schema.resolve(out);
-  }
-  function persist(key, value) {
-    try { global.tableau.extensions.settings.set(PREFIX + key, String(value)); } catch (e) { log('could not stage', key, e); }
-    clearTimeout(state.saveTimer);
-    state.saveTimer = setTimeout(function () {
-      try { var p = global.tableau.extensions.settings.saveAsync(); if (p && p.catch) p.catch(function (e) { log('save rejected', e); }); } catch (e) { log('save threw', e); }
-    }, 400);
-  }
-  function setSetting(key, value) { state.settings[key] = schema.coerce(key, value); persist(key, state.settings[key]); redraw(); }
-  function resetSettings() { state.settings = schema.resolve({}); Object.keys(schema.DEFAULTS).forEach(function (k) { persist(k, state.settings[k]); }); redraw(); }
-  function replaceAll(obj) {
-    Object.keys(schema.DEFAULTS).forEach(function (k) {
-      if (Object.prototype.hasOwnProperty.call(obj, k)) { state.settings[k] = schema.coerce(k, obj[k]); persist(k, state.settings[k]); }
-    });
-    redraw();
-  }
 
   /* -------------------------------------------------------------------- data */
   function fieldName(f) { return f ? (f.name || f.fieldName || f.fieldId || null) : null; }
@@ -84,19 +60,20 @@
     if (!d) return { rows: [], emptyMessage: 'Reading the worksheet...' };
     var cols = d.columns, enc = d.enc;
     function has(c) { return c && cols.indexOf(c) >= 0; }
-    var sizeField = has(enc.size) ? enc.size : (cols.filter(function (c) { return isNum(d.rows, c); })[0] || null);
+    function chosen(key, auto) { var v = s[key]; return v && has(v) ? v : auto; }
+    var sizeField = chosen('fieldSize', has(enc.size) ? enc.size : (cols.filter(function (c) { return isNum(d.rows, c); })[0] || null));
     var strs = cols.filter(function (c) { return c !== sizeField && !isNum(d.rows, c); });
-    var clusterField = has(enc.cluster) ? enc.cluster : null;
-    var itemField = has(enc.item) ? enc.item : null;
+    var clusterField = chosen('fieldCluster', has(enc.cluster) ? enc.cluster : null);
+    var itemField = chosen('fieldItem', has(enc.item) ? enc.item : null);
     if (!itemField) itemField = strs.filter(function (c) { return c !== clusterField; })[0] || null;
     if (!clusterField) clusterField = strs.filter(function (c) { return c !== itemField; })[0] || null;
-    var colorField = has(enc.color) ? enc.color : null;
+    var colorField = chosen('fieldColor', has(enc.color) ? enc.color : null);
     var rows = d.rows.map(function (r, i) {
       return { name: itemField ? r[itemField] : 'Row ' + (i + 1), cluster: clusterField ? r[clusterField] : 'All', value: sizeField ? Number(r[sizeField]) : NaN, color: colorField ? r[colorField] : null, tuple: i + 1 };
     });
     return {
       rows: sizeField && (itemField || clusterField) ? rows : [], itemField: itemField, clusterField: clusterField, colorField: colorField, valueName: sizeField || 'Size',
-      clusterName: clusterField, colorName: colorField, worksheetBg: d.bg, version: state.dataVersion + ':' + (s.colorMode === 'field' ? colorField : ''),
+      clusterName: clusterField, colorName: colorField, worksheetBg: d.bg, version: [state.dataVersion, itemField || '', clusterField || '', sizeField || '', s.colorMode === 'field' ? colorField : ''].join(':'),
       emptyMessage: !d.rows.length ? 'Drop a dimension on Item, another on Cluster, and a measure on Size.' : (!sizeField ? 'Put a measure on the Size shelf.' : 'Drop a dimension on Item.')
     };
   }
@@ -104,7 +81,7 @@
   /* ----------------------------------------------------------------- Tableau */
   function pushSelect(sel, additive) {
     var ws = state.worksheet, m = state.model;
-    if (!ws || !state.settings.selectEnabled) return;
+    if (!ws || !state.store.get().selectEnabled) return;
     try {
       var p;
       if (!sel) p = ws.clearSelectedMarksAsync && ws.clearSelectedMarksAsync();
@@ -126,7 +103,7 @@
   var lastHover = null;
   function pushHover(node) {
     var ws = state.worksheet;
-    if (!ws || !ws.hoverTupleAsync || !state.settings.tooltips) return;
+    if (!ws || !ws.hoverTupleAsync || !state.store.get().hoverPush) return;
     var id = node && node.tuples && node.tuples.length ? node.tuples[0] : 0;
     if (id === lastHover) return; lastHover = id;
     try { var p = ws.hoverTupleAsync(id); if (p && p.catch) p.catch(function () { /* cosmetic */ }); } catch (e) { /* cosmetic */ }
@@ -135,9 +112,13 @@
   /* -------------------------------------------------------------------- draw */
   function redraw() {
     if (!state.renderer) return;
+    state.settings = state.store.get();
     state.model = compose();
     state.renderer.draw(state.model, state.settings);
-    if (state.panel) state.panel.applyAppearance(state.settings);
+    var root = document.getElementById('sc-root');
+    ['tl', 'tr', 'bl', 'br'].forEach(function (c) { root.classList.toggle('gc-' + c, state.settings.gearCorner === c); });
+    var th = state.renderer.th;
+    if (state.panel && th) { state.panel.applyAppearance(th.clear ? (th.dark ? '#0d2b45' : '#ffffff') : th.bg, th.ink); }
   }
 
   /* One reader at a time, and the last request always wins. */
@@ -153,12 +134,22 @@
     }).then(done, done);
   }
 
+  function info() {
+    var d = state.data;
+    var numeric = d ? d.columns.filter(function (c) { return isNum(d.rows, c); }) : [];
+    return { columns: d ? d.columns : [], numericColumns: numeric,
+      auto: { fieldItem: d && d.enc.item, fieldCluster: d && d.enc.cluster, fieldSize: d && d.enc.size, fieldColor: d && d.enc.color },
+      lists: { categories: state.renderer ? state.renderer.catItems() : [] } };
+  }
+
   function mount(ws) {
-    state.worksheet = ws; state.settings = readStored();
+    state.worksheet = ws;
+    /* A workbook saved before the shared panel keeps its look: old keys are read when the new one is empty (see settings.js). */
+    state.store = CP.createStore({ rows: SET.prepared.rows, settings: SET.withLegacy(global.tableau.extensions.settings), prefix: PREFIX, onChange: function () { redraw(); }, log: log });
+    state.store.load(); state.settings = state.store.get();
     var root = document.getElementById('sc-root'), chart = document.getElementById('sc-chart');
     state.renderer = new SC.Renderer(chart, { onSelect: pushSelect, onHover: pushHover });
-    state.panel = new SC.Panel(root, { get: function () { return state.settings; }, set: setSetting, reset: resetSettings, replaceAll: replaceAll, columns: function () { return state.data && state.data.columns || []; } });
-    state.panel.applyAppearance(state.settings);
+    state.panel = CP.create(root, { title: 'Schools settings', schema: SET.schema, store: state.store, prefix: PREFIX, state: state.store.panelState, info: info });
     var t = null, again = function () { clearTimeout(t); t = setTimeout(redraw, 80); };
     global.addEventListener('resize', again);
     if (global.ResizeObserver) new ResizeObserver(again).observe(chart);

@@ -116,7 +116,7 @@ MORPH = """(o) => new Promise((done) => {
     requestAnimationFrame(f);
   };
   requestAnimationFrame(f);
-  setTimeout(() => { m = performance.now(); SC.app.state.settings = SC.schema.resolve(o); SC.app.redraw(); }, 120);
+  setTimeout(() => { m = performance.now(); { const st = SC.app.state.store; st.reset(); st.setMany(o); } }, 120);
 })"""
 
 def morph_gate(page, tag, settings, start_limit):
@@ -153,7 +153,7 @@ with sync_playwright() as p:
             check(tag + ': 0 console errors', not errs, errs[:2])
             ink = page.evaluate("getComputedStyle(document.getElementById('sc-root')).getPropertyValue('--sc-bg').trim()")
             check(tag + ': worksheet background respected (' + ink + ')', ink.lower() == '#' + bg, ink)
-            check(tag + ': no dialog or modal element in the page', page.evaluate("() => document.querySelectorAll('dialog, [role=dialog], [role=alertdialog]').length") == 0)
+            check(tag + ': no dialog or modal element in the page', page.evaluate("() => Array.from(document.querySelectorAll('dialog, [role=dialog], [role=alertdialog]')).filter(e => !e.closest('.cp-panel') && !e.classList.contains('cp-panel')).length") == 0)
             if (w, h) == (900, 560) and SHOTS: shots['schools-' + theme] = page.screenshot()
             ctx.close()
 
@@ -201,54 +201,113 @@ with sync_playwright() as p:
     check('interaction flow: 0 console errors', not errs, errs[:2])
     ctx.close()
 
-    # ---- 3. settings panel
+    # ---- 3. the shared settings panel (ctab-panel): gear, drag clamped to the frame, minimize, close, Escape, copy and paste, live re-render
     ctx, page, errs = open_page(browser, 900, 560, 'fixture=countries&bg=ffffff')
     dialogs = []; page.on('dialog', lambda d: (dialogs.append(d.type), d.dismiss()))
-    page.click('.sc-gear'); page.wait_for_timeout(400)
-    check('panel opens', page.evaluate("() => document.querySelector('.sc-panel').classList.contains('open')"))
+    RECT = "(sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; }"
+    def inside(r, f, tol=1.5): return r['l'] >= f['l'] - tol and r['t'] >= f['t'] - tol and r['r'] <= f['r'] + tol and r['b'] <= f['b'] + tol
+    def head_point(): r = page.evaluate(RECT, '.cp-head'); return r['l'] + 40, r['t'] + r['h'] / 2
+    check('the panel starts closed and the gear is on screen', page.evaluate("() => document.querySelector('.cp-panel').hidden") and page.is_visible('.cp-gear'))
+    page.click('.cp-gear'); page.wait_for_selector('.cp-panel:not([hidden])', timeout=5000)
+    check('the gear opens the floating panel', page.is_visible('.cp-panel') and page.evaluate("() => !document.querySelector('.cp-panel').hidden"))
+    tabs = page.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
+    check('15 tabs plus Panel: Colors, Cluster layout, Collisions, Size scale, Circles, Labels, Cluster labels, Legend, Number format, Tooltip, Fonts, Background, Animation, Interaction, Fields', len(tabs) == 16 and tabs[:2] == ['Colors', 'Cluster layout'] and 'Fields' in tabs and tabs[-1] == 'Panel', tabs)
+    nset = page.evaluate("() => SC.app.state.store.rows.filter(r => r.type !== 'note').length")
+    check('at least 40 settings (%d)' % nset, nset >= 40)
+    ranges = 0
+    for tid in page.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.dataset.t)"):
+        page.click(".cp-tab[data-t='%s']" % tid)
+        ranges += page.evaluate("() => document.querySelectorAll('input[type=range]').length")
+        small = page.evaluate("() => [...document.querySelectorAll('.cp-panel *')].filter(e => e.getBoundingClientRect().width > 0 && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 14).map(e => e.textContent.slice(0, 20))")
+        check('panel tab %s: every text is 14px or more' % tid, not small, small[:3])
+        low = page.evaluate("""() => { const parse = s => (s.match(/[\\d.]+/g) || []).map(Number); const bgOf = e => { for (let n = e; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c.length >= 3 && (c.length < 4 || c[3] > 0.95)) return c.slice(0, 3); } return [255, 255, 255]; };
+          return [...document.querySelectorAll('.cp-panel *')].filter(e => e.getBoundingClientRect().width > 0 && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && !e.matches('option,select,input,textarea')).map(e => ({ t: e.textContent.slice(0, 20), fg: parse(getComputedStyle(e).color).slice(0, 3), bg: bgOf(e) })); }""")
+        bad = [x['t'] for x in low if contrast(x['fg'], x['bg']) < 7]
+        check('panel tab %s: text clears 7:1 (%d runs)' % (tid, len(low)), not bad, bad[:3]); count(len(low))
+    check('no range input on any of the %d tabs' % len(tabs), ranges == 0, ranges)
+    page.click(".cp-tab[data-t='colors']")
     audit(page, 'panel open')
+    f = page.evaluate(RECT, '#sc-root')
+    pr = page.evaluate(RECT, '.cp-panel')
+    check('the panel sits inside the frame', inside(pr, f), pr)
+    # drag by the title bar, clamped to the frame
+    x, y = head_point()
+    page.mouse.move(x, y); page.mouse.down(); page.mouse.move(x - 100, y + 60, steps=6); page.mouse.move(x - 200, y + 150, steps=6); page.mouse.up()
+    r1 = page.evaluate(RECT, '.cp-panel')
+    check('drag by the title bar moves the panel by the pointer delta (down as far as the frame allows)', abs((pr['l'] - r1['l']) - 200) <= 2 and abs((r1['t'] - pr['t']) - min(150, f['b'] - pr['b'])) <= 2, (pr['l'], r1['l'], pr['t'], r1['t']))
+    x, y = head_point(); page.mouse.move(x, y); page.mouse.down(); page.mouse.move(-3000, -3000, steps=8); page.mouse.up()
+    r2 = page.evaluate(RECT, '.cp-panel')
+    check('dragged far up-left clamps to the frame corner', abs(r2['l'] - f['l']) <= 1.5 and abs(r2['t'] - f['t']) <= 1.5, (r2, f))
+    x, y = head_point(); page.mouse.move(x, y); page.mouse.down(); page.mouse.move(4000, 4000, steps=8); page.mouse.up()
+    r3 = page.evaluate(RECT, '.cp-panel')
+    check('dragged far down-right clamps to the frame corner', abs(r3['r'] - f['r']) <= 1.5 and abs(r3['b'] - f['b']) <= 1.5, (r3, f))
+    check('the panel never leaves the frame at either extreme', inside(r2, f) and inside(r3, f))
+    # minimize and restore
+    full = page.evaluate(RECT, '.cp-panel')['h']
+    page.click('[data-a=min]'); page.wait_for_function("() => document.querySelector('.cp-panel').classList.contains('cp-min')")
+    check('minimize leaves just the title bar', page.evaluate(RECT, '.cp-panel')['h'] < full / 4 and not page.is_visible('.cp-tabs') and page.is_visible('.cp-title'))
+    page.click('[data-a=min]'); page.wait_for_function("() => !document.querySelector('.cp-panel').classList.contains('cp-min')")
+    check('restore brings the tabs back', page.is_visible('.cp-tabs'))
+    # a setting change re-renders the chart live, and is saved as a string
+    page.click(".cp-tab[data-t='collision']")
     r0 = page.evaluate("() => SC.app.state.renderer.nodes.map(n => n.r).reduce((a, b) => a + b, 0)")
-    sel = 'input[aria-label="Gap between circles"]'
-    page.fill(sel, '18'); page.press(sel, 'Enter'); page.dispatch_event(sel, 'change'); page.wait_for_timeout(1300)
-    stored = page.evaluate("() => SC_MOCK.settings.getAll()")
-    check('typed stepper value saved as a STRING under schools.pad', stored.get('schools.pad') == '18' and page.evaluate("() => SC_MOCK.settings.saves") >= 1, stored)
-    r1 = page.evaluate("() => SC.app.state.renderer.nodes.map(n => n.r).reduce((a, b) => a + b, 0)")
-    check('changing the gap re-laid the circles', abs(r0 - r1) > 0.01, (r0, r1))
-    page.select_option('select[aria-label="Palette"]', 'sunset'); page.wait_for_timeout(300)
-    check('palette dropdown applied and saved', page.evaluate("() => SC_MOCK.settings.get('schools.palette')") == 'sunset')
-    page.click('button:has-text("Copy settings")'); page.wait_for_timeout(300)
-    parsed = json.loads(page.evaluate("() => navigator.clipboard.readText()"))
-    check('Copy settings puts valid JSON on the clipboard with typed values', parsed.get('pad') == 18 and parsed.get('palette') == 'sunset' and parsed.get('labels') is True, list(parsed)[:4])
-    check('copied JSON covers every setting', len(parsed) == page.evaluate("() => Object.keys(SC.schema.DEFAULTS).length"), len(parsed))
-    page.click('button:has-text("Paste settings")'); page.fill('.sc-pastebox textarea', '{"palette":"kelp","fontSize":"16","labels":"true"}'); page.click('.sc-pastebox button:has-text("Apply")'); page.wait_for_timeout(300)
-    check('Paste settings applies JSON inline (no dialog)', page.evaluate("() => SC.app.state.settings.palette === 'kelp' && SC.app.state.settings.fontSize === 16") and not dialogs, dialogs)
-    if page.evaluate("() => document.querySelector('.sc-pastebox').style.display === 'none'"): page.click('button:has-text("Paste settings")')
-    page.fill('.sc-pastebox textarea', 'not json'); page.click('.sc-pastebox button:has-text("Apply")')
-    check('invalid paste is refused with a message', 'not valid' in page.evaluate("() => document.querySelector('.sc-msg').textContent"))
-    page.fill('.sc-search', 'palette'); page.wait_for_timeout(150)
-    check('settings search filters the panel', 1 <= page.evaluate("() => document.querySelectorAll('.sc-row').length") <= 3)
-    page.fill('.sc-search', '')
-    page.click('.sc-btn:has-text("Reset all")'); check('reset needs a second press', page.evaluate("() => SC.app.state.settings.palette") == 'kelp'); page.click('.sc-btn:has-text("Press again")'); page.wait_for_timeout(300)
-    check('reset restores defaults', page.evaluate("() => SC.app.state.settings.palette") == 'reef')
-    check('no browser dialog appeared anywhere', not dialogs)
-    check('settings flow: 0 console errors', not errs, errs[:2])
+    page.fill('input[data-k=pad]', '18'); page.press('input[data-k=pad]', 'Enter'); page.wait_for_timeout(1500)
+    check('typing the gap between circles re-lays the circles live', abs(r0 - page.evaluate("() => SC.app.state.renderer.nodes.map(n => n.r).reduce((a, b) => a + b, 0)")) > 0.01)
+    check('the typed value is saved as the STRING "18" under schools.pad', page.evaluate("() => SC_MOCK.settings.get('schools.pad')") == '18' and page.evaluate("() => SC_MOCK.settings.saves") >= 1)
+    page.click(".cp-tab[data-t='colors']"); page.select_option('select[data-k=palette]', 'sunset'); page.wait_for_timeout(300)
+    check('the palette select re-colours and saves schools.palette', page.evaluate("() => SC_MOCK.settings.get('schools.palette')") == 'sunset' and page.evaluate("() => SC.colors.palette('sunset').indexOf(SC.app.state.renderer.nodes[0].el.getAttribute('fill')) > -1"))
+    # copy and paste round trip
+    page.click('[data-a=copy]')
+    page.wait_for_function("() => document.querySelector('.cp-status').textContent.indexOf('Copied') === 0", timeout=5000)
+    copied = json.loads(page.evaluate("() => SC.app.state.panel.lastCopied"))
+    check('Copy settings makes flat JSON with every setting (%d keys)' % len(copied), len(copied) == nset and copied['pad'] == 18 and copied['palette'] == 'sunset', len(copied))
+    page.select_option('select[data-k=palette]', 'kelp'); page.click(".cp-tab[data-t='collision']"); page.fill('input[data-k=pad]', '3'); page.press('input[data-k=pad]', 'Enter'); page.wait_for_timeout(1200)
+    check('the settings really changed before the paste', page.evaluate("() => SC.app.state.store.get().palette") == 'kelp' and page.evaluate("() => SC.app.state.store.get().pad") == 3)
+    page.click('[data-a=paste]'); page.wait_for_selector('textarea[data-f=paste]')
+    page.fill('textarea[data-f=paste]', '{this is not json'); page.click('[data-a=pasteapply]')
+    check('bad JSON shows an inline message, not a dialog, and changes nothing', 'not valid' in page.inner_text('.cp-msg[role=alert]') and not dialogs and page.evaluate("() => SC.app.state.store.get().pad") == 3)
+    page.fill('textarea[data-f=paste]', json.dumps(copied)); page.click('[data-a=pasteapply]'); page.wait_for_timeout(1200)
+    back = page.evaluate("() => SC.app.state.store.snapshot()")
+    check('pasting the copied JSON restores every setting (round trip over %d keys)' % len(copied), back == copied, [k for k in copied if back.get(k) != copied[k]][:4])
+    check('the paste re-rendered the chart (sunset palette, pad 18)', page.evaluate("() => SC.app.state.store.get().palette") == 'sunset' and abs(r0 - page.evaluate("() => SC.app.state.renderer.nodes.map(n => n.r).reduce((a, b) => a + b, 0)")) > 0.01)
+    page.fill('.cp-q', 'palette'); page.wait_for_timeout(200)
+    check('search filters rows across tabs', page.evaluate("() => document.querySelectorAll('.cp-row').length") <= 4)
+    page.fill('.cp-q', '')
+    page.click('[data-a=resetall]'); page.click('[data-a=confirmyes]'); page.wait_for_timeout(1200)
+    check('Reset all (inline confirm) restores the defaults', page.evaluate("() => SC.app.state.store.get().palette") == 'reef' and page.evaluate("() => SC.app.state.store.get().pad") == 3)
+    # close, Escape, focus return
+    page.click('[data-a=close]')
+    check('the close button hides the panel and focus returns to the gear', page.evaluate("() => document.querySelector('.cp-panel').hidden && document.activeElement === document.querySelector('.cp-gear')"))
+    page.click('.cp-gear'); page.wait_for_selector('.cp-panel:not([hidden])'); page.keyboard.press('Escape')
+    check('Escape closes the panel and focus returns to the gear', page.evaluate("() => document.querySelector('.cp-panel').hidden && document.activeElement === document.querySelector('.cp-gear')"))
+    check('no browser dialog appeared anywhere', not dialogs, dialogs)
+    check('panel session: 0 console errors', not errs, errs[:2])
     page.evaluate("() => { SC_MOCK.settings.set('schools.pad','9'); SC_MOCK.settings.set('schools.fontSize','18'); SC_MOCK.settings.set('schools.labels','true'); SC_MOCK.settings.saveAsync(); }")
+    ls = page.evaluate("() => localStorage.getItem('sc-mock-settings')")
     page.goto(BASE + '/test/page.html?fixture=countries&bg=ffffff'); page.wait_for_selector('.sc-c'); page.wait_for_timeout(900)
-    rs = page.evaluate("() => SC.app.state.settings")
-    check('string settings survive a reload and come back typed', rs['pad'] == 9 and rs['fontSize'] == 18 and rs['labels'] is True, (rs['pad'], rs['fontSize']))
+    rs = page.evaluate("() => SC.app.state.store.get()")
+    check('string settings survive a reload and come back typed', rs['pad'] == 9 and rs['fontSize'] == 18 and rs['labels'] is True, (rs['pad'], rs['fontSize'], ls[:60]))
     ctx.close()
+
+    # ---- 3b. the panel at 390 wide is a full-frame sheet, and every control stays inside it
+    ctx, page, errs = open_page(browser, 390, 700, 'fixture=countries&bg=ffffff')
+    page.click('.cp-gear'); page.wait_for_selector('.cp-panel:not([hidden])'); page.wait_for_timeout(300)
+    sh = page.evaluate(RECT, '.cp-panel'); fr = page.evaluate(RECT, '#sc-root')
+    check('at 390 wide the panel is a full-frame sheet', sh['w'] >= fr['w'] - 2 and inside(sh, fr), (sh, fr))
+    check('the sheet has no horizontal scroll', not page.evaluate("() => document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.cp-panel').scrollWidth > document.querySelector('.cp-panel').clientWidth + 1"))
+    check('390 wide: 0 console errors', not errs, errs[:2]); ctx.close()
 
     # ---- 4. colour: by cluster (default), by the Colour shelf, one colour
     ctx, page, errs = open_page(browser, 900, 560, 'fixture=countries&bg=ffffff')
     fills = page.evaluate("() => [new Set(SC.app.state.renderer.nodes.map(n => n.el.getAttribute('fill'))).size, SC.app.state.renderer.clusters.length, SC.colors.palette('reef').length]")
     check('colour by cluster: one colour per cluster (%d of %d)' % (fills[0], fills[1]), fills[0] == min(fills[1], fills[2]), fills)
-    page.evaluate("() => { SC.app.state.settings = SC.schema.resolve({ colorMode: 'field' }); SC.app.redraw(); }"); settle(page, 500)
+    page.evaluate("() => { { const st = SC.app.state.store; st.reset(); st.setMany({ colorMode: 'field' }); } }"); settle(page, 500)
     fills = page.evaluate("() => new Set(SC.app.state.renderer.nodes.map(n => n.el.getAttribute('fill'))).size")
     check('colour shelf (Income group): 4 colours', fills == 4, fills)
     keys = page.evaluate("() => document.querySelectorAll('.sc-key').length")
     check('colour shelf shows a legend with the 4 groups', keys == 4, keys)
     audit(page, 'colour shelf'); jitter(page, 'colour shelf')
-    page.evaluate("() => { SC.app.state.settings = SC.schema.resolve({ colorMode: 'single', singleColor: '#e0457b' }); SC.app.redraw(); }"); settle(page, 500)
+    page.evaluate("() => { { const st = SC.app.state.store; st.reset(); st.setMany({ colorMode: 'single', singleColor: '#e0457b' }); } }"); settle(page, 500)
     fills = page.evaluate("() => [...new Set(SC.app.state.renderer.nodes.map(n => n.el.getAttribute('fill')))]")
     check('one-colour mode paints every circle the chosen colour', fills == ['#e0457b'], fills)
     check('colour flow: 0 console errors', not errs, errs[:2]); ctx.close()
@@ -316,7 +375,7 @@ with sync_playwright() as p:
         pt = page.evaluate("() => { const r = SC.app.state.renderer, rect = document.querySelector('.sc-svg').getBoundingClientRect(); const n = r.nodes.slice().sort((a, b) => b.r - a.r)[3]; return { x: rect.left + n.x, y: rect.top + n.y - n.r * 0.55 }; }")
         page.mouse.move(pt['x'], pt['y']); page.wait_for_timeout(600); shots['schools-hover-1280'] = page.screenshot(); ctx.close()
         ctx, page, errs = open_page(browser, 1280, 790, 'fixture=countries&bg=0d2b45', 'dark')
-        page.evaluate("() => { SC.app.state.settings = SC.schema.resolve({ colorMode: 'field' }); SC.app.redraw(); }"); settle(page, 600)
+        page.evaluate("() => { { const st = SC.app.state.store; st.reset(); st.setMany({ colorMode: 'field' }); } }"); settle(page, 600)
         shots['thumb'] = page.screenshot(); ctx.close()
     browser.close()
 
