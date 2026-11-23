@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ctab-panel demo</title>
+<link rel="stylesheet" href="../ctab-panel.css">
+<style>
+  html, body { margin: 0; background: #e8edf2; font: 14px/1.4 Inter, "Segoe UI", system-ui, sans-serif; color: #14202e; }
+  #frame { position: relative; overflow: hidden; background: #ffffff; margin: 0; }
+  #chart { margin: 0; padding: 56px 12px 12px; white-space: pre-wrap; word-break: break-word; font: 14px/1.4 Inter, "Segoe UI", system-ui, sans-serif; color: #14202e; }
+</style>
+</head>
+<body>
+<div id="frame"><pre id="chart"></pre></div>
+<script src="../ctab-panel.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), P = window.CTabPanel;
+  var W = +(q.get('w') || 900), H = +(q.get('h') || 600), persist = q.get('persist') === '1', KEY = 'ctab-demo-settings';
+  var frame = document.getElementById('frame'); frame.style.width = W + 'px'; frame.style.height = H + 'px';
+  var m = {}; if (persist) { try { m = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { m = {}; } }
+  var fake = { m: m, saves: 0,
+    get: function (k) { return m[k]; }, getAll: function () { return Object.assign({}, m); },
+    set: function (k, v) { m[k] = String(v); if (persist) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) {} } },
+    saveAsync: function () { fake.saves++; return Promise.resolve(); } };
+  var std = P.standard({ fields: [{ key: 'fieldAxis', label: 'Axis field' }, { key: 'fieldValue', label: 'Value field', kind: 'numeric' }] });
+  var tabs = [{ id: 'layout', label: 'Layout' }, { id: 'rings', label: 'Rings' }].concat(std.tabs);
+  var rows = [
+    { tab: 'layout', sec: 'View', key: 'mode', label: 'Show as', type: 'chips', opts: [['overlay', 'Overlay'], ['multi', 'Small multiples']], def: 'overlay' },
+    { tab: 'layout', sec: 'View', key: 'cols', label: 'Columns', type: 'number', min: 1, max: 8, step: 1, def: 3, when: { key: 'mode', eq: 'multi' }, help: 'Only for small multiples.' },
+    { tab: 'layout', sec: 'View', key: 'angle', label: 'Start angle', type: 'number', min: 0, max: 359, step: 15, unit: 'deg', def: 90 },
+    { tab: 'layout', sec: 'View', key: 'sortAxes', label: 'Sort axes', type: 'select', opts: [['data', 'Data order'], ['name', 'By name'], ['value', 'By value']], def: 'data' },
+    { tab: 'layout', sec: 'Extras', key: 'showB', label: 'Show the benchmark', type: 'check', def: false },
+    { tab: 'layout', sec: 'Extras', key: 'bName', label: 'Benchmark name', type: 'text', def: 'Target', when: { key: 'showB', truthy: true } },
+    { tab: 'layout', sec: 'Extras', key: 'axes', label: 'Axes', type: 'list', source: 'axes', def: [], visible: true },
+    { tab: 'rings', sec: 'Rings', key: 'ringCount', label: 'Ring count', type: 'number', min: 1, max: 10, step: 1, def: 4 },
+    { tab: 'rings', sec: 'Rings', key: 'ringLabels', label: 'Ring labels', type: 'check', def: true },
+    { tab: 'rings', sec: 'Rings', key: 'ringColor', label: 'Ring color', type: 'color', def: '#8fa7b8' }
+  ].concat(std.rows);
+  var schema = { tabs: tabs, rows: rows };
+  var renders = 0, chart = document.getElementById('chart');
+  var store = P.createStore({ schema: schema, settings: fake, prefix: 'demo.', debounce: 60, onChange: draw });
+  store.load();
+  function draw() {
+    renders++; var s = store.get();
+    chart.textContent = JSON.stringify({ mode: s.mode, cols: s.cols, ringCount: s.ringCount, showB: s.showB, bName: s.bName, angle: s.angle, axes: P.mergeList(s.axes, info().lists.axes).filter(function (a) { return !a.hidden; }).map(function (a) { return a.key + ':' + a.name; }), palette: s.palette, fmt: P.formatNumber(1234.5, s) }, null, 1);
+    chart.setAttribute('data-renders', renders);
+  }
+  var info = function () {
+    return { columns: ['Region', 'Metric', 'Value'], numericColumns: ['Value'], auto: { fieldAxis: 'Metric', fieldValue: 'Value' },
+      lists: { axes: [{ key: 'Alpha', name: 'Alpha', color: '#3cc4d1' }, { key: 'Beta', name: 'Beta', color: '#f26b5b' }, { key: 'Gamma', name: 'Gamma', color: '#f5b83d' }],
+        categories: [{ key: 'North', name: 'North', color: '#3cc4d1' }, { key: 'South', name: 'South', color: '#12527a' }] } };
+  };
+  var panel = P.create(frame, { title: 'Demo settings', schema: schema, store: store, info: info, state: store.panelState, prefix: 'demo.' });
+  if (q.get('open') === '1') panel.open();
+  draw();
+  window.demo = { P: P, store: store, panel: panel, fake: fake, frame: frame, renders: function () { return renders; } };
+})();
+</script>
+</body>
+</html>
