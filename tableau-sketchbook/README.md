@@ -23,10 +23,10 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
 - **Settings in the viz.** The gear opens the shared C-Tableau floating panel (92 settings, 17 tabs, see below); everything is saved in the workbook
   through Tableau's extension settings (keys start with `sketchbook.`). **Copy settings**
   gives the JSON the C-Tableau Viz pages flow accepts; **Paste settings** takes it back.
-- **No sliders anywhere.** Steppers, chips, dropdowns, colour boxes.
+- **No sliders anywhere.** Steppers, chips, dropdowns, color boxes.
 - Inter (bundled) at 14px and up, text at 7:1 contrast or better on white, paper, dark and
-  custom backgrounds, the Data Divers palette by default (a colour-blind safe palette and
-  pencil greys are built in). Follows the worksheet background.
+  custom backgrounds, the Data Divers palette by default (a colorblind safe palette and
+  pencil grays are built in). Follows the worksheet background.
 - One 480 ms eased fade-in on the first draw, then nothing moves. Each draw waits for Inter
   before measuring text, so labels never shift after the first paint.
 
@@ -41,7 +41,7 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
 | Grid | On/off, solid/dashed/dotted, width, color |
 | Title underline | On/off, stroke width, roughness, color |
 | Legend | On/off, top or bottom, swatch size, title |
-| Colors | Pencil greys, single color, palette (Data Divers plus six colorblind-safe sets), reverse, per-series names, colors, order and hide |
+| Colors | Pencil grays, single color, palette (Data Divers plus six colorblind-safe sets), reverse, per-series names, colors, order and hide |
 | Labels | What a mark label says (value or Label field), gap, category label size, weight, color, wrapping, value labels |
 | Number format | Decimals, thousands separator, K/M short form, multiplier, prefix, suffix |
 | Tooltip | On/off, size, swatch, placement, width |
@@ -53,7 +53,7 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
 | Panel | The panel's own theme (light, dark, match the chart, custom) |
 
 Workbooks saved before the panel existed keep their look: `fontSize` is read as `labelSize` (and the title and value-label sizes), `title` as
-the title text, `theme` as the background mode, `palette` ink as the Pencil greys check, `labels` none as value labels off, and `selectEnabled` and
+the title text, `theme` as the background mode, `palette` ink as the Pencil grays check, `labels` none as value labels off, and `selectEnabled` and
 `hoverEnabled` as `selectOn` and `hoverPush`. Every other saved key kept its name. One visible difference: the default palette is now the
 shared Data Divers palette set (Okabe-Ito still selectable and carried over).
 
@@ -86,7 +86,7 @@ read-only stand-in for the Extensions API, and is tested that way (see below).
 ## Example data
 
 `data/life-expectancy-sample.csv`: life expectancy at birth for six countries across nine
-years (54 rows). Our World in Data, licence **CC BY 4.0**. See [data/README.md](data/README.md).
+years (54 rows). Our World in Data, license **CC BY 4.0**. See [data/README.md](data/README.md).
 
 ## Tests
 
@@ -102,13 +102,13 @@ years (54 rows). Our World in Data, licence **CC BY 4.0**. See [data/README.md](
 What none of them prove: that Tableau itself drives the extension. The mock is shaped
 from Tableau's published API types, not from a live Tableau. Tuple ids for selection
 are 1-based row positions, the same assumption Lollipop makes, and are unconfirmed. The
-contrast gate cannot reach 7:1 on a mid-grey custom background (no ink can), so it is
+contrast gate cannot reach 7:1 on a mid-gray custom background (no ink can), so it is
 tested on white, paper and dark.
 
 ## Files
 
 `src/` the extension. `lib/` vendored rough.js (MIT), Inter (OFL) and `ctab-panel/` (the shared settings panel, an exact copy of `shared/ctab-panel`), each with its
-licence. `dev/` mock Tableau and fixtures. `data/` example data. `tools/` fixtures,
+license. `dev/` mock Tableau and fixtures. `data/` example data. `tools/` fixtures,
 thumbnail builder and the sabotage check. `test/` the gates.
 
 MIT licensed. Made by Chris Fryar, Data Divers.

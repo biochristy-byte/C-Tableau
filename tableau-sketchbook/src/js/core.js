@@ -1,11 +1,11 @@
-/* Shared helpers for the Data Divers house extensions: colour maths, contrast,
+/* Shared helpers for the Data Divers house extensions: color maths, contrast,
  * number formatting, tick picking, label thinning and the settings-schema
  * factory. This file is identical in Depth Lines and Sketchbook on purpose.
  * Nothing here touches Tableau. */
 (function (global) {
   'use strict';
 
-  /* ------------------------------------------------------------- colour */
+  /* ------------------------------------------------------------- color */
 
   function parseColor (c) {
     if (typeof c !== 'string') return null;
@@ -42,7 +42,7 @@
   }
   var INK_DARK = '#0a1018', INK_LIGHT = '#f5f8fb';
   /* The ink that reads best on a background. Near-black or near-white both
-   * clear 7:1 on every background that is not a mid grey. */
+   * clear 7:1 on every background that is not a mid gray. */
   function pickText (bg) {
     return contrast(INK_DARK, bg) >= contrast(INK_LIGHT, bg) ? INK_DARK : INK_LIGHT;
   }

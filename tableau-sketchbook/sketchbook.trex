@@ -50,7 +50,7 @@
       </role-spec>
       <fields max-count="1"/>
       <encoding-icon token="color"/>
-      <tooltip resource-id="tip-series">Optional. Splits the chart into coloured series: grouped bars, several lines, or side by side dots.</tooltip>
+      <tooltip resource-id="tip-series">Optional. Splits the chart into colored series: grouped bars, several lines, or side by side dots.</tooltip>
     </encoding>
 
     <encoding id="label">
@@ -87,7 +87,7 @@
       <text locale="en_US">Series</text>
     </resource>
     <resource id="tip-series">
-      <text locale="en_US">Optional. Splits the chart into coloured series: grouped bars, several lines, or side by side dots.</text>
+      <text locale="en_US">Optional. Splits the chart into colored series: grouped bars, several lines, or side by side dots.</text>
     </resource>
     <resource id="enc-label">
       <text locale="en_US">Label</text>

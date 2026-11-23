@@ -58,7 +58,7 @@
     { tab: 'marks', sec: 'Dots', key: 'stems', label: 'Sketched stems to the axis', type: 'check', def: true, when: { key: 'chartType', eq: 'dot' } },
     { tab: 'marks', sec: 'All marks', key: 'markOpacity', label: 'Mark opacity', type: 'number', min: 20, max: 100, step: 5, unit: '%', def: 100 },
 
-    { tab: 'colors', sec: 'Colors', key: 'greys', label: 'Pencil greys for the series', type: 'check', def: false, help: 'Draws every series in graphite greys instead of the palette.' },
+    { tab: 'colors', sec: 'Colors', key: 'greys', label: 'Pencil grays for the series', type: 'check', def: false, help: 'Draws every series in graphite grays instead of the palette.' },
     { tab: 'colors', sec: 'Colors', key: 'color', label: 'Color when there is no series', type: 'color', def: '#2aa9b8' },
 
     { tab: 'labels', sec: 'Mark labels', key: 'labels', label: 'Mark label text', type: 'chips', opts: [['value', 'Value'], ['field', 'Label shelf']], def: 'value', help: 'Turn the labels on with Show value labels below.' },
@@ -96,7 +96,7 @@
   var prepared = CP.prepare(schema);
 
   /* The keys the pre-panel version saved. Each entry: when the old key is stored and the new key(s) are not, write the new
-   * key(s). Renamed or re-meant: fontSize, title, theme, palette (the old "ink" value became the Pencil greys check),
+   * key(s). Renamed or re-meant: fontSize, title, theme, palette (the old "ink" value became the Pencil grays check),
    * labels (none became Show value labels off), selectEnabled, hoverEnabled. All other old keys kept their name and meaning. */
   var LEGACY = [
     { old: 'fontSize', map: function (v) { var n = Number(v); return isFinite(n) ? { labelSize: n, titleSize: Math.round(n * 1.35), valueLabelSize: n } : null; } },
