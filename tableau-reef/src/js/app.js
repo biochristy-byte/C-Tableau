@@ -55,7 +55,7 @@
     });
   }
 
-  /* Compose the model from data + the colour settings. Cheap, so a colour change never re-reads Tableau. */
+  /* Compose the model from data + the color settings. Cheap, so a color change never re-reads Tableau. */
   function compose() {
     var d = state.data, s = state.settings;
     if (!d) return { rows: [], emptyMessage: 'Reading the worksheet...' };

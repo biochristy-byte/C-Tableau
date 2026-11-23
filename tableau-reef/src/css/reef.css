@@ -1,5 +1,5 @@
 /* Reef. Every text size is 14px or more. Chips carry their own solid background,
-   so text contrast does not depend on the worksheet colour behind them. */
+   so text contrast does not depend on the worksheet color behind them. */
 :root { --rf-bg:#ffffff; --rf-ink:#10202b; --rf-chip-bg:#ffffff; --rf-chip-ink:#10202b; --rf-chip-line:rgba(16,32,43,.45);
         --rf-font:Inter,"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif; --rf-accent:#3cc4d1; }
 *,*::before,*::after { box-sizing:border-box; }

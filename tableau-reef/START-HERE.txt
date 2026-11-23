@@ -22,8 +22,8 @@ Tableau Public: works while you author; viewers see "not supported" until Exchan
    and a measure onto Size. Click a circle group to zoom in, the path at the top to climb out.
    Hover the chart and click the gear for every setting.
 
-Colour: Tableau allows four shelves, so colour is in the gear panel. Drop a field on Detail,
-then Colour by > A field from Detail > pick it.
+Color: Tableau allows four shelves, so color is in the gear panel. Drop a field on Detail,
+then Color by > A field from Detail > pick it.
 
 IF THE CHART IS BLANK
 - Is the black window still open? Reopen Start-Reef.bat.

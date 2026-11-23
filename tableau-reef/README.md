@@ -2,7 +2,7 @@
 
 Nested circle packing for Tableau, by Chris Fryar at Data Divers. One to three
 dimension levels become circles inside circles, sized by a measure, in a coral
-and reef palette that sits inside the Data Divers colours. Click a group and the
+and reef palette that sits inside the Data Divers colors. Click a group and the
 view zooms into it with an eased transition; a breadcrumb climbs back out. It
 is free, MIT licensed, and runs in the free edition of Tableau Desktop.
 
@@ -13,10 +13,10 @@ circle-packing extension when this was checked on 11/22/2026.
 
 - **Four Marks card shelves**: Level 1 (required), Level 2, Level 3 (both
   optional) and Size. Four is the most Tableau allows a viz extension.
-- **Optional colour**: Tableau gives an extension only four shelves, so colour
-  comes from the settings panel. Pick Colour by > A field from Detail, drop any
-  dimension or measure on Detail, and choose it. A dimension colours by
-  category, a measure colours by a reef ramp. The default is the top-level group.
+- **Optional color**: Tableau gives an extension only four shelves, so color
+  comes from the settings panel. Pick Color by > A field from Detail, drop any
+  dimension or measure on Detail, and choose it. A dimension colors by
+  category, a measure colors by a reef ramp. The default is the top-level group.
 - **Smooth zoom**: click a group (or a leaf's parent) and the camera glides in
   with an ease-in-out curve at 60 fps. Only circle geometry changes per frame,
   labels fade back in when the move settles. Escape, the breadcrumb, or a click
@@ -27,18 +27,18 @@ circle-packing extension when this was checked on 11/22/2026.
   level and its direct children carry one. A group with a single child folds
   into one circle. Every label is a solid chip that sits fully
   inside its own circle, so the text is 14 px or larger and 7:1 against its
-  chip in light and dark, whatever colour the circle behind it is.
+  chip in light and dark, whatever color the circle behind it is.
 - **90 settings on 14 tabs** (Colors, Packing, Depth, Zoom, Rings, Labels, Legend, Number format, Tooltip, Fonts, Background,
   Animation, Interaction, Fields, plus the built-in Panel tab) in a floating panel inside the viz,
   the same one as the other Data Divers extensions: click the gear, drag it by its title bar, minimize it,
-  Escape closes it, and below 420px wide it becomes a full-frame sheet. Every setting has a plain-language help line, a search box
+  Escape closes it, and below 420px wide it becomes a full-frame sheet. Settings that need explaining have a plain-language help line, a search box
   finds a setting by name, and the Panel tab holds Reset all, Undo, **Copy settings** and **Paste settings** (the JSON the C-Tableau
-  Viz pages flow accepts). **No sliders**: steppers you can type into, chip groups, dropdowns and colour inputs. No browser dialogs.
+  Viz pages flow accepts). **No sliders**: steppers you can type into, chip groups, dropdowns and color inputs. No browser dialogs.
 - **Selection and hover push back into Tableau.** Clicking a circle selects the
   marks under it by value on every level it sits at.
 - **Settings are saved in the workbook** through Tableau's extension settings. A workbook saved before the panel change keeps its look:
   the old font stack and number format are read as the new Font and Compact numbers settings.
-- **Background**: follows the worksheet, or light, dark or a custom colour.
+- **Background**: follows the worksheet, or light, dark or a custom color.
 
 ## What else you need
 
@@ -82,7 +82,7 @@ families and the four Census regions. Public domain (US federal government work)
   regions), State, Deaths, Age-adjusted death rate (per 100,000).
 - Connect it in Tableau, then Level 1 = Cause group, Level 2 = Cause, Level 3 =
   Census region, Size = SUM(Deaths). Drag Age-adjusted death rate to Detail and
-  choose it under Colour by > A field from Detail.
+  choose it under Color by > A field from Detail.
 
 ## How the layout works
 
@@ -96,7 +96,7 @@ many. Leaf area is proportional to the measure.
 
 ```
 node test/run.js                 unit tests: packing has no overlaps, area is proportional
-                                 to value, zoom maths, label placement, settings coercion
+                                 to value, zoom math, label placement, settings coercion
 python test/settings_test.py     every one of the 90 settings is changed and must change the render
 python test/render_test.py       Playwright, headless Chromium, against the mock Tableau API:
                                  3 sizes x light and dark, zoom smoothness, panel, copy and
@@ -112,7 +112,7 @@ API that rejects a second open data reader, so a reader leak fails loudly.
 
 ## What is proven and what is not
 
-Proven here: the layout maths, the rendering at 300x300 to 1600x1000 in light
+Proven here: the layout math, the rendering at 300x300 to 1600x1000 in light
 and dark, the zoom frame timing, the settings panel, and that the C-Tableau
 stand-in can drive it. **Not yet tried in a real Tableau Desktop session**: how
 Tableau reports the four shelves, whether `selectMarksByValueAsync` selects the
@@ -122,7 +122,7 @@ follows the published API types, it is not Tableau.
 ## Libraries
 
 - [d3-hierarchy](https://github.com/d3/d3-hierarchy) 3.1.2, ISC, vendored in
-  `lib/d3-hierarchy.min.js` with its licence in `lib/LICENSE-d3-hierarchy.txt`.
+  `lib/d3-hierarchy.min.js` with its license in `lib/LICENSE-d3-hierarchy.txt`.
   No CDN is used at runtime.
 - Tableau's Extensions API library is not redistributed here.
 

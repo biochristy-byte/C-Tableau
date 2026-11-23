@@ -1,6 +1,6 @@
-/* Reef - colour maths, palettes, number formatting.
+/* Reef - color math, palettes, number formatting.
  *
- * The default palette lives inside the Data Divers brand colours (teal, gold,
+ * The default palette lives inside the Data Divers brand colors (teal, gold,
  * ember, coral, navy) and extends them with a few reef tones. Contrast helpers
  * follow WCAG 2 relative luminance so the tests and the renderer agree.
  */
@@ -51,13 +51,13 @@
     var hi = Math.max(la, lb), lo = Math.min(la, lb);
     return (hi + 0.05) / (lo + 0.05);
   }
-  /* Mix two colours in linear light. t = 0 gives a, t = 1 gives b. */
+  /* Mix two colors in linear light. t = 0 gives a, t = 1 gives b. */
   function mix(a, b, t) {
     var A = typeof a === 'string' ? parse(a) : a, B = typeof b === 'string' ? parse(b) : b;
     t = clamp(t, 0, 1);
     return hex({ r: unlin(lin(A.r) + (lin(B.r) - lin(A.r)) * t), g: unlin(lin(A.g) + (lin(B.g) - lin(A.g)) * t), b: unlin(lin(A.b) + (lin(B.b) - lin(A.b)) * t) });
   }
-  /* Composite a (possibly translucent) colour over an opaque backdrop. */
+  /* Composite a (possibly translucent) color over an opaque backdrop. */
   function over(fg, bg) {
     var F = typeof fg === 'string' ? parse(fg) : fg, B = typeof bg === 'string' ? parse(bg) : bg;
     var a = F.a === undefined ? 1 : F.a;

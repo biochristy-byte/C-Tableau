@@ -86,7 +86,7 @@
   /* ------------------------------------------------------------ data to tree */
   P._tree = function (model, s) {
     var lv = Math.max(1, Math.min(model.levels, s.maxDepth)), bopts = { fold: s.foldSingle, reverse: s.sortReverse };
-    /* The top-level groups, in tree order, give each one a stable default colour; the saved list can recolour, rename and hide them. */
+    /* The top-level groups, in tree order, give each one a stable default color; the saved list can recolor, rename and hide them. */
     var full = L.buildTree(model.rows, lv, s.sort, bopts), pal = palOf(s);
     this.catDefault = (full.root.children || []).map(function (t, k) { var nm = t.data.pathNames[0]; return { key: nm, name: nm, color: pal[k % pal.length] }; });
     this.catList = CP.mergeList(s.catColors, this.catDefault); this.catMap = {};
@@ -443,8 +443,8 @@
     this.tip.appendChild(el('div', null, m.valueName + ': ' + plainVal(n.value, s)));
     if (n.parent && n.parent.parent) this.tip.appendChild(el('div', null, par + '% of ' + this._name(n.parent)));
     if (n.children) this.tip.appendChild(el('div', null, n.leaves().length + ' item' + (n.leaves().length === 1 ? '' : 's') + (s.zoomOnClick ? '. Click to zoom in.' : '')));
-    if (n.catKey !== undefined) this.tip.appendChild(el('div', null, (m.colorName || 'Colour') + ': ' + n.catKey));
-    else if (n.numVal !== undefined) this.tip.appendChild(el('div', null, (m.colorName || 'Colour') + ': ' + plainVal(n.numVal, s)));
+    if (n.catKey !== undefined) this.tip.appendChild(el('div', null, (m.colorName || 'Color') + ': ' + n.catKey));
+    else if (n.numVal !== undefined) this.tip.appendChild(el('div', null, (m.colorName || 'Color') + ': ' + plainVal(n.numVal, s)));
     this.tip.style.display = '';
     this.tip.style.fontSize = Math.max(14, s.tipSize) + 'px'; this.tip.style.maxWidth = s.tipMaxW + 'px';
     var sr = this.stage.getBoundingClientRect(), tw = this.tip.offsetWidth, th = this.tip.offsetHeight, x, y;

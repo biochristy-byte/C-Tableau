@@ -72,15 +72,15 @@
 
   var CHART = [
     /* Colors */
-    { tab: 'colors', sec: 'Colour by', key: 'colorMode', label: 'Colour by', type: 'select', def: 'group',
-      opts: [['group', 'Top-level group'], ['field', 'A field from Detail'], ['depth', 'Level'], ['single', 'One colour']],
+    { tab: 'colors', sec: 'Color by', key: 'colorMode', label: 'Color by', type: 'select', def: 'group',
+      opts: [['group', 'Top-level group'], ['field', 'A field from Detail'], ['depth', 'Level'], ['single', 'One color']],
       help: 'Field: drop a dimension or measure on Detail, then pick it below.' },
-    { tab: 'colors', sec: 'Colour by', key: 'colorField', label: 'Colour field', type: 'field', kind: 'any', def: '', when: { key: 'colorMode', eq: 'field' }, help: 'Pick a column. A number gives a ramp, text gives one colour per value.' },
-    { tab: 'colors', sec: 'Colour by', key: 'singleColor', label: 'One colour', type: 'color', def: '#3cc4d1', when: { key: 'colorMode', eq: 'single' } },
+    { tab: 'colors', sec: 'Color by', key: 'colorField', label: 'Color field', type: 'field', kind: 'any', def: '', when: { key: 'colorMode', eq: 'field' }, help: 'Pick a column. A number gives a ramp, text gives one color per value.' },
+    { tab: 'colors', sec: 'Color by', key: 'singleColor', label: 'One color', type: 'color', def: '#3cc4d1', when: { key: 'colorMode', eq: 'single' } },
     { tab: 'colors', sec: 'Palette', key: 'palette', label: 'Palette', type: 'select', def: 'reef',
-      opts: [['reef', 'Reef (default)'], ['lagoon', 'Lagoon'], ['sunset', 'Sunset'], ['datadivers', 'Data Divers'], ['kelp', 'Kelp'], ['colorblind10', 'Colour-blind safe']] },
+      opts: [['reef', 'Reef (default)'], ['lagoon', 'Lagoon'], ['sunset', 'Sunset'], ['datadivers', 'Data Divers'], ['kelp', 'Kelp'], ['colorblind10', 'Colorblind safe']] },
     { tab: 'colors', sec: 'Palette', key: 'rampName', label: 'Number ramp', type: 'select', def: 'reef', opts: [['reef', 'Reef'], ['lagoon', 'Lagoon'], ['sunset', 'Sunset']],
-      when: { key: 'colorMode', eq: 'field' }, help: 'Used when the colour field is a number.' },
+      when: { key: 'colorMode', eq: 'field' }, help: 'Used when the color field is a number.' },
 
     /* Packing */
     { tab: 'packing', sec: 'Spacing', key: 'gap', label: 'Gap between circles', type: 'number', min: 0, max: 40, step: 1, def: 5 },
@@ -114,7 +114,7 @@
     { tab: 'rings', sec: 'Fill', key: 'leafOpacity', label: 'Circle opacity', type: 'number', min: 30, max: 100, step: 2, unit: '%', def: 92 },
     { tab: 'rings', sec: 'Outline', key: 'ringWidth', label: 'Outline width', type: 'number', min: 0, max: 6, step: 0.5, unit: 'px', def: 1.5 },
     { tab: 'rings', sec: 'Outline', key: 'ringStyle', label: 'Outline line', type: 'chips', def: 'solid', opts: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']] },
-    { tab: 'rings', sec: 'Outline', key: 'ringColorMode', label: 'Outline colour', type: 'chips', def: 'shade', opts: [['shade', 'Shade of the fill'], ['ink', 'Text colour']] },
+    { tab: 'rings', sec: 'Outline', key: 'ringColorMode', label: 'Outline color', type: 'chips', def: 'shade', opts: [['shade', 'Shade of the fill'], ['ink', 'Text color']] },
     { tab: 'rings', sec: 'Outline', key: 'ringOpacity', label: 'Outline opacity', type: 'number', min: 10, max: 100, step: 5, unit: '%', def: 90 },
     { tab: 'rings', sec: 'Emphasis', key: 'hoverRing', label: 'Hover outline width', type: 'number', min: 1, max: 8, step: 1, unit: 'px', def: 3, help: 'Shown when Highlight on hover is on (Interaction tab).' },
     { tab: 'rings', sec: 'Emphasis', key: 'selRing', label: 'Selected outline width', type: 'number', min: 1, max: 8, step: 1, unit: 'px', def: 4 },

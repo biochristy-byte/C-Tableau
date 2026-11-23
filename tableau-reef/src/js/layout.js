@@ -91,7 +91,7 @@
     var k = Math.max(0.0001, (avail / 2 - margin) / focus.r) * (scale || 1);
     return { k: k, ox: w / 2 - focus.x * k, oy: top + availH / 2 - focus.y * k };
   }
-  /* Interpolate focus {x,y,r}: width geometric, centre moved so the zoom feels anchored (van Wijk style, simplified). */
+  /* Interpolate focus {x,y,r}: width geometric, center moved so the zoom feels anchored (van Wijk style, simplified). */
   function lerpFocus(a, b, e) {
     var r = a.r * Math.pow(b.r / a.r, e);
     var denom = a.r - b.r;
