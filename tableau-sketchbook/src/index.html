@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sketchbook</title>
-  <link rel="stylesheet" href="css/panel.css">
+  <link rel="stylesheet" href="../lib/ctab-panel/ctab-panel.css">
   <link rel="stylesheet" href="css/sketchbook.css">
 </head>
 <body>
@@ -17,11 +17,13 @@
   <!-- Vendored, MIT licensed, see lib/. -->
   <script src="../lib/rough.js"></script>
 
+  <!-- The shared settings panel, vendored byte-for-byte from shared/ctab-panel (a sync gate checks it). -->
+  <script src="../lib/ctab-panel/ctab-panel.js"></script>
+
   <script src="js/core.js"></script>
-  <script src="js/schema.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/render.js"></script>
-  <script src="js/panel.js"></script>
   <script src="js/sketchbook.js"></script>
 </body>
 </html>

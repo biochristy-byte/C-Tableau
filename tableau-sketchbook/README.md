@@ -20,15 +20,45 @@ Preview images are in [previews/](previews/): `thumbnail.jpg`, `preview-*.png`.
 - **Optional hand-drawn underline** under the title, sketched grid lines, mark labels
   (the value, or whatever is on the Label shelf).
 - **Click a mark** to select its rows in Tableau. **Hover** highlights the mark.
-- **Settings in the viz.** The gear opens a panel; everything is saved in the workbook
+- **Settings in the viz.** The gear opens the shared C-Tableau floating panel (92 settings, 17 tabs, see below); everything is saved in the workbook
   through Tableau's extension settings (keys start with `sketchbook.`). **Copy settings**
   gives the JSON the C-Tableau Viz pages flow accepts; **Paste settings** takes it back.
 - **No sliders anywhere.** Steppers, chips, dropdowns, colour boxes.
 - Inter (bundled) at 14px and up, text at 7:1 contrast or better on white, paper, dark and
   custom backgrounds, the Data Divers palette by default (a colour-blind safe palette and
   pencil greys are built in). Follows the worksheet background.
-- One 520 ms eased fade-in on the first draw, then nothing moves. Each draw waits for Inter
+- One 480 ms eased fade-in on the first draw, then nothing moves. Each draw waits for Inter
   before measuring text, so labels never shift after the first paint.
+
+## Settings (92 across 17 tabs)
+
+| Tab | What it sets |
+| --- | --- |
+| Chart | Bar, line or dot; category order; show only the first N; start at zero |
+| Sketch | Roughness, bowing, seed, double stroke, fill style, hatch spacing, angle and weight, stroke width, outline darkness |
+| Marks | Bar width, line width, dots on the line, dot size and shape, stems, mark opacity |
+| Axes | On/off, color, tick count, longest category label, axis titles (your own text), fixed value range |
+| Grid | On/off, solid/dashed/dotted, width, color |
+| Title underline | On/off, stroke width, roughness, color |
+| Legend | On/off, top or bottom, swatch size, title |
+| Colors | Pencil greys, single color, palette (Data Divers plus six colorblind-safe sets), reverse, per-series names, colors, order and hide |
+| Labels | What a mark label says (value or Label field), gap, category label size, weight, color, wrapping, value labels |
+| Number format | Decimals, thousands separator, K/M short form, multiplier, prefix, suffix |
+| Tooltip | On/off, size, swatch, placement, width |
+| Fonts | Font, title text, size, weight |
+| Background | Worksheet, custom or transparent; padding; border color, width, corner radius |
+| Animation | Entrance on/off, duration, easing, hover fade |
+| Interaction | Click selects, highlight on hover, dim the others to N%, send hover to Tableau, show the gear |
+| Fields | Pick Category, Value, Series and Label by hand instead of using the shelves |
+| Panel | The panel's own theme (light, dark, match the chart, custom) |
+
+Workbooks saved before the panel existed keep their look: `fontSize` is read as `labelSize` (and the title and value-label sizes), `title` as
+the title text, `theme` as the background mode, `palette` ink as the Pencil greys check, `labels` none as value labels off, and `selectEnabled` and
+`hoverEnabled` as `selectOn` and `hoverPush`. Every other saved key kept its name. One visible difference: the default palette is now the
+shared Data Divers palette set (Okabe-Ito still selectable and carried over).
+
+Previews of the panel: [previews/settings-panel-1280x800.png](previews/settings-panel-1280x800.png) and
+[previews/settings-panel-mobile-390.png](previews/settings-panel-mobile-390.png).
 
 ## Install
 
@@ -62,10 +92,12 @@ years (54 rows). Our World in Data, licence **CC BY 4.0**. See [data/README.md](
 
 | Command | What it proves |
 | --- | --- |
-| `node test/run.js` | The maths, no browser: layout, negative bars, deterministic seeds, settings coercion, no option is a slider, the 14px floor, contrast. |
-| `python test/render_test.py` | Playwright: renders across sizes, light and dark, and every chart type; 0 console errors, no horizontal scroll, text 14px or more, 7:1 contrast, no overlapping labels; the settings panel, steppers, persistence, Copy and Paste settings, selection and hover push-back, resize, determinism across a seed and the entrance animation. |
+| `node test/run.js` | The maths, no browser: layout, negative bars, deterministic seeds, settings coercion, legacy key maps, at least 40 settings across 7 tabs, no option is a slider, the 14px floor, contrast. |
+| `python test/render_test.py` | Playwright: renders across sizes, light and dark, and every chart type; 0 console errors, no horizontal scroll, text 14px or more, 7:1 contrast, no overlapping labels; selection and hover push-back, resize, determinism across a seed (also through the panel) and the entrance animation. |
+| `python test/panel_test.py` | The panel in Chromium: open, drag clamp, minimize, close, Escape, Copy and Paste round-trip, live re-render, saved as strings, no range input, no dialog, text 14px and 7:1 on every tab, the 390px sheet. It then flips **every one of the 92 settings** and requires the render (or the Tableau calls) to change, and loads old saved keys. |
 | `python test/standin_test.py` | The chart on the real Viz pages stand-in, with every way settings arrive. |
 | `python tools/sabotage_check.py` | Breaks each gate's subject, expects RED, restores the file byte for byte, expects GREEN. |
+| `python ../shared/ctab-panel/sync_check.py` | `lib/ctab-panel` is byte-identical to `shared/ctab-panel`. |
 
 What none of them prove: that Tableau itself drives the extension. The mock is shaped
 from Tableau's published API types, not from a live Tableau. Tuple ids for selection
@@ -75,7 +107,7 @@ tested on white, paper and dark.
 
 ## Files
 
-`src/` the extension. `lib/` vendored rough.js (MIT) and Inter (OFL), each with its
+`src/` the extension. `lib/` vendored rough.js (MIT), Inter (OFL) and `ctab-panel/` (the shared settings panel, an exact copy of `shared/ctab-panel`), each with its
 licence. `dev/` mock Tableau and fixtures. `data/` example data. `tools/` fixtures,
 thumbnail builder and the sabotage check. `test/` the gates.
 

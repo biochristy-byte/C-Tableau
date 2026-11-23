@@ -6,13 +6,21 @@ import pathlib, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PY = sys.executable
+PANEL = [PY, 'test/panel_test.py']
 SABOTAGES = [
     ('determinism across a seed', 'src/js/render.js', b'seed = E.seedFor(s.seed, m.ci, m.si, 1);', b'seed = Math.floor(Math.random() * 1e9) + 1;', [[PY, 'test/render_test.py']]),
     ('negative bar height', 'src/js/engine.js', b'm.top = Math.min(m.y, zeroY); m.h = Math.abs(m.y - zeroY);', b'm.top = m.y; m.h = Math.abs(m.y - zeroY);', [['node', 'test/run.js'], [PY, 'test/render_test.py']]),
     ('7:1 ink choice', 'src/js/core.js', b'return contrast(INK_DARK, bg) >= contrast(INK_LIGHT, bg) ? INK_DARK : INK_LIGHT;', b'return INK_DARK;', [['node', 'test/run.js'], [PY, 'test/render_test.py']]),
-    ('label overlap', 'src/js/render.js', [(b'this.thinned = HX.thin(order, 6);', b'this.thinned = 0;'), (b'Math.min(16, Math.max(maxChars, 8))', b'99')], [[PY, 'test/render_test.py']]),
-    ('14px floor', 'src/js/schema.js', b"min: 14, max: 28", b"min: 8, max: 28", [['node', 'test/run.js']]),
-    ('no sliders', 'src/js/schema.js', b"type: 'number', def: 1.2, min: 0, max: 5", b"type: 'range', def: 1.2, min: 0, max: 5", [['node', 'test/run.js']]),
+    ('label overlap', 'src/js/render.js', [(b'this.thinned = HX.thin(order, 6);', b'this.thinned = 0;'), (b'Math.min(s.catLabelMax, Math.max(per, 8))', b'99')], [[PY, 'test/render_test.py']]),
+    ('14px floor (chart text can drop under 14px)', 'src/js/render.js', b'var fs = s.labelSize, labels = s.labelsOn, lw', b'var fs = Math.min(9, s.labelSize), labels = s.labelsOn, lw', [[PY, 'test/render_test.py']]),
+    ('no sliders', 'src/js/settings.js', b"key: 'roughness', label: 'Roughness', type: 'number'", b"key: 'roughness', label: 'Roughness', type: 'range'", [['node', 'test/run.js']]),
+    # --- the ctab-panel migration
+    ('a setting stops changing the render (hover dim ignored)', 'src/js/render.js', b"chart.style.setProperty('--sb-dim', String(s.dimOthers / 100));", b"chart.style.setProperty('--sb-dim', '1');", [PANEL + ['--only', 'flip']]),
+    ('hover is pushed to Tableau even when the setting is off', 'src/js/sketchbook.js', b'if (!ws || !s.hoverOn || !s.hoverPush || id === lastHover) return;', b'if (!ws || id === lastHover) return;', [PANEL + ['--only', 'flip']]),
+    ('old fontSize key no longer read as a fallback', 'src/js/settings.js', b'{ labelSize: n, titleSize: Math.round(n * 1.35), valueLabelSize: n }', b'{ labelSize: 14, titleSize: 19, valueLabelSize: 14 }', [['node', 'test/run.js'], PANEL + ['--only', 'legacy']]),
+    ('panel no longer clamps to the frame (vendored copy)', 'lib/ctab-panel/ctab-panel.js', b'return { x: Math.round(Math.max(0, Math.min(hs.w - w, x))), y: Math.round(Math.max(0, Math.min(hs.h - h, y))) };', b'return { x: Math.round(x), y: Math.round(y) };', [PANEL + ['--only', 'panel']]),
+    ('the vendored panel drifts from shared/ (one byte changed)', 'lib/ctab-panel/ctab-panel.js', b"var VERSION = '1.0.0';", b"var VERSION = '1.0.1';", [[PY, '../shared/ctab-panel/sync_check.py', '--root', '..']]),
+    ('three standard tabs dropped (the panel is no longer the standard set)', 'src/js/settings.js', b'var std = CP.standard({', b"var std = CP.standard({ skip: ['tooltip', 'animation', 'numbers'],", [['node', 'test/run.js']]),
 ]
 SEL = [a for a in sys.argv[1:]]
 

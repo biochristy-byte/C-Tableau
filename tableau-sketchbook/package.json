@@ -5,7 +5,7 @@
   "description": "A Tableau viz extension: hand-drawn bar, line and dot charts.",
   "scripts": {
     "start": "http-server . -p 8773 -c-1 --cors",
-    "test": "node test/run.js && python test/render_test.py"
+    "test": "node test/run.js && python test/render_test.py && python test/panel_test.py && python test/standin_test.py"
   },
   "devDependencies": { "http-server": "^14.1.1" },
   "license": "MIT"

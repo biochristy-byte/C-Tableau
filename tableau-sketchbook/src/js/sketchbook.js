@@ -8,47 +8,31 @@
  * calls are used only when they exist, so a read-only host still draws. */
 (function (global) {
   'use strict';
-  var schema = global.SB.schema;
+  var CP = global.CTabPanel, SET = global.SB.settings;
   var PREFIX = 'sketchbook.';
+  var DATA_KEYS = { fieldCategory: 1, fieldValue: 1, fieldSeries: 1, fieldLabel: 1 };
 
-  var state = { worksheet: null, renderer: null, panel: null, settings: schema.resolve({}), model: { rows: [] }, saveTimer: null, resizeTimer: null };
+  var state = { worksheet: null, renderer: null, panel: null, store: null, raw: null, auto: {}, model: { rows: [] }, resizeTimer: null };
 
   function log () { if (global.console && console.warn) console.warn.apply(console, ['[SB]'].concat([].slice.call(arguments))); }
 
   /* ---------------------------------------------------------- settings */
 
-  /* Read each key with settings.get(): it works in Tableau and in the Viz
-   * pages stand-in, including when a pasted settings object has no prefix. */
-  function readStoredSettings () {
-    var stored = {};
-    try {
-      var st = global.tableau.extensions.settings;
-      Object.keys(schema.DEFAULTS).forEach(function (k) {
-        var v = st.get(PREFIX + k);
-        if (v !== undefined && v !== null) stored[k] = v;
+  /* A workbook saved by the old panel keeps its look: where an old key was renamed or re-meant (SET.LEGACY) and the new key is
+   * not stored yet, the old value is carried over once. The new keys are then saved under their own names. */
+  function migrateLegacy (store, st) {
+    var carried = {};
+    SET.LEGACY.forEach(function (m) {
+      var raw; try { raw = st.get(PREFIX + m.old); } catch (e) { raw = undefined; }
+      if (raw === undefined || raw === null) return;
+      var out = m.map(raw);
+      if (!out) return;
+      Object.keys(out).forEach(function (k) {
+        var cur; try { cur = st.get(PREFIX + k); } catch (e) { cur = undefined; }
+        if (cur === undefined || cur === null) carried[k] = out[k];
       });
-    } catch (e) { log('could not read settings', e); }
-    return schema.resolve(stored);
-  }
-  function persist (key, value) {
-    try { global.tableau.extensions.settings.set(PREFIX + key, String(value)); } catch (e) { log('could not stage setting', key, e); }
-    if (state.saveTimer) clearTimeout(state.saveTimer);
-    state.saveTimer = setTimeout(function () {
-      state.saveTimer = null;
-      try { var p = global.tableau.extensions.settings.saveAsync(); if (p && p.catch) p.catch(function (e) { log('saveAsync rejected', e); }); } catch (e) { log('saveAsync threw', e); }
-    }, 400);
-  }
-  function setSetting (key, value) { state.settings[key] = schema.coerce(key, value); persist(key, state.settings[key]); redraw(); }
-  function resetSettings () {
-    state.settings = schema.resolve({});
-    Object.keys(schema.DEFAULTS).forEach(function (k) { persist(k, state.settings[k]); });
-    redraw();
-  }
-  function replaceAllSettings (obj) {
-    Object.keys(schema.DEFAULTS).forEach(function (k) {
-      if (Object.prototype.hasOwnProperty.call(obj, k)) { state.settings[k] = schema.coerce(k, obj[k]); persist(k, state.settings[k]); }
     });
-    redraw();
+    if (Object.keys(carried).length) store.setMany(carried);
   }
 
   /* -------------------------------------------------------------- data */
@@ -92,42 +76,53 @@
 
   function isNum (v) { return v !== null && v !== '' && v !== undefined && isFinite(Number(v)) && typeof v !== 'boolean'; }
 
-  function buildModel (ws) {
+  /* The raw rows plus the shelf mapping. The model is rebuilt from this whenever a field setting changes. */
+  function readData (ws) {
     return Promise.all([readSummary(ws), readEncodings(ws)]).then(function (res) {
       var data = res[0], enc = res[1], cols = data.columns;
-      var cf = fieldName(enc.category), vf = fieldName(enc.value), sf = fieldName(enc.series), lf = fieldName(enc.label);
+      var auto = { fieldCategory: fieldName(enc.category), fieldValue: fieldName(enc.value), fieldSeries: fieldName(enc.series), fieldLabel: fieldName(enc.label) };
       /* Shelves still empty: first text column is the category, first numeric column the value. */
       var numericCols = cols.filter(function (c) { return data.rows.some(function (r) { return isNum(r[c]); }) && data.rows.every(function (r) { return r[c] === null || isNum(r[c]); }); });
       var textCols = cols.filter(function (c) { return numericCols.indexOf(c) < 0; });
-      if (!cf || cols.indexOf(cf) < 0) cf = textCols[0] || cols[0];
-      if (!vf || cols.indexOf(vf) < 0) vf = numericCols.filter(function (c) { return c !== cf; })[0];
-      if (sf && cols.indexOf(sf) < 0) sf = null;
-      if (lf && cols.indexOf(lf) < 0) lf = null;
-      var rows = [];
-      data.rows.forEach(function (r, i) {
-        if (!vf || !isNum(r[vf])) return;
-        rows.push({
-          cat: r[cf] === null || r[cf] === undefined ? '(blank)' : String(r[cf]),
-          value: Number(r[vf]),
-          series: sf ? (r[sf] === null || r[sf] === undefined ? '(blank)' : String(r[sf])) : '',
-          label: lf && r[lf] !== null && r[lf] !== undefined ? String(r[lf]) : '',
-          id: i + 1
-        });
-      });
+      if (!auto.fieldCategory || cols.indexOf(auto.fieldCategory) < 0) auto.fieldCategory = textCols[0] || cols[0] || null;
+      if (!auto.fieldValue || cols.indexOf(auto.fieldValue) < 0) auto.fieldValue = numericCols.filter(function (c) { return c !== auto.fieldCategory; })[0] || null;
+      if (auto.fieldSeries && cols.indexOf(auto.fieldSeries) < 0) auto.fieldSeries = null;
+      if (auto.fieldLabel && cols.indexOf(auto.fieldLabel) < 0) auto.fieldLabel = null;
       var bg = null;
       try { if (ws.backgroundColor) bg = ws.backgroundColor; } catch (e) { /* optional */ }
-      return {
-        rows: rows, catName: cf || 'Category', valueName: vf || 'Value', hasSeries: !!sf, worksheetBg: bg,
-        emptyMessage: data.rows.length ? 'Put a measure on the Value shelf.' : 'Drop a dimension on Category and a measure on Value.'
-      };
+      return { raw: data, auto: auto, numeric: numericCols, bg: bg };
     });
+  }
+
+  function pick (key, auto, columns) { var v = state.store.get()[key]; return v && columns.indexOf(v) >= 0 ? v : auto; }
+
+  function buildModel () {
+    var d = state.raw;
+    if (!d) return { rows: [], emptyMessage: 'Loading.' };
+    var cols = d.raw.columns;
+    var cf = pick('fieldCategory', d.auto.fieldCategory, cols), vf = pick('fieldValue', d.auto.fieldValue, cols), sf = pick('fieldSeries', d.auto.fieldSeries, cols), lf = pick('fieldLabel', d.auto.fieldLabel, cols);
+    var rows = [];
+    d.raw.rows.forEach(function (r, i) {
+      if (!vf || !isNum(r[vf])) return;
+      rows.push({
+        cat: r[cf] === null || r[cf] === undefined ? '(blank)' : String(r[cf]),
+        value: Number(r[vf]),
+        series: sf ? (r[sf] === null || r[sf] === undefined ? '(blank)' : String(r[sf])) : '',
+        label: lf && r[lf] !== null && r[lf] !== undefined ? String(r[lf]) : '',
+        id: i + 1
+      });
+    });
+    return {
+      rows: rows, catName: cf || 'Category', valueName: vf || 'Value', hasSeries: !!sf, worksheetBg: d.bg,
+      emptyMessage: d.raw.rows.length ? 'Put a measure on the Value shelf.' : 'Drop a dimension on Category and a measure on Value.'
+    };
   }
 
   /* ---------------------------------------------------------- Tableau out */
 
   function pushSelection (ids) {
     var ws = state.worksheet;
-    if (!ws || !state.settings.selectEnabled) return;
+    if (!ws || !state.store.get().selectOn) return;
     try {
       if (typeof ws.selectTuplesAsync === 'function') {
         var p = ids.length ? ws.selectTuplesAsync(ids, 'select-options-simple') : (typeof ws.clearSelectedMarksAsync === 'function' ? ws.clearSelectedMarksAsync() : null);
@@ -137,8 +132,8 @@
   }
   var lastHover = null;
   function pushHover (id) {
-    var ws = state.worksheet;
-    if (!ws || !state.settings.hoverEnabled || id === lastHover) return;
+    var ws = state.worksheet, s = state.store.get();
+    if (!ws || !s.hoverOn || !s.hoverPush || id === lastHover) return;
     lastHover = id;
     try {
       if (typeof ws.hoverTupleAsync === 'function') { var p = ws.hoverTupleAsync(id === null ? 0 : id); if (p && p.catch) p.catch(function () {}); }
@@ -149,11 +144,18 @@
 
   function redraw () {
     if (!state.renderer) return;
-    state.renderer.draw(state.model, state.settings, { onSelect: pushSelection, onHover: pushHover });
+    var s = state.store.get();
+    lastHover = null;   /* a redraw drops the hovered mark, so the next hover must be sent again */
+    state.renderer.draw(state.model, s, { onSelect: pushSelection, onHover: pushHover });
     if (state.panel) {
-      var accent = state.renderer.th && state.renderer.th.dark ? '#e8a53a' : '#0d2b45';
-      state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink, accent, state.settings.showGear);
+      state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink);
+      state.panel.gear.style.display = s.showGear ? '' : 'none';
+      state.panel.render();
     }
+  }
+  function onChange (keys) {
+    if (keys.some(function (k) { return DATA_KEYS[k]; })) { state.model = buildModel(); state.renderer.clearSelection(); }
+    redraw();
   }
 
   /* One reader at a time (Tableau allows one open reader per worksheet), and
@@ -164,21 +166,35 @@
     if (refreshing) { queued = true; return Promise.resolve(); }
     refreshing = true;
     var done = function () { refreshing = false; if (queued) { queued = false; return refreshData(); } };
-    return buildModel(state.worksheet).then(function (m) {
-      state.model = m; state.renderer.clearSelection(); redraw();
+    return readData(state.worksheet).then(function (d) {
+      state.raw = d; state.auto = d.auto; state.model = buildModel(); state.renderer.clearSelection(); redraw();
     }, function (e) {
-      log('data refresh failed', e); state.model = { rows: [], emptyMessage: 'Could not read data from this worksheet.' }; redraw();
+      log('data refresh failed', e); state.raw = null; state.model = { rows: [], emptyMessage: 'Could not read data from this worksheet.' }; redraw();
     }).then(done, done);
+  }
+
+  /* The series, for the Colors tab list: name, color and order are the user's to set. */
+  function info () {
+    var d = state.raw, items = [];
+    if (d && state.model.hasSeries) {
+      var s = state.store.get(), pal = s.greys ? global.SB.engine.PALETTES.ink : CP.paletteColors(s.palette, s.paletteReverse);
+      var seen = {};
+      state.model.rows.forEach(function (r) { if (!seen[r.series]) { seen[r.series] = 1; items.push({ key: r.series, name: r.series, color: pal[items.length % pal.length] }); } });
+    }
+    return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {}, lists: { categories: items } };
   }
 
   /* ---------------------------------------------------------------- boot */
 
   function mount (ws) {
     state.worksheet = ws;
-    state.settings = readStoredSettings();
+    var st = global.tableau.extensions.settings;
+    state.store = CP.createStore({ rows: SET.prepared.rows, settings: st, prefix: PREFIX, onChange: onChange, log: log });
+    state.store.load();
+    migrateLegacy(state.store, st);
     var root = document.getElementById('sb-root');
     state.renderer = new global.SB.Renderer(root);
-    state.panel = new global.HX.Panel(root, schema, { get: function () { return state.settings; }, set: setSetting, reset: resetSettings, replaceAll: replaceAllSettings });
+    state.panel = CP.create(root, { title: 'Sketchbook settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
     global.addEventListener('resize', function () {
       if (state.resizeTimer) clearTimeout(state.resizeTimer);
       state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);

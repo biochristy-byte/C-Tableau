@@ -10,12 +10,12 @@ const ROOT = path.join(__dirname, '..');
 const sandbox = { console };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-for (const f of ['lib/rough.js', 'src/js/core.js', 'src/js/schema.js', 'src/js/engine.js']) {
+for (const f of ['lib/rough.js', 'lib/ctab-panel/ctab-panel.js', 'src/js/core.js', 'src/js/settings.js', 'src/js/engine.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox, { filename: f });
 }
 const { HX, SB } = sandbox;
 const rough = vm.runInContext('rough', sandbox);
-const E = SB.engine, S = SB.schema;
+const E = SB.engine, S = SB.settings, CP = sandbox.CTabPanel;
 
 const MIN_CHECKS = 70;
 let n = 0; const fails = [];
@@ -33,22 +33,49 @@ try {
   eq('formatNumber step decimals', HX.formatNumber(2.5, 0.5), '2.5');
   eq('ticks nice', Array.from(HX.ticks(0, 90, 5)), [0, 20, 40, 60, 80]);
 
-  /* ---------------- schema */
-  eq('"14" becomes number', S.coerce('fontSize', '14'), 14);
-  eq('fontSize floor is 14', S.coerce('fontSize', '10'), 14);
-  eq('"false" becomes boolean', S.coerce('grid', 'false'), false);
-  eq('seed never 0 (rough treats 0 as random)', S.coerce('seed', '0'), 1);
-  eq('seed rounds to an integer', S.coerce('seed', '41.6'), 42);
-  eq('roughness clamps high', S.coerce('roughness', '99'), 5);
-  eq('roughness clamps low', S.coerce('roughness', '-3'), 0);
-  eq('bad fill style falls back', S.coerce('fillStyle', 'crayon'), 'hachure');
-  eq('good fill style kept', S.coerce('fillStyle', 'zigzag'), 'zigzag');
-  eq('chart types are bar, line, dot', S.OPTS.chartType.choices.map(c => c.value), ['bar', 'line', 'dot']);
-  eq('fill styles are hachure, solid, zigzag', S.OPTS.fillStyle.choices.map(c => c.value), ['hachure', 'solid', 'zigzag']);
-  eq('resolve of nothing equals defaults', S.resolve({}), S.DEFAULTS);
-  ok('no option is a slider', S.GROUPS.every(g => g.options.every(o => ['toggle', 'number', 'segmented', 'select', 'color', 'text'].includes(o.type))));
-  ok('fontSize minimum 14', S.OPTS.fontSize.min === 14);
-  ok('defaults have 25+ options', Object.keys(S.DEFAULTS).length >= 25, String(Object.keys(S.DEFAULTS).length));
+  /* ---------------- settings (ctab-panel rows) */
+  const rowOf = k => S.prepared.rows.find(r => r.key === k);
+  const co = (k, v) => CP.coerce(rowOf(k), v);
+  eq('"14" becomes number', co('labelSize', '14'), 14);
+  eq('labelSize floor is 14', co('labelSize', '10'), 14);
+  eq('"false" becomes boolean', co('grid', 'false'), false);
+  eq('seed never 0 (rough treats 0 as random)', co('seed', '0'), 1);
+  eq('seed rounds to an integer', Math.round(co('seed', '41.6')), 42);
+  eq('roughness clamps high', co('roughness', '99'), 5);
+  eq('roughness clamps low', co('roughness', '-3'), 0);
+  eq('bad fill style is refused', co('fillStyle', 'crayon'), undefined);
+  eq('good fill style kept', co('fillStyle', 'zigzag'), 'zigzag');
+  eq('chart types are bar, line, dot', rowOf('chartType').opts.map(o => o.value), ['bar', 'line', 'dot']);
+  eq('fill styles include the three old ones first', rowOf('fillStyle').opts.map(o => o.value).slice(0, 3), ['hachure', 'solid', 'zigzag']);
+  ok('no row is a slider', S.prepared.rows.every(r => ['check', 'number', 'chips', 'select', 'color', 'text', 'font', 'palette', 'field', 'list', 'note'].includes(r.type)));
+  ok('every number row that carries text has a 14px floor', ['labelSize', 'valueLabelSize', 'tipSize', 'titleSize', 'legendSwatch'].every(k => rowOf(k).min >= 14));
+  const nSet = S.KEYS.length;
+  ok('at least 40 settings (' + nSet + ')', nSet >= 40);
+  const tabsUsed = new Set(S.prepared.rows.map(r => r.tab));
+  ok('at least 7 tabs carry settings (' + tabsUsed.size + ')', tabsUsed.size >= 7);
+  ok('the standard tabs are all present', ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields'].every(t => S.schema.tabs.some(x => x.id === t)));
+  ok('chart tabs: chart, sketch, marks, axes, grid, underline, legend', ['chart', 'sketch', 'marks', 'axes', 'grid', 'underline', 'legend'].every(t => S.schema.tabs.some(x => x.id === t)));
+  ok('every old saved key still exists or has a LEGACY entry', ['chartType', 'sort', 'labels', 'zero', 'underline', 'fillStyle', 'roughness', 'bowing', 'seed', 'hachureGap', 'hachureAngle', 'strokeWidth', 'barWidth', 'lineWidth', 'lineDots', 'dotSize', 'stems', 'palette', 'color', 'axes', 'axisTitles', 'grid', 'legend', 'showGear'].every(k => S.KEYS.includes(k))
+    && ['fontSize', 'title', 'theme', 'selectEnabled', 'hoverEnabled'].every(k => S.LEGACY.some(m => m.old === k)));
+  const lg = k => S.LEGACY.find(m => m.old === k).map;
+  eq('LEGACY fontSize 18 -> labelSize, titleSize 24 (1.35x), valueLabelSize', lg('fontSize')('18'), { labelSize: 18, titleSize: 24, valueLabelSize: 18 });
+  eq('LEGACY title "Hi" -> titleText and showTitle', lg('title')('Hi'), { titleText: 'Hi', showTitle: true });
+  eq('LEGACY theme paper -> custom cream background', lg('theme')('paper'), { bgMode: 'custom', bgColor: '#fbf6e9' });
+  eq('LEGACY theme dark -> custom navy background', lg('theme')('dark'), { bgMode: 'custom', bgColor: '#081f33' });
+  eq('LEGACY theme auto carries nothing', lg('theme')('auto'), null);
+  eq('LEGACY palette ink -> the Pencil greys check', lg('palette')('ink'), { greys: true });
+  eq('LEGACY palette okabe needs no carry (the key is still valid)', lg('palette')('okabe'), null);
+  eq('LEGACY labels none -> value labels off', lg('labels')('none'), { valueLabels: false });
+  eq('LEGACY labels value -> value labels on', lg('labels')('value'), { valueLabels: true });
+  eq('LEGACY selectEnabled -> selectOn', lg('selectEnabled')('false'), { selectOn: 'false' });
+  eq('LEGACY hoverEnabled -> hoverPush', lg('hoverEnabled')('true'), { hoverPush: 'true' });
+  const fake = { _v: { 'sketchbook.seed': '7', 'sketchbook.palette': 'okabe' }, get (k) { return this._v[k]; }, set (k, v) { this._v[k] = String(v); }, getAll () { return this._v; }, saveAsync () { return Promise.resolve(); } };
+  const store = CP.createStore({ rows: S.prepared.rows, settings: fake, prefix: 'sketchbook.' });
+  store.load();
+  eq('a stored old key (seed 7) loads through the store', store.get().seed, 7);
+  eq('a stored old palette okabe loads as the Okabe-Ito palette', store.get().palette, 'okabe');
+  eq('an old palette divers is not a valid palette id, so the default holds', (() => { fake._v['sketchbook.palette'] = 'divers'; const s2 = CP.createStore({ rows: S.prepared.rows, settings: fake, prefix: 'sketchbook.' }); s2.load(); return s2.get().palette; })(), 'datadivers');
+  eq('valueDomain honours a fixed top', E.valueDomain(E.aggregate([{ cat: 'a', series: '', value: 5, label: '', id: 1 }], 'data'), 'bar', true, 5, null, 20).hi, 20);
 
   /* ---------------- aggregate */
   const rows = [

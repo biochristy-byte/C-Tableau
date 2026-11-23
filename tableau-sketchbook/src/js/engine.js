@@ -35,7 +35,7 @@
   }
 
   /* The value axis: bars always include zero. The domain snaps to tick steps. */
-  function valueDomain (agg, type, zero, tickCount) {
+  function valueDomain (agg, type, zero, tickCount, fixLo, fixHi) {
     var lo = Infinity, hi = -Infinity;
     agg.cats.forEach(function (c) { agg.series.forEach(function (s) {
       var cell = agg.cell(c, s); if (!cell) return;
@@ -43,6 +43,8 @@
     }); });
     if (!isFinite(lo)) return { lo: 0, hi: 1, step: 0.2 };
     if (type === 'bar' || zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+    if (fixLo !== null && fixLo !== undefined && !(type === 'bar' && fixLo > 0)) lo = fixLo;
+    if (fixHi !== null && fixHi !== undefined && fixHi > lo) hi = fixHi;
     if (hi === lo) { var d = Math.abs(hi) * 0.1 || 1; lo -= d; hi += d; }
     var step = HX.niceStep(hi - lo, tickCount);
     var nlo = Math.floor(lo / step + 1e-9) * step, nhi = Math.ceil(hi / step - 1e-9) * step;

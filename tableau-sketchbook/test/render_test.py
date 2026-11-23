@@ -4,7 +4,7 @@ For every combination of size (300x300, 800x600, 1600x1000), theme (light, dark)
 and scenario (bar, grouped bar, line, dot, negatives + zigzag, long labels + title)
 it checks: the chart drew, 0 console errors, no horizontal scroll, every text is
 Inter, >= 14px, >= 7:1 against its ground, and no two text boxes overlap. Then it
-drives the settings panel, interaction, settings persistence, resize and
+drives interaction, resize and
 determinism (a redraw, a reload and a resize cycle must draw the SAME strokes),
 and the entrance animation.
 
@@ -179,84 +179,60 @@ def main():
                 check_text(page, f'{fx} fixture', 'svg text, .sb-empty')
                 ctx.close()
 
-            # ---- panel, steppers, persistence, copy/paste, no sliders, no dialogs
+            # ---- the settings panel has its own gate (test/panel_test.py); this tour keeps the SEED DETERMINISM checks on the new panel
+            def tab(pg, tid):
+                pg.click(".cp-tab[data-t='%s']" % tid)
+                pg.wait_for_function("document.querySelector(\".cp-tab[data-t='%s']\").getAttribute('aria-selected') === 'true'" % tid)
             for tname, bg in THEMES.items():
-                ctx, page, errs = open_page(browser, f'fx=life&bg={bg}', 800, 3300, tname)
-                ctx.grant_permissions(['clipboard-read', 'clipboard-write'])
-                check(f'panel {tname}: starts closed', page.locator('.xp-panel').is_hidden())
-                page.click('.xp-gear')
-                check(f'panel {tname}: opens', page.locator('.xp-panel').is_visible())
-                check(f'panel {tname}: no range sliders anywhere', page.locator('input[type=range]').count() == 0)
-                for d in page.locator('.xp-group').all():
-                    d.evaluate('e => e.open = true')
-                nodes = check_text(page, f'panel {tname}', '.xp-panel .xp-title, .xp-panel .xp-sum, .xp-panel .xp-label, .xp-panel .xp-help, .xp-panel .xp-btn, .xp-panel .xp-chip, .xp-panel .xp-unit',
-                                   'getComputedStyle(document.querySelector(".xp-panel")).backgroundColor')
-                check(f'panel {tname}: examined many panel labels ({len(nodes)})', len(nodes) >= 40)
-                # chart type chips
+                ctx, page, errs = open_page(browser, f'fx=life&bg={bg}', 1000, 800, tname)
+                page.click('.cp-gear')
+                check(f'panel {tname}: opens', page.locator('.cp-panel').is_visible())
+                tab(page, 'chart')
                 check(f'panel {tname}: starts as bars', page.locator('.sb-path').count() == 0)
-                page.click('.xp-row[data-key=chartType] .xp-chip[data-value=line]')
-                page.wait_for_timeout(120)
+                page.click('.cp-chip[data-k=chartType][data-v=line]')
+                page.wait_for_timeout(150)
                 check(f'panel {tname}: Line chip draws one sketched line per series', page.locator('.sb-path').count() == 6, str(page.locator('.sb-path').count()))
-                page.click('.xp-row[data-key=chartType] .xp-chip[data-value=dot]')
-                page.wait_for_timeout(120)
+                page.click('.cp-chip[data-k=chartType][data-v=dot]')
+                page.wait_for_timeout(150)
                 check(f'panel {tname}: Dot chip draws dots (circle hit areas)', page.locator('.sb-hit').count() == 54 and page.locator('.sb-path').count() == 0)
-                page.click('.xp-row[data-key=chartType] .xp-chip[data-value=bar]')
-                page.wait_for_timeout(120)
+                page.click('.cp-chip[data-k=chartType][data-v=bar]')
+                page.wait_for_timeout(150)
                 base = sig(page)
-                # steppers: roughness + then -, must return to the IDENTICAL sketch
-                page.click('.xp-row[data-key=roughness] .xp-sbtn >> nth=1')
-                page.wait_for_timeout(120)
+                tab(page, 'sketch')
+                page.click('[data-a=inc][data-k=roughness]')
+                page.wait_for_timeout(150)
                 changed = sig(page)
                 check(f'panel {tname}: roughness + redraws a different sketch', changed != base)
                 page.wait_for_timeout(600)
                 saved = page.evaluate('SB_MOCK.settings.getAll()')
                 check(f'panel {tname}: roughness saved as the string "1.3"', saved.get('sketchbook.roughness') == '1.3', str(saved.get('sketchbook.roughness')))
                 check(f'panel {tname}: saveAsync called', page.evaluate('SB_MOCK.settings.saves') >= 1)
-                page.click('.xp-row[data-key=roughness] .xp-sbtn >> nth=0')
-                page.wait_for_timeout(120)
+                page.click('[data-a=dec][data-k=roughness]')
+                page.wait_for_timeout(150)
                 check(f'panel {tname}: roughness back to 1.2 redraws the IDENTICAL sketch (seeded)', sig(page) == base)
-                # seed typed
-                page.fill('.xp-row[data-key=seed] .xp-num', '7')
-                page.press('.xp-row[data-key=seed] .xp-num', 'Enter')
-                page.wait_for_timeout(120)
+                page.fill('input[data-k=seed]', '7'); page.press('input[data-k=seed]', 'Enter')
+                page.wait_for_timeout(150)
                 seven = sig(page)
                 check(f'panel {tname}: typing seed 7 changes the sketch', seven != base)
-                page.fill('.xp-row[data-key=seed] .xp-num', '42')
-                page.press('.xp-row[data-key=seed] .xp-num', 'Enter')
-                page.wait_for_timeout(120)
+                page.fill('input[data-k=seed]', '42'); page.press('input[data-k=seed]', 'Enter')
+                page.wait_for_timeout(150)
                 check(f'panel {tname}: seed 42 again draws the original', sig(page) == base)
-                # bowing stepper and fill chips
                 sigs = {}
                 for fill in ('hachure', 'solid', 'zigzag'):
-                    page.click(f'.xp-row[data-key=fillStyle] .xp-chip[data-value={fill}]')
-                    page.wait_for_timeout(100)
+                    page.click(f'.cp-chip[data-k=fillStyle][data-v={fill}]')
+                    page.wait_for_timeout(120)
                     sigs[fill] = sig(page)
                 check(f'panel {tname}: hachure, solid and zigzag are three different drawings', len(set(sigs.values())) == 3)
-                page.click('.xp-row[data-key=fillStyle] .xp-chip[data-value=hachure]')
-                page.wait_for_timeout(100)
-                check(f'panel {tname}: back to hachure equals the start', sig(page) == base)
-                page.click('.xp-row[data-key=bowing] .xp-sbtn >> nth=1')
-                page.wait_for_timeout(100)
-                check(f'panel {tname}: bowing stepper redraws', sig(page) != base)
-                page.click('.xp-row[data-key=bowing] .xp-sbtn >> nth=0')
-                # copy / paste
-                page.click('.xp-foot .xp-btn:has-text("Copy settings")')
-                page.wait_for_timeout(200)
-                clip = page.evaluate('navigator.clipboard.readText()')
-                try:
-                    obj = json.loads(clip)
-                except Exception:
-                    obj = {}
-                check(f'panel {tname}: Copy settings puts valid JSON on the clipboard', obj.get('seed') == 42 and obj.get('fillStyle') == 'hachure' and len(obj) >= 25, clip[:80])
-                page.click('.xp-foot .xp-btn:has-text("Paste settings")')
-                page.fill('.xp-paste-text', json.dumps({'chartType': 'dot', 'seed': 5, 'roughness': 2.5}))
-                page.click('.xp-paste .xp-btn')
+                page.click('.cp-chip[data-k=fillStyle][data-v=hachure]')
                 page.wait_for_timeout(120)
-                st = page.evaluate('SB.app.state.settings')
-                check(f'panel {tname}: pasted settings applied', st['chartType'] == 'dot' and st['seed'] == 5 and st['roughness'] == 2.5)
-                check(f'panel {tname}: no console errors or dialogs through the whole tour', not errs, str(errs[:2]))
-                if tname == 'light':
-                    page.screenshot(path=str(prev / 'settings-panel-light.png'), clip={'x': 0, 'y': 0, 'width': 800, 'height': 900})
+                check(f'panel {tname}: back to hachure equals the start', sig(page) == base)
+                page.click('[data-a=inc][data-k=bowing]')
+                page.wait_for_timeout(120)
+                check(f'panel {tname}: bowing stepper redraws', sig(page) != base)
+                page.click('[data-a=dec][data-k=bowing]')
+                page.wait_for_timeout(120)
+                check(f'panel {tname}: bowing back restores the identical sketch', sig(page) == base)
+                check(f'panel {tname}: no console errors or dialogs through the tour', not errs, str(errs[:2]))
                 ctx.close()
 
             # ---- interaction pushes back to Tableau

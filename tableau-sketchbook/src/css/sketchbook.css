@@ -3,7 +3,8 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 body { font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 14px; }
 #root { position: absolute; inset: 0; }
 /* Text is always Inter: a handwriting-feel face is not allowed, the sketch lives in the strokes. */
-.sb-root { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.3; }
+.sb-root { position: absolute; inset: 0; overflow: hidden; }
+.sb-chart { position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.3; }
 .sb-title { flex: 0 0 auto; font-weight: 700; padding: 8px 56px 2px 14px; }
 .sb-title-wrap { display: inline-block; }
 .sb-ul { display: block; margin-top: -2px; overflow: visible; }
@@ -15,9 +16,11 @@ body { font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; fon
 .sb-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; }
 .sb-tip { position: absolute; z-index: 30; max-width: 260px; padding: 7px 10px; border-radius: 6px; pointer-events: none; font-size: 14px; line-height: 1.35; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
 .sb-hit { cursor: pointer; }
-.sb-mark { transition: opacity .14s ease; }
-.sb-hovering .sb-mark:not(.sb-hot) { opacity: .5; }
+.sb-mark { transition: opacity var(--sb-hover-ms, 140ms) ease; }
+.sb-hovering .sb-mark:not(.sb-hot) { opacity: var(--sb-dim, .5); }
+.sb-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.sb-lg-t { font-weight: 700; }
 /* One eased fade-in on the first draw, then nothing moves. */
 @keyframes sb-in { from { opacity: 0; } to { opacity: 1; } }
-.sb-anim .sb-mark, .sb-anim .sb-path { animation: sb-in 480ms cubic-bezier(.22, .61, .36, 1) both; will-change: opacity; }
+.sb-anim .sb-mark, .sb-anim .sb-path { animation: sb-in var(--sb-ms, 480ms) var(--sb-ease, cubic-bezier(.22, .61, .36, 1)) both; will-change: opacity; }
 @media (prefers-reduced-motion: reduce) { .sb-anim .sb-mark, .sb-anim .sb-path { animation: none; } }
