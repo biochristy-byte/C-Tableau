@@ -14,6 +14,9 @@
   var SVGNS = 'http://www.w3.org/2000/svg';
   // ms of layout work per frame: 11 keeps a still picture at 60 fps, 5 leaves room for a morph already running, 30 when nothing is on screen yet.
   // One force tick on 2,000 circles is about 22 ms, and a slice stops before the next unit would cross its budget.
+  // a shortened item label keeps at least this many letters before the ellipsis; a shorter stub ("Ir…") names nothing,
+  // so that circle goes unlabeled and its tooltip carries the name
+  var MIN_STUB = 4;
   var SLICE_STILL = 11, SLICE_MOVING = 5, SLICE_EMPTY = 30;
 
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
@@ -75,7 +78,7 @@
     return c[k];
   };
 
-  /* ---------------------------------------------------------------- colour */
+  /* ---------------------------------------------------------------- color */
   P._colorOf = function (n, s) {
     var pal = palOf(s);
     if (s.colorMode === 'single') return s.singleColor;
@@ -117,8 +120,8 @@
     this.catOrder = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a] || (a < b ? -1 : 1); });
     this.catIndex = {}; this.catOrder.forEach(function (k, i) { this.catIndex[k] = i; }, this);
     this.dropped = dropped;
-    /* The categories colour is picked from: clusters (largest first, which is the default order) or the Colour shelf's values.
-     * The saved list can recolour, rename and hide them. Default colours never depend on what is hidden. */
+    /* The categories color is picked from: clusters (largest first, which is the default order) or the Color shelf's values.
+     * The saved list can recolor, rename and hide them. Default colors never depend on what is hidden. */
     var pal = palOf(s), defs = [];
     if (s.colorMode === 'cluster') {
       var tot = {}; items.forEach(function (it) { tot[it.cluster] = (tot[it.cluster] || 0) + it.value; });
@@ -216,7 +219,7 @@
     if (!s.labels || this.anim || !this.nodes.length) return;
     var fs = Math.max(14, s.fontSize), padX = 8, padY = 5, chipH = fs + padY * 2, cands = [], fmt = function (v) { return fmtVal(v, s); };
     var bounds = { x0: 2, y0: 2, x1: this.w - 2, y1: this.h - 2 };
-    var avoid = this.nodes.map(function (n) { return { x: n.x, y: n.y, r: n.r }; });
+    var avoid = this.nodes.map(function (n) { return { x: n.x, y: n.y, r: n.r, cl: n.cl }; });
     if (s.clusterLabels) this.clusters.forEach(function (c) {
       var texts = [], name = casing(self._name(c), s.clusterCase);
       if (s.showValues) texts.push(name + '  ' + fmt(c.total));
@@ -226,7 +229,7 @@
         if (self._measure(t) > maxW) { while (t.length > 1 && self._measure(t + '…') > maxW) t = t.slice(0, -1); texts.push(t.replace(/\s+$/, '') + '…'); }
       });
       var sp = L.clusterSpots(c, s.clusterPos);
-      cands.push({ id: 'c' + c.idx, mode: 'free', x: c.cx, y: c.cy, r: c.R, texts: texts, prio: 0, spots: sp.spots, fallback: sp.fallback });
+      cands.push({ id: 'c' + c.idx, mode: 'free', cl: c, x: c.cx, y: c.cy, r: c.R, texts: texts, prio: 0, spots: sp.spots, fallback: sp.fallback });
     });
     if (s.itemLabels) this.nodes.forEach(function (n) {
       if (n.r < chipH * 0.62 || n.r < s.labelMinR) return;
@@ -234,7 +237,7 @@
       if (s.showValues) texts.push(name + '  ' + fmt(n.value));
       texts.push(name);
       var t = name;
-      if (self._measure(t) > maxW) { while (t.length > 1 && self._measure(t + '…') > maxW) t = t.slice(0, -1); if (t.length > 1) texts.push(t.replace(/\s+$/, '') + '…'); }
+      if (self._measure(t) > maxW) { while (t.length > 1 && self._measure(t + '…') > maxW) t = t.slice(0, -1); t = t.replace(/\s+$/, ''); if (t.length >= MIN_STUB) texts.push(t + '…'); }
       cands.push({ id: 'n' + n.idx, mode: 'inside', x: n.x, y: n.y, r: n.r, texts: texts, prio: 1 });
     });
     var placed = L.planChips(cands, bounds, function (t) { return self._measure(t); }, fs, padX, padY, avoid, []);

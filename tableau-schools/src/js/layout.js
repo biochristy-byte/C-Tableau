@@ -104,8 +104,8 @@
       c.R = Math.sqrt(area / (Math.PI * (o.density || 60) / 100));
     });
     var packed = d3.packSiblings(clusters.map(function (c) { return { r: c.R + o.spread / 2 }; }));
-    // stretch the cluster centres toward the stage's aspect ratio, so a wide stage is filled sideways instead of leaving empty sides.
-    // Stretching only increases the distance between centres, so it can never push two clusters into each other.
+    // stretch the cluster centers toward the stage's aspect ratio, so a wide stage is filled sideways instead of leaving empty sides.
+    // Stretching only increases the distance between centers, so it can never push two clusters into each other.
     var px0 = Infinity, py0 = Infinity, px1 = -Infinity, py1 = -Infinity;
     packed.forEach(function (q, i) { var r = clusters[i].R + o.spread / 2; px0 = Math.min(px0, q.x - r); px1 = Math.max(px1, q.x + r); py0 = Math.min(py0, q.y - r); py1 = Math.max(py1, q.y + r); });
     var asp = (W / H) / Math.max(1e-6, (px1 - px0) / Math.max(1e-6, py1 - py0)), sx = 1, sy = 1;
@@ -184,8 +184,8 @@
 
   /* ---- chips ----
    * cands: [{ id, mode: 'inside' | 'free', x, y, r, texts, prio, spots }]
-   *   inside: the chip is centred in the circle (x, y, r) and must fit wholly inside it.
-   *   free:   the chip is centred on one of `spots` ([x, y] pairs, tried in order) and must keep off every circle in `avoid`;
+   *   inside: the chip is centered in the circle (x, y, r) and must fit wholly inside it.
+   *   free:   the chip is centered on one of `spots` ([x, y] pairs, tried in order) and must keep off every circle in `avoid`;
    *           `fallback` spots are tried last and may cover circles.
    * `fixed` are rects (x, y, w, h) already on screen that new chips must also avoid.
    * Returns placed chips { id, x, y, w, h, text } (top-left corner). No two chips touch. */
@@ -208,23 +208,38 @@
       }
       return false;
     }
+    // a fallback chip may cover circles of its own cluster, never another cluster's (that reads as labeling the wrong school)
+    function touchesOther(cl, l, t, w, hh) {
+      for (var i = 0; i < avoid.length; i++) {
+        var c = avoid[i]; if (c.cl === undefined || c.cl === cl) continue;
+        var nx = Math.max(l, Math.min(c.x, l + w)), ny = Math.max(t, Math.min(c.y, t + hh));
+        if (Math.hypot(nx - c.x, ny - c.y) < c.r + 1) return true;
+      }
+      return false;
+    }
+    // free chips, per text variant: clear spots, then fallbacks that keep off other clusters; only if no variant fits
+    // anywhere, a second pass allows any fallback, so every cluster keeps a label
     order.forEach(function (c) {
-      var variants = c.texts;
-      for (var vi = 0; vi < variants.length; vi++) {
-        var text = variants[vi], tw = Math.ceil(measure(text)) + padX * 2;
-        var free = c.mode === 'inside' ? [] : (typeof c.spots === 'function' ? c.spots(tw, h) : c.spots);
-        var fb = c.mode === 'inside' ? [] : (typeof c.fallback === 'function' ? c.fallback(tw, h) : (c.fallback || []));
-        var spots = c.mode === 'inside' ? [[c.x, c.y]] : free.concat(fb);
-        var nFree = free.length;
-        for (var s = 0; s < spots.length; s++) {
-          var left = spots[s][0] - tw / 2, top = spots[s][1] - h / 2;
-          if (left < bounds.x0 || left + tw > bounds.x1 || top < bounds.y0 || top + h > bounds.y1) continue;
-          if (c.mode === 'inside' && !inCircle(c.x, c.y, c.r, left, top, tw, h)) continue;
-          if (c.mode === 'free' && s < nFree && avoid && touchesCircle(left, top, tw, h)) continue;
-          if (hit(left, top, tw, h)) continue;
-          var chip = { id: c.id, x: left, y: top, w: tw, h: h, text: text };
-          placed.push(chip); all.push(chip);
-          return;
+      var variants = c.texts, passes = c.mode === 'inside' ? [true] : [true, false];
+      for (var pi = 0; pi < passes.length; pi++) {
+        var ownOnly = passes[pi];
+        for (var vi = 0; vi < variants.length; vi++) {
+          var text = variants[vi], tw = Math.ceil(measure(text)) + padX * 2;
+          var free = c.mode === 'inside' || !ownOnly ? [] : (typeof c.spots === 'function' ? c.spots(tw, h) : c.spots);
+          var fb = c.mode === 'inside' ? [] : (typeof c.fallback === 'function' ? c.fallback(tw, h) : (c.fallback || []));
+          var spots = c.mode === 'inside' ? [[c.x, c.y]] : free.concat(fb);
+          var nFree = free.length;
+          for (var s = 0; s < spots.length; s++) {
+            var left = spots[s][0] - tw / 2, top = spots[s][1] - h / 2;
+            if (left < bounds.x0 || left + tw > bounds.x1 || top < bounds.y0 || top + h > bounds.y1) continue;
+            if (c.mode === 'inside' && !inCircle(c.x, c.y, c.r, left, top, tw, h)) continue;
+            if (c.mode === 'free' && s < nFree && avoid && touchesCircle(left, top, tw, h)) continue;
+            if (c.mode === 'free' && ownOnly && s >= nFree && avoid && touchesOther(c.cl, left, top, tw, h)) continue;
+            if (hit(left, top, tw, h)) continue;
+            var chip = { id: c.id, x: left, y: top, w: tw, h: h, text: text };
+            placed.push(chip); all.push(chip);
+            return;
+          }
         }
       }
     });
@@ -233,17 +248,37 @@
 
   /* Places to try a cluster chip: outside the cluster first (above, below, diagonals, sides, a second row),
    * then inside it. Positions depend on the chip size, so these are functions of (width, height). */
+  /* The cluster's real outline under a chip: the topmost (dir -1) or bottommost (dir 1) point of its own circles across the
+   * columns a..b, or the leftmost (-1) / rightmost (1) point across the rows a..b when `vertical`. null when no circle of the
+   * cluster reaches into that band. A chip placed off this outline sits next to its circles, not next to the bounding circle,
+   * which for a lopsided cluster (one giant member) can be far from them. */
+  function outline(c, a, b, dir, vertical) {
+    var best = null;
+    (c.nodes || []).forEach(function (n) {
+      var p = vertical ? n.y : n.x, q = vertical ? n.x : n.y, off = Math.max(a - p, 0, p - b);
+      if (off >= n.r) return;
+      var e = q + dir * Math.sqrt(n.r * n.r - off * off);
+      if (best === null || (dir < 0 ? e < best : e > best)) best = e;
+    });
+    return best;
+  }
+
   function clusterSpots(c, pos) {
     return {
       spots: function (tw, h) {
         var d = c.R + h / 2 + 4, dx = c.R + tw / 2 + 4, k = c.R * 0.7, o = [];
+        // a chip centered at x, just above (dir -1) or below (dir 1) the circles under it; the bounding circle when none are
+        function vert(x, dir, fallbackY) { var e = outline(c, x - tw / 2, x + tw / 2, dir, false); return [x, e === null ? fallbackY : e + dir * (h / 2 + 4)]; }
+        function side(dir) { var e = outline(c, c.cy - h / 2, c.cy + h / 2, dir, true); return [e === null ? c.cx + dir * dx : e + dir * (tw / 2 + 4), c.cy]; }
+        function row2(p, dir) { return [p[0], p[1] + dir * (h + 3)]; }
+        var up = vert(c.cx, -1, c.cy - d), down = vert(c.cx, 1, c.cy + d);
         if (pos === 'inside') return o;
-        if (pos === 'above') { o.push([c.cx, c.cy - d], [c.cx, c.cy - d - h - 3]); return o; }
-        if (pos === 'below') { o.push([c.cx, c.cy + d], [c.cx, c.cy + d + h + 3]); return o; }
-        o.push([c.cx, c.cy - d], [c.cx, c.cy + d]);
-        [-1, 1].forEach(function (sx) { o.push([c.cx + sx * (k * 0.6 + tw * 0.25), c.cy - (k + h / 2 + 4)], [c.cx + sx * (k * 0.6 + tw * 0.25), c.cy + (k + h / 2 + 4)]); });
-        [-1, 1].forEach(function (sx) { o.push([c.cx + sx * dx, c.cy]); });
-        o.push([c.cx, c.cy - d - h - 3], [c.cx, c.cy + d + h + 3]);
+        if (pos === 'above') { o.push(up, row2(up, -1)); return o; }
+        if (pos === 'below') { o.push(down, row2(down, 1)); return o; }
+        o.push(up, down);
+        [-1, 1].forEach(function (sx) { var x = c.cx + sx * (k * 0.6 + tw * 0.25); o.push(vert(x, -1, c.cy - (k + h / 2 + 4)), vert(x, 1, c.cy + (k + h / 2 + 4))); });
+        [-1, 1].forEach(function (sx) { o.push(side(sx)); });
+        o.push(row2(up, -1), row2(down, 1));
         return o;
       },
       fallback: function (tw, h) {

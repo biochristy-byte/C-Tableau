@@ -20,7 +20,7 @@
       { key: 'fieldItem', label: 'Item field', help: 'The dimension that makes one circle each. Auto uses the Item shelf.' },
       { key: 'fieldCluster', label: 'Cluster field', help: 'The dimension that groups circles into clusters. Auto uses the Cluster shelf.' },
       { key: 'fieldSize', label: 'Size field', kind: 'numeric', help: 'The measure that sets each circle\'s area. Auto uses the Size shelf.' },
-      { key: 'fieldColor', label: 'Colour field', help: 'The dimension that colours the circles when Colour by is "Colour shelf". Auto uses the Colour shelf.' }
+      { key: 'fieldColor', label: 'Color field', help: 'The dimension that colors the circles when Color by is "Color shelf". Auto uses the Color shelf.' }
     ],
     over: {
       numCompact: { def: true, help: 'Schools has always shown 1.2M style values: this is on by default.' },
@@ -66,11 +66,11 @@
 
   var CHART = [
     /* Colors */
-    { tab: 'colors', sec: 'Colour by', key: 'colorMode', label: 'Colour by', type: 'select', def: 'cluster', opts: [['cluster', 'Cluster'], ['field', 'Colour shelf'], ['single', 'One colour']],
-      help: 'Colour shelf uses the field you drop on the Colour shelf.' },
-    { tab: 'colors', sec: 'Colour by', key: 'singleColor', label: 'One colour', type: 'color', def: '#3cc4d1', when: { key: 'colorMode', eq: 'single' } },
+    { tab: 'colors', sec: 'Color by', key: 'colorMode', label: 'Color by', type: 'select', def: 'cluster', opts: [['cluster', 'Cluster'], ['field', 'Color shelf'], ['single', 'One color']],
+      help: 'Color shelf uses the field you drop on the Color shelf.' },
+    { tab: 'colors', sec: 'Color by', key: 'singleColor', label: 'One color', type: 'color', def: '#3cc4d1', when: { key: 'colorMode', eq: 'single' } },
     { tab: 'colors', sec: 'Palette', key: 'palette', label: 'Palette', type: 'select', def: 'reef',
-      opts: [['reef', 'Reef (default)'], ['lagoon', 'Lagoon'], ['sunset', 'Sunset'], ['datadivers', 'Data Divers'], ['kelp', 'Kelp'], ['colorblind10', 'Colour-blind safe']] },
+      opts: [['reef', 'Reef (default)'], ['lagoon', 'Lagoon'], ['sunset', 'Sunset'], ['datadivers', 'Data Divers'], ['kelp', 'Kelp'], ['colorblind10', 'Colorblind safe']] },
 
     /* Cluster layout */
     { tab: 'layout', sec: 'Clusters', key: 'spread', label: 'Gap between clusters', type: 'number', min: 0, max: 120, step: 4, unit: 'px', def: 28 },
@@ -80,7 +80,7 @@
     { tab: 'layout', sec: 'Clusters', key: 'ticks', label: 'Settling effort', type: 'number', min: 60, max: 600, step: 20, def: 300, help: 'How long the physics runs before the picture is drawn. More is calmer, and slower on big data.' },
     { tab: 'layout', sec: 'Frame', key: 'margin', label: 'Edge margin', type: 'number', min: 0, max: 80, step: 2, unit: 'px', def: 14 },
     { tab: 'layout', sec: 'Order', key: 'clusterSort', label: 'Order clusters', type: 'chips', def: 'size', opts: [['size', 'Largest first'], ['name', 'Name, A to Z'], ['data', 'Data order']],
-      help: 'The order the clusters are placed in. It decides who sits where, and which colour each cluster gets.' },
+      help: 'The order the clusters are placed in. It decides who sits where, and which color each cluster gets.' },
     { tab: 'layout', sec: 'Order', key: 'clusterDir', label: 'Reverse the cluster order', type: 'check', def: false },
 
     /* Collisions */
@@ -93,7 +93,7 @@
     /* Size scale */
     { tab: 'size', sec: 'Scale', key: 'sizeScale', label: 'Circle size shows the value as', type: 'chips', def: 'area',
       opts: [['area', 'Area'], ['soft', 'Softened (cube root)'], ['radius', 'Radius'], ['equal', 'Equal circles']],
-      help: 'Area is the honest default. Softened keeps small circles readable next to a giant one.' },
+      help: 'Area is the default: circle area is proportional to the value. Softened keeps small circles readable next to a giant one.' },
     { tab: 'size', sec: 'Scale', key: 'areaFill', label: 'Circle area share', type: 'number', min: 10, max: 70, step: 2, unit: '%', def: 42, help: 'How much of the stage the circles cover. Bigger means bigger circles.' },
     { tab: 'size', sec: 'Limits', key: 'minRadius', label: 'Smallest circle', type: 'number', min: 1, max: 20, step: 1, unit: 'px', def: 3, help: 'Tiny values are drawn at least this big so they stay visible.' },
     { tab: 'size', sec: 'Limits', key: 'capMedian', label: 'Cap the biggest at this many times the typical circle', type: 'number', min: 0, max: 20, step: 1, unit: 'x', def: 0, help: '0 means no cap. A cap keeps one giant from squeezing everyone else.' },
@@ -102,7 +102,7 @@
     { tab: 'circles', sec: 'Fill', key: 'opacity', label: 'Circle opacity', type: 'number', min: 30, max: 100, step: 2, unit: '%', def: 92 },
     { tab: 'circles', sec: 'Outline', key: 'ringWidth', label: 'Outline width', type: 'number', min: 0, max: 6, step: 0.5, unit: 'px', def: 1.5 },
     { tab: 'circles', sec: 'Outline', key: 'ringStyle', label: 'Outline line', type: 'chips', def: 'solid', opts: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']] },
-    { tab: 'circles', sec: 'Outline', key: 'ringColorMode', label: 'Outline colour', type: 'chips', def: 'shade', opts: [['shade', 'Shade of the fill'], ['ink', 'Text colour']] },
+    { tab: 'circles', sec: 'Outline', key: 'ringColorMode', label: 'Outline color', type: 'chips', def: 'shade', opts: [['shade', 'Shade of the fill'], ['ink', 'Text color']] },
     { tab: 'circles', sec: 'Outline', key: 'ringOpacity', label: 'Outline opacity', type: 'number', min: 10, max: 100, step: 5, unit: '%', def: 100 },
     { tab: 'circles', sec: 'Emphasis', key: 'hoverRing', label: 'Hover outline width', type: 'number', min: 1, max: 8, step: 1, unit: 'px', def: 3, help: 'Shown when Highlight on hover is on (Interaction tab).' },
     { tab: 'circles', sec: 'Emphasis', key: 'selRing', label: 'Selected outline width', type: 'number', min: 1, max: 8, step: 1, unit: 'px', def: 4 },
@@ -126,7 +126,7 @@
 
     /* Legend */
     { tab: 'legend', sec: 'Legend', key: 'legend', label: 'Show legend', type: 'check', def: true },
-    { tab: 'legend', sec: 'Legend', key: 'legendClusters', label: 'List the clusters when colouring by cluster', type: 'check', def: false, when: { key: 'legend', truthy: true } },
+    { tab: 'legend', sec: 'Legend', key: 'legendClusters', label: 'List the clusters when coloring by cluster', type: 'check', def: false, when: { key: 'legend', truthy: true } },
     { tab: 'legend', sec: 'Legend', key: 'legendPos', label: 'Position', type: 'chips', def: 'bottom', opts: [['bottom', 'Bottom'], ['top', 'Top']], when: { key: 'legend', truthy: true } },
     { tab: 'legend', sec: 'Legend', key: 'legendMax', label: 'Most entries shown', type: 'number', min: 2, max: 30, step: 1, def: 10, when: { key: 'legend', truthy: true } },
     { tab: 'legend', sec: 'Legend', key: 'legendShape', label: 'Swatch shape', type: 'chips', def: 'circle', opts: [['circle', 'Circle'], ['square', 'Square']], when: { key: 'legend', truthy: true } },

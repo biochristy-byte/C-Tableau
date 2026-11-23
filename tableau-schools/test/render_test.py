@@ -38,6 +38,28 @@ BASE = 'http://127.0.0.1:%d' % srv.server_address[1]
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from audit import AUDIT, contrast, lum
 
+CHIP_GAP_MAX = 8
+CHIP_GAP = """() => {
+  const st = document.querySelector('.sc-stage').getBoundingClientRect(), out = [];
+  SC.app.state.renderer.clusters.forEach(c => {
+    const g = document.querySelector('.sc-cchip[data-k="c' + c.idx + '"]'); if (!g || g.style.display === 'none') return;
+    const b = g.querySelector('rect').getBoundingClientRect(), L = b.left - st.left, T = b.top - st.top, R = L + b.width, B = T + b.height;
+    let best = Infinity;
+    c.nodes.forEach(n => { const dx = Math.max(L - n.x, 0, n.x - R), dy = Math.max(T - n.y, 0, n.y - B); best = Math.min(best, Math.hypot(dx, dy) - n.r); });
+    out.push([String(c.name), Math.round(best * 10) / 10]);
+  });
+  return out; }"""
+
+CHIP_ON_OTHER = """() => {
+  const st = document.querySelector('.sc-stage').getBoundingClientRect(), r = SC.app.state.renderer, out = [];
+  r.clusters.forEach(c => {
+    const g = document.querySelector('.sc-cchip[data-k="c' + c.idx + '"]'); if (!g || g.style.display === 'none') return;
+    const b = g.querySelector('rect').getBoundingClientRect(), L = b.left - st.left, T = b.top - st.top, R = L + b.width, B = T + b.height;
+    r.nodes.forEach(n => { if (n.cl === c) return; const dx = Math.max(L - n.x, 0, n.x - R), dy = Math.max(T - n.y, 0, n.y - B);
+      if (Math.hypot(dx, dy) < n.r - 0.5) out.push(String(c.name) + ' label on ' + n.name); });
+  });
+  return out; }"""
+
 def audit(page, tag):
     a = page.evaluate(AUDIT)
     ncl = page.evaluate("() => SC.app.state.renderer.clusters.length")
@@ -49,6 +71,14 @@ def audit(page, tag):
     check(tag + ': chip labels never overlap (%d chips)' % nchips, a['overlaps'] == 0, a['overlaps'])
     count(nchips)
     check(tag + ': every one of %d clusters is labelled' % ncl, len(a['cchips']) == ncl, (len(a['cchips']), ncl))
+    # a cluster label sits WITH its cluster: the gap from the chip to the nearest circle of its own cluster. Placed off the
+    # bounding circle, a lopsided cluster (South Asia, India dominant) put its label 58.7 px from its circles at 1280x800.
+    gaps = page.evaluate(CHIP_GAP)
+    far = [g for g in gaps if g[1] > CHIP_GAP_MAX]
+    check(tag + ': every one of %d cluster labels within %d px of its own circles (worst %.1f px)' % (len(gaps), CHIP_GAP_MAX, max([g[1] for g in gaps] or [0])), not far, far[:3])
+    count(len(gaps))
+    wrong = page.evaluate(CHIP_ON_OTHER)
+    check(tag + ': no cluster label covers a circle of another cluster', not wrong, wrong[:3])
     check(tag + ': no two of %d circles overlap (%d pairs measured from the DOM)' % (a['circleCount'], a['circlePairs']), a['circleOverlaps'] == 0, a['circleOverlaps'])
     count(a['circlePairs'])
     check(tag + ': every circle inside the stage', a['circleOutside'] == 0, a['circleOutside'])
@@ -92,7 +122,10 @@ def jitter(page, tag, n=30):
     count(n)
     return fr
 
-MORPH = """(o) => new Promise((done) => {
+MORPH = """(arg) => new Promise((done) => {
+  // arg.s: the settings that trigger the morph. arg.giveUp: if no morph has started this many ms after the trigger, the probe stops
+  // waiting and reports it (a gate must fail fast, not hang: page.evaluate itself never times out).
+  const o = arg.s;
   // Records EVERY animation frame from the trigger to the end of the morph. The trigger runs in a plain task (as a Tableau event does),
   // and the window is every rAF interval that ends after it, so the frame that contains the trigger and the morph's first frame are
   // both inside it whichever way the scheduling falls. A long-animation-frame observer is the second witness.
@@ -104,6 +137,11 @@ MORPH = """(o) => new Promise((done) => {
     ts.push(t);
     if (m !== null) {
       if (started === null && r.anim) started = performance.now();
+      if ((started === null || ended === null) && performance.now() - m > arg.giveUp) {
+        if (obs) obs.disconnect();
+        done({ gaveUp: true, startMs: started === null ? -1 : started - m, waitedMs: performance.now() - m });
+        return;
+      }
       if (started === null) held.push(sample());          // the old picture, while the new layout is computed
       if (started !== null && ended === null && !r.anim && !r.job) ended = performance.now();
       if (ended !== null && ++tail > 2) {
@@ -121,7 +159,14 @@ MORPH = """(o) => new Promise((done) => {
 
 def morph_gate(page, tag, settings, start_limit):
     """One re-layout morph, measured from its trigger to its end. Every check covers the whole window, first frame included."""
-    d = page.evaluate(MORPH, settings)
+    give_up = max(8000, 5 * start_limit)   # the start check below still holds the morph to start_limit; this only bounds the wait
+    d = page.evaluate(MORPH, {'s': settings, 'giveUp': give_up})
+    if d.get('gaveUp'):
+        what = 'never started' if d['startMs'] < 0 else 'started at %.0f ms but never ended' % d['startMs']
+        check(tag + ': a setting change starts and finishes a morph (it %s within %.0f ms of the trigger)' % (what, d['waitedMs']), False)
+        print('Schools render gate: STOPPED EARLY at "%s", %d subjects examined, %d checks failed' % (tag, subjects, len(fails)))
+        for f in fails: print(' FAIL', f)
+        sys.exit(1)
     iv, loaf, held = d['iv'], d['loaf'], d['held']
     med, p95, mx = statistics.median(iv), sorted(iv)[max(0, int(len(iv) * 0.95) - 1)], max(iv)
     morph_frames = len(d['cost'])

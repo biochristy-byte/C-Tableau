@@ -42,12 +42,12 @@
     </encoding>
 
     <encoding id="color">
-      <display-name resource-id="enc-color">Colour</display-name>
+      <display-name resource-id="enc-color">Color</display-name>
       <data-spec><data-type>string</data-type></data-spec>
       <role-spec><role-type>discrete-dimension</role-type></role-spec>
       <fields max-count="1"/>
       <encoding-icon token="color"/>
-      <tooltip resource-id="tip-color">Optional. Colours circles by this dimension when Colour by is set to Colour shelf.</tooltip>
+      <tooltip resource-id="tip-color">Optional. Colors circles by this dimension when Color by is set to Color shelf.</tooltip>
     </encoding>
   </worksheet-extension>
 
@@ -56,10 +56,10 @@
     <resource id="enc-item"><text locale="en_US">Item</text></resource>
     <resource id="enc-cluster"><text locale="en_US">Cluster</text></resource>
     <resource id="enc-size"><text locale="en_US">Size</text></resource>
-    <resource id="enc-color"><text locale="en_US">Colour</text></resource>
+    <resource id="enc-color"><text locale="en_US">Color</text></resource>
     <resource id="tip-item"><text locale="en_US">One circle per value of this dimension. Required.</text></resource>
     <resource id="tip-cluster"><text locale="en_US">The dimension that groups circles into schools.</text></resource>
     <resource id="tip-size"><text locale="en_US">The measure that sets each circle's area.</text></resource>
-    <resource id="tip-color"><text locale="en_US">Optional. Colours circles by this dimension.</text></resource>
+    <resource id="tip-color"><text locale="en_US">Optional. Colors circles by this dimension.</text></resource>
   </resources>
 </manifest>

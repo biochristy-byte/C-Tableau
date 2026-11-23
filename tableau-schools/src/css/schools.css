@@ -1,5 +1,5 @@
 /* Schools. Every text size is 14px or more. Chips carry their own solid background,
-   so text contrast does not depend on the worksheet colour behind them. */
+   so text contrast does not depend on the worksheet color behind them. */
 :root { --sc-bg:#ffffff; --sc-ink:#10202b; --sc-chip-bg:#ffffff; --sc-chip-ink:#10202b; --sc-chip-line:rgba(16,32,43,.45);
         --sc-font:Inter,"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif; --sc-accent:#3cc4d1; }
 *,*::before,*::after { box-sizing:border-box; }

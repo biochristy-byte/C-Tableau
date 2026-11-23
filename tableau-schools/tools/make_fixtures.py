@@ -7,7 +7,7 @@ real = [{'Country': r['Country'], 'Region': r['Region'], 'Income group': r['Inco
 ENC = {'item': 'Country', 'cluster': 'Region', 'size': 'Population', 'color': 'Income group'}
 F = {}
 F['countries'] = {'label': 'Countries by region, sized by population (World Bank)', 'columns': COLS, 'rows': real, 'enc': ENC}
-F['nocolor'] = {'label': 'Same, no Colour shelf', 'columns': COLS, 'rows': real, 'enc': {'item': 'Country', 'cluster': 'Region', 'size': 'Population'}}
+F['nocolor'] = {'label': 'Same, no Color shelf', 'columns': COLS, 'rows': real, 'enc': {'item': 'Country', 'cluster': 'Region', 'size': 'Population'}}
 F['lifeexp'] = {'label': 'Sized by life expectancy', 'columns': COLS, 'rows': real, 'enc': {'item': 'Country', 'cluster': 'Income group', 'size': 'Life expectancy', 'color': 'Region'}}
 F['one'] = {'label': 'One cluster', 'columns': COLS, 'rows': [r for r in real if r['Region'] == 'North America'], 'enc': ENC}
 F['single'] = {'label': 'A single row', 'columns': ['A', 'B', 'V'], 'rows': [{'A': 'Only item', 'B': 'Only cluster', 'V': 42.0}], 'enc': {'item': 'A', 'cluster': 'B', 'size': 'V'}}

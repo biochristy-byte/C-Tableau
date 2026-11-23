@@ -8,12 +8,12 @@ the free edition of Tableau Desktop.
 
 Tableau has no built-in clustered (Dorling-style) bubble chart. A packed
 bubble chart packs everything into one blob; Schools keeps each category as its
-own labelled school.
+own labeled school.
 
 ## What it does
 
 - **Four Marks card shelves**: Item (required, one circle each), Cluster (the
-  school), Size (the measure) and Colour (optional). Four is the most Tableau
+  school), Size (the measure) and Color (optional). Four is the most Tableau
   allows a viz extension.
 - **No overlaps, by construction and by test.** Circle area is proportional to
   the measure (tiny values are drawn at a minimum size so they stay visible).
@@ -29,17 +29,17 @@ own labelled school.
 - **Labels that never collide**: every label is a solid chip, 14 px or larger,
   7:1 against its chip in light and dark. Each school gets a label; big circles
   get their own name and value inside them.
-- **Colour by** cluster (default), the Colour shelf, or one colour; six palettes
-  including a colour-blind safe one.
+- **Color by** cluster (default), the Color shelf, or one color; six palettes
+  including a colorblind safe one.
 - **88 settings on 15 tabs** (Colors, Cluster layout, Collisions, Size scale, Circles, Labels, Cluster labels, Legend, Number format,
   Tooltip, Fonts, Background, Animation, Interaction, Fields, plus the built-in Panel tab) in a floating panel inside the viz,
   the same one as the other Data Divers extensions: click the gear, drag it by its title bar, minimize it,
-  Escape closes it, and below 420px wide it becomes a full-frame sheet. Every setting has a plain-language help line, a search box
+  Escape closes it, and below 420px wide it becomes a full-frame sheet. Settings that need explaining have a plain-language help line, a search box
   finds a setting by name, and the Panel tab holds Reset all, Undo, **Copy settings** and **Paste settings** (the JSON the C-Tableau
-  Viz pages flow accepts). **No sliders**: steppers you can type into, chip groups, dropdowns and colour inputs. No browser dialogs.
+  Viz pages flow accepts). **No sliders**: steppers you can type into, chip groups, dropdowns and color inputs. No browser dialogs.
 - Settings are saved in the workbook through Tableau's extension settings. A workbook saved before the panel change keeps its look:
   the old font stack and number format are read as the new Font and Compact numbers settings.
-- Background follows the worksheet, or light, dark or a custom colour.
+- Background follows the worksheet, or light, dark or a custom color.
   Reduced-motion users get no morph.
 
 ## What else you need
@@ -66,7 +66,7 @@ dashboard Web Page object.
 3. In Tableau: Marks card > the mark type dropdown > Viz Extensions > Add
    Extension > Access Local Viz Extensions > pick `schools.trex`. Click Allow.
 4. Drag a dimension to **Item**, another to **Cluster**, a measure to **Size**,
-   and optionally a dimension to **Colour**. Click the gear for settings.
+   and optionally a dimension to **Color**. Click the gear for settings.
 
 Tableau reads the `.trex` only when the extension is added, so after editing the
 manifest remove and re-add it.
@@ -86,7 +86,7 @@ territories for 2021, with population and life expectancy at birth.
   income groups) are not included, only countries and territories.
 - Columns: Country, Region, Income group, Population, Life expectancy.
 - Connect it in Tableau, then Item = Country, Cluster = Region, Size =
-  SUM(Population), Colour = Income group.
+  SUM(Population), Color = Income group.
 
 ## How the layout works
 
@@ -94,8 +94,8 @@ Rows with the same item and cluster merge and their sizes add. Rows whose size
 is zero, negative or not a number cannot be a circle area, so they are skipped
 and the legend says how many. Blank names become "(blank)".
 
-Cluster centres are placed by d3-hierarchy's `packSiblings` from each cluster's
-total area. d3-force pulls each circle toward its centre with a collision force,
+Cluster centers are placed by d3-hierarchy's `packSiblings` from each cluster's
+total area. d3-force pulls each circle toward its center with a collision force,
 ticked by hand (300 ticks, fewer past 1,500 circles) and stopped. A
 pairwise relaxation pass then removes any remaining overlap, and one uniform
 scale fits the result to the stage so gaps survive the fit.
@@ -114,8 +114,8 @@ python test/render_test.py       Playwright, headless Chromium, against the mock
                                  panel, copy and paste, stress with 1,200 and 2,000 circles
 python test/standin_test.py      drives the extension with the real C-Tableau Viz pages stand-in (legacy settings and Copy-settings JSON)
 python tools/sabotage.py         breaks one thing per gate and requires RED, proves each restore
-python ../shared/ctab-panel/sync_check.py   lib/ctab-panel must match shared/ctab-panel byte for byte
                                  byte-exact by sha256, then requires every gate green
+python ../shared/ctab-panel/sync_check.py   lib/ctab-panel must match shared/ctab-panel byte for byte
 python test/render_test.py --shots   also writes preview/*.png and preview/thumbnail.jpg
 ```
 
@@ -124,7 +124,7 @@ API that rejects a second open data reader, so a reader leak fails loudly.
 
 ## What is proven and what is not
 
-Proven here: the layout maths, the rendering at 300x300 to 1600x1000 in light
+Proven here: the layout math, the rendering at 300x300 to 1600x1000 in light
 and dark, the morph frame timing, the settings panel, and that the C-Tableau
 stand-in can drive it. The re-layout is computed in slices (11 ms a frame
 while the picture is still), so every frame from the trigger to the end of the
@@ -142,7 +142,7 @@ mock follows the published API types, it is not Tableau.
 
 - [d3-force](https://github.com/d3/d3-force) 3.0.0, d3-dispatch 3.0.1,
   d3-quadtree 3.0.1, d3-timer 3.0.1 and d3-hierarchy 3.1.2, all ISC, vendored in
-  `lib/` with their licences in `lib/LICENSE-*.txt`. No CDN is used at runtime.
+  `lib/` with their licenses in `lib/LICENSE-*.txt`. No CDN is used at runtime.
 - Tableau's Extensions API library is not redistributed here.
 
 ## License
