@@ -251,6 +251,7 @@
 
     var dark = luminance(bg) < 0.4;
     var pal = PALETTES[(s && s.palette)] || PALETTES.diver;
+    if (s && s.paletteReverse) pal = pal.slice().reverse();
     var groupColors = pal.map(function (c) { return ensureContrast(c, bg, 3); });
     return {
       bg: bg, ink: ink, dark: dark, plate: plate,

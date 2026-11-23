@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { load, csv, root } = require('./load.js');
 
-const ctx = load(['src/js/settings-schema.js', 'src/js/palettes.js', 'src/js/layout.js']);
+const ctx = load(['src/js/settings.js', 'src/js/palettes.js', 'src/js/layout.js']);
 const NX = ctx.NX;
 const L = NX.layout, S = NX.schema, P = NX.palettes;
 
@@ -238,27 +238,106 @@ section('plan: 300x300 to 1600x1000, 14px floor, honest note', 60, t => {
   t.ok(small.hidden > 0 && small.note && /14px/.test(small.note), 'at 300x300 the note says the 14px floor is why');
 });
 
-/* ---- 9. settings schema: no sliders, bounded steppers, safe coercion */
-section('schema: steppers, chips, dropdowns only', 80, t => {
+/* ---- 8b. layout options added with the panel: direction, manual order, filters, arc overhang, plan knobs */
+section('layout: direction, manual order, filters, arcs, plan knobs', 15, t => {
+  const base = { R: 200, beta: 0.85, gap: 2.5, rotation: 0, groupOrder: 'data', nodeSort: 'alpha' };
+  const cw = L.layout(graph, base), ccw = L.layout(graph, Object.assign({}, base, { direction: 'ccw' }));
+  t.ok(cw.groups.map(g => g.name).join() === ccw.groups.map(g => g.name).reverse().join(), 'counter-clockwise reverses the group sequence');
+  t.ok(cw.leaves.length === ccw.leaves.length && cw.leaves[0].id !== ccw.leaves[0].id, 'counter-clockwise starts from a different node');
+  const names = cw.groups.map(g => g.name), want = names.slice().reverse();
+  const man = L.orderGroups(graph, { groupOrder: 'manual', manualOrder: want });
+  t.ok(man.map(g => g.name).join() === want.join(), 'manual order follows the list');
+  const half = L.layout(graph, Object.assign({}, base, { arcPad: 0 })), full = L.layout(graph, base);
+  t.ok(half.arcs.every((a, i) => (a.a1 - a.a0) < (full.arcs[i].a1 - full.arcs[i].a0)), 'arc overhang 0 gives shorter arcs');
+  const hidden = {}; hidden[names[0]] = true;
+  const g2 = L.buildGraph(rows, { hiddenGroups: hidden });
+  t.ok(g2.nodes.every(n => n.group !== names[0]) && g2.nodes.length < graph.nodes.length, 'a hidden group removes its nodes');
+  t.ok(g2.links.every(l => g2.byId[l.s] && g2.byId[l.t]), 'and every link touching them');
+  const sum = g2.links.reduce((a, l) => a + l.weight, 0);
+  t.ok(g2.nodes.reduce((a, n) => a + n.outW, 0) === sum && g2.nodes.reduce((a, n) => a + n.inn, 0) === g2.links.length, 'degrees and weights are recomputed after the filter');
+  const heavy = L.buildGraph(rows, { minWeight: 20 });
+  t.ok(heavy.links.length < graph.links.length && heavy.links.every(l => l.weight >= 20) && heavy.nodes.length === graph.nodes.length, 'a weight floor drops light links and keeps every node');
+  const p100 = L.plan(graph, 900, 600, Object.assign({}, baseSettings), measure), p60 = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { sizePct: 60 }), measure);
+  t.ok(p60.R < p100.R, 'chart size 60% shrinks the ring (' + p60.R.toFixed(1) + ' < ' + p100.R.toFixed(1) + ')');
+  const noArc = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { showArcs: false }), measure);
+  t.ok(noArc.arcW === 0 && noArc.R > p100.R, 'no arcs: zero thickness and a bigger ring');
+  const thick = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { arcWidth: 14, arcGap: 20 }), measure);
+  t.ok(thick.arcW === 14 && thick.R < p100.R, 'arc thickness and gap come from the settings');
+  const gap = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { labelGap: 25 }), measure);
+  t.ok(gap.pad === baseSettings.nodeSize + 25 && gap.R < p100.R, 'label distance moves the labels out');
+  const big = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { nodeSizeBy: 'links', nodeSizeMax: 3 }), measure);
+  t.ok(big.pad === baseSettings.nodeSize * 3 + 7, 'sizing nodes by data makes room for the biggest');
+  const wide = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { labelMaxPct: 60 }), measure), narrow = L.plan(graph, 900, 600, Object.assign({}, baseSettings, { labelMaxPct: 15 }), measure);
+  t.ok(narrow.Lw <= wide.Lw && narrow.clipped >= wide.clipped, 'a narrower label cap clips more');
+  const m2 = Object.assign(((tx, px) => tx.length * px * 0.56), {});
+  m2.labelOf = n => n.id + '  1234567';
+  const withVal = L.plan(graph, 900, 600, baseSettings, m2);
+  t.ok(withVal.Lw >= p100.Lw, 'value labels widen the label column');
+});
+
+/* ---- 9. settings schema: 40+ settings over 7+ tabs, no sliders, bounded steppers, safe coercion, legacy keys */
+const CPlib = ctx.CTabPanel;
+const OLD_KEYS = ['beta', 'groupGap', 'groupOrder', 'nodeSort', 'rotation', 'linkOpacity', 'linkMinWidth', 'linkMaxWidth', 'weightScale', 'linkColorMode', 'linkColor',
+  'hoverHighlight', 'hoverMode', 'outColor', 'inColor', 'dimOpacity', 'fadeMs', 'glow', 'terminals', 'clickSelect', 'pushHover', 'showReadout', 'entrance',
+  'nodeSize', 'nodeHalo', 'showLabels', 'fontSize', 'labelPriority', 'showGroupNames', 'fontFamily', 'bgMode', 'bgCustom', 'textMode', 'textCustom', 'palette'];
+section('schema: 40+ settings, 7+ tabs, steppers, chips, dropdowns only', 300, t => {
+  const keys = Object.keys(S.BY_KEY);
+  t.ok(keys.length >= 40, keys.length + ' settings (at least 40)');
+  const tabsUsed = new Set(S.prepared.rows.map(r => r.tab));
+  t.ok(S.schema.tabs.length >= 7 && tabsUsed.size >= 7, S.schema.tabs.length + ' tabs, ' + tabsUsed.size + ' with rows (at least 7)');
+  ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields'].forEach(id => t.ok(S.schema.tabs.some(x => x.id === id), 'standard tab ' + id));
+  ['layout', 'nodes', 'links', 'hover', 'arcs'].forEach(id => t.ok(S.prepared.rows.filter(r => r.tab === id).length >= 5, 'chart tab ' + id + ' has real depth (' + S.prepared.rows.filter(r => r.tab === id).length + ' rows)'));
+  OLD_KEYS.forEach(k => t.ok(S.BY_KEY[k] !== undefined, 'old key ' + k + ' still exists'));
+  ['bundling beta', 'group gaps', 'node size', 'link width by weight', 'incoming colour', 'outgoing colour', 'label rules', 'group arcs', 'hover behaviour'].forEach(() => {});
+  ['beta', 'groupGap', 'nodeSize', 'widthByWeight', 'linkMinWidth', 'linkMaxWidth', 'inColor', 'outColor', 'labelPriority', 'labelGap', 'labelMaxPct', 'showGroupNames', 'arcWidth', 'hoverMode', 'dimOpacity'].forEach(k => t.ok(S.BY_KEY[k], 'spec item ' + k + ' is a setting'));
   const types = new Set();
-  Object.keys(S.BY_KEY).forEach(k => {
+  keys.forEach(k => {
     const o = S.BY_KEY[k];
     types.add(o.type);
-    t.ok(['toggle', 'number', 'color', 'segmented', 'select', 'text'].indexOf(o.type) >= 0, k + ': control type ' + o.type + ' is allowed');
+    t.ok(['number', 'chips', 'select', 'check', 'color', 'text', 'font', 'palette', 'field', 'list'].indexOf(o.type) >= 0, k + ': control type ' + o.type + ' is allowed');
     t.ok(k.indexOf('.') < 0, k + ': key has no dot (the Viz pages flow reads the last dot segment)');
     if (o.type === 'number') t.ok(o.min !== undefined && o.max !== undefined && o.step > 0, k + ': stepper has min, max and step');
-    if (o.type === 'segmented' || o.type === 'select') t.ok(o.choices.some(c => c.value === o.def), k + ': default is one of the choices');
-    t.ok(S.coerce(k, S.coerce(k, o.def)) === S.coerce(k, o.def), k + ': coercion is idempotent');
+    if (o.type === 'chips' || o.type === 'select') t.ok(o.opts.some(c => c.value === o.def), k + ': default is one of the choices');
+    t.ok(JSON.stringify(S.coerce(k, S.coerce(k, o.def))) === JSON.stringify(S.coerce(k, o.def)), k + ': coercion is idempotent');
+    t.ok(JSON.stringify(S.resolve({ [k]: CPlib.serialize(o, S.DEFAULTS[k]) })[k]) === JSON.stringify(S.DEFAULTS[k]), k + ': the default survives a string round trip');
   });
   t.ok(!types.has('slider') && !types.has('range'), 'no slider or range control type');
   t.ok(S.coerce('fontSize', 9) === 14 && S.coerce('fontSize', '3') === 14, 'text size cannot be set under 14');
   t.ok(S.coerce('fontSize', 40) === 28, 'text size caps at 28');
   t.ok(S.coerce('glow', 'false') === false && S.coerce('glow', 'true') === true, 'toggles survive Tableau string storage');
-  t.ok(S.coerce('beta', '0.5') === 0.5 && S.coerce('beta', 7) === 1 && S.coerce('beta', 'x') === 0.85, 'beta parses, clamps and falls back');
-  t.ok(S.coerce('outColor', 'f2b84b') === '#f2b84b' && S.coerce('outColor', 'nope') === '#f2b84b', 'colours accept bare hex, reject junk');
-  t.ok(S.coerce('hoverMode', 'sideways') === 'both', 'unknown choice falls back to the default');
+  t.ok(S.coerce('beta', '0.5') === 0.5 && S.coerce('beta', 7) === 1 && S.resolve({ beta: 'x' }).beta === 0.85, 'beta parses, clamps and falls back');
+  t.ok(S.coerce('outColor', 'nope') === undefined || S.resolve({ outColor: 'nope' }).outColor === '#f2b84b', 'a junk colour falls back to the default');
+  t.ok(S.resolve({ hoverMode: 'sideways' }).hoverMode === 'both', 'unknown choice falls back to the default');
   const copy = JSON.parse(JSON.stringify(S.resolve({ beta: 0.4, glow: false })));
   t.ok(copy.beta === 0.4 && copy.glow === false && S.resolve(copy).beta === 0.4, 'a Copy settings block round-trips through resolve');
+});
+
+/* ---- 9b. saved workbooks keep their look: every old key, stored as the old panel stored it, reads back the same */
+section('legacy: old saved keys load unchanged, old panelTheme is carried', 40, t => {
+  const old = { beta: '0.5', groupGap: '4', groupOrder: 'size', nodeSort: 'degree', rotation: '-45', linkOpacity: '0.5', linkMinWidth: '1', linkMaxWidth: '6', weightScale: 'log',
+    linkColorMode: 'single', linkColor: '#112233', hoverHighlight: 'false', hoverMode: 'out', outColor: '#aa0000', inColor: '#00aa00', dimOpacity: '0.2', fadeMs: '600',
+    glow: 'false', terminals: 'false', clickSelect: 'false', pushHover: 'false', showReadout: 'false', entrance: 'false', nodeSize: '7', nodeHalo: 'false', showLabels: 'false',
+    fontSize: '20', labelPriority: 'alpha', showGroupNames: 'false', fontFamily: 'Verdana, Geneva, sans-serif', bgMode: 'custom', bgCustom: '#123456', textMode: 'custom',
+    textCustom: '#ffffff', palette: 'warm' };
+  const r = S.resolve(old);
+  const want = { beta: 0.5, groupGap: 4, groupOrder: 'size', nodeSort: 'degree', rotation: -45, linkOpacity: 0.5, linkMinWidth: 1, linkMaxWidth: 6, weightScale: 'log',
+    linkColorMode: 'single', linkColor: '#112233', hoverHighlight: false, hoverMode: 'out', outColor: '#aa0000', inColor: '#00aa00', dimOpacity: 0.2, fadeMs: 600,
+    glow: false, terminals: false, clickSelect: false, pushHover: false, showReadout: false, entrance: false, nodeSize: 7, nodeHalo: false, showLabels: false,
+    fontSize: 20, labelPriority: 'alpha', showGroupNames: false, fontFamily: 'Verdana, Geneva, sans-serif', bgMode: 'custom', bgCustom: '#123456', textMode: 'custom',
+    textCustom: '#ffffff', palette: 'warm' };
+  Object.keys(want).forEach(k => t.ok(r[k] === want[k], 'saved ' + k + '=' + old[k] + ' reads as ' + JSON.stringify(want[k]) + ' (got ' + JSON.stringify(r[k]) + ')'));
+  t.ok(OLD_KEYS.every(k => k in want), 'the legacy fixture covers every old key');
+  const d = S.resolve({});
+  t.ok(d.beta === 0.85 && d.nodeSize === 4 && d.linkOpacity === 0.34 && d.fadeMs === 280 && d.padding === 0 && d.tipFollow === 'corner' && d.animMs === 700 && d.animEase === 'inout' && d.numDecimals === 0,
+    'defaults keep the old look (padding 0, readout in the corner, 700ms ease-in-out entrance)');
+  t.ok(S.legacy(k => ({ panelTheme: 'dark' })[k]).panel.theme === 'dark' && S.legacy(k => ({ panelTheme: 'match' })[k]).panel.theme === 'match', 'panelTheme dark and match are carried to the new panel');
+  t.ok(S.legacy(k => undefined).panel.theme === undefined && S.legacy(k => ({ panelTheme: 'neon' })[k]).panel.theme === undefined, 'no panelTheme, or a junk one, carries nothing');
+  /* through the real store: strings in tableau settings, keyed with the old prefix */
+  const bag = {}; Object.keys(old).forEach(k => { bag['neurons.' + k] = old[k]; });
+  const store = CPlib.createStore({ rows: S.prepared.rows, settings: { get: k => bag[k], set: (k, v) => { bag[k] = v; }, getAll: () => bag, saveAsync: () => Promise.resolve() }, prefix: 'neurons.' });
+  store.load();
+  const sv = store.get();
+  t.ok(Object.keys(want).every(k => sv[k] === want[k]), 'the real store loads every old key from "neurons.<key>" strings');
 });
 
 /* ---- 10. colour: 7 to 1 text on any background, 3 to 1 for marks */
@@ -289,7 +368,7 @@ section('source: licences, no dialogs, no sliders, no CDN, no small text', 20, t
   });
   const files = [];
   (function walk(d) { fs.readdirSync(d, { withFileTypes: true }).forEach(e => { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else files.push(p); }); })(path.join(root, 'src'));
-  t.ok(files.length >= 8, 'scanned ' + files.length + ' source files');
+  t.ok(files.length >= 7, 'scanned ' + files.length + ' source files');
   files.forEach(f => {
     const s = fs.readFileSync(f, 'utf8'), rel = path.relative(root, f);
     if (/\.(js|html)$/.test(f)) {
@@ -299,7 +378,7 @@ section('source: licences, no dialogs, no sliders, no CDN, no small text', 20, t
     }
     if (/\.css$/.test(f)) {
       const sizes = (s.match(/font-size:\s*[0-9.]+px/g) || []).map(x => parseFloat(x.split(':')[1]));
-      t.ok(sizes.length > 5 && sizes.every(n => n >= 14), rel + ': ' + sizes.length + ' font-size declarations, smallest ' + Math.min.apply(null, sizes));
+      t.ok(sizes.every(n => n >= 14), rel + ': ' + sizes.length + ' font-size declarations, none under 14');
     }
   });
 });

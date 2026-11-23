@@ -52,3 +52,5 @@ Any `1.latest` build from Tableau's repo works the same way.
 `.gitignore` in this project skips `lib/*.js`, so the file stays on your
 machine. Tableau's library is theirs, and the right place to get it is their
 repo.
+
+`ctab-panel/` is the shared settings panel, an exact copy of `shared/ctab-panel/` (`python shared/ctab-panel/sync_check.py` fails if it drifts).

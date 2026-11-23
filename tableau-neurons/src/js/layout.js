@@ -35,7 +35,8 @@
   /* rows: [{ group, source, target, weight, targetGroup }]. One row is one
    * link. A node's group comes from the rows where it is the Source; a node
    * that is only ever a Target takes targetGroup if the data carries it. */
-  function buildGraph (rows) {
+  function buildGraph (rows, opts) {
+    opts = opts || {};
     var byId = Object.create(null);
     var nodes = [];
     var linkIndex = Object.create(null);
@@ -80,6 +81,17 @@
     });
 
     nodes.forEach(function (n) { if (!n.group) n.group = n.tgroup || UNGROUPED; });
+    /* Optional filters: groups the owner hid, and links lighter than a floor. A hidden group takes its nodes and
+     * every link touching them with it; a light link just drops, its nodes stay. */
+    var hidden = opts.hiddenGroups || null, minW = Number(opts.minWeight) || 0;
+    if (hidden || minW > 0) {
+      nodes = nodes.filter(function (n) { return !(hidden && hidden[n.group]); });
+      links = links.filter(function (l) {
+        var a = byId[l.s], b = byId[l.t];
+        return !(hidden && (hidden[a.group] || hidden[b.group])) && l.weight >= minW;
+      });
+      Object.keys(byId).forEach(function (k) { if (hidden && hidden[byId[k].group]) delete byId[k]; });
+    }
     links.forEach(function (l) {
       var a = byId[l.s], b = byId[l.t];
       a.out++; a.outW += l.weight; b.inn++; b.inW += l.weight;
@@ -98,7 +110,11 @@
       g.nodes.push(n);
     });
     var gOrder = (o && o.groupOrder) || 'data';
-    if (gOrder === 'alpha') groups.sort(function (a, b) { return natCmp(a.name, b.name); });
+    if (gOrder === 'manual' && o.manualOrder && o.manualOrder.length) {
+      var rank = Object.create(null);
+      o.manualOrder.forEach(function (k, i) { rank[k] = i; });
+      groups.sort(function (a, b) { var ra = rank[a.name] === undefined ? 1e6 : rank[a.name], rb = rank[b.name] === undefined ? 1e6 : rank[b.name]; return ra - rb || a.first - b.first; });
+    } else if (gOrder === 'alpha') groups.sort(function (a, b) { return natCmp(a.name, b.name); });
     else if (gOrder === 'size') groups.sort(function (a, b) { return b.nodes.length - a.nodes.length || natCmp(a.name, b.name); });
     var nSort = (o && o.nodeSort) || 'alpha';
     groups.forEach(function (g) {
@@ -106,6 +122,8 @@
       else if (nSort === 'degree') g.nodes.sort(function (a, b) { return (b.outW + b.inW) - (a.outW + a.inW) || natCmp(a.id, b.id); });
       else g.nodes.sort(function (a, b) { return a.first - b.first; });
     });
+    /* Counter-clockwise runs the same sequence the other way round the ring. */
+    if (o && o.direction === 'ccw') { groups.reverse(); groups.forEach(function (g) { g.nodes.reverse(); }); }
     return groups;
   }
 
@@ -142,10 +160,11 @@
     var unit = TAU / cycle;
 
     var arcs = [];
+    var pad = o.arcPad === undefined ? 0.4 : o.arcPad;
     root.children.forEach(function (gn, gi) {
       var ls = gn.leaves();
       var first = ls[0].x, last = ls[ls.length - 1].x;
-      arcs.push({ name: gn.data.name, index: gi, a0: first - unit * 0.4, a1: last + unit * 0.4, n: ls.length, mid: gn.x });
+      arcs.push({ name: gn.data.name, index: gi, a0: first - unit * pad, a1: last + unit * pad, n: ls.length, mid: gn.x });
     });
 
     var bundle = d3.curveBundle.beta(o.beta);
@@ -258,6 +277,7 @@
 
   var ARC_W = 5;
   var ARC_GAP = 6;
+  function opt (v, d) { return v === undefined || v === null ? d : v; }
 
   /* One fit of the chart into w x h. Returns every radius the renderer
    * needs plus the label decisions and the note to show. `measure(text, px)`
@@ -265,21 +285,23 @@
   function plan (graph, w, h, s, measure) {
     var fs = Math.max(14, Number(s.fontSize) || 14);
     var lineH = Math.round((measure.height ? Math.max(fs * 1.1, measure.height(fs) + 1) : fs * 1.25) * 10) / 10;
-    var nodeSize = s.nodeSize;
+    var ARC_W = s.showArcs === false ? 0 : opt(s.arcWidth, 5), ARC_GAP = s.showArcs === false ? 0 : opt(s.arcGap, 6);
+    var nodeSize = s.nodeSize * (s.nodeSizeBy && s.nodeSizeBy !== 'fixed' ? opt(s.nodeSizeMax, 2) : 1);
+    var labelOf = measure.labelOf || function (n) { return n.id; };
     var N = graph.nodes.length;
     var groups = orderGroups(graph, s);
     var G = groups.length;
     var prio = priorities(graph, s.labelPriority);
 
     var widths = Object.create(null), maxW = 0;
-    if (s.showLabels) graph.nodes.forEach(function (n) { var m = measure(n.id, fs); widths[n.id] = m; if (m > maxW) maxW = m; });
+    if (s.showLabels) graph.nodes.forEach(function (n) { var m = measure(labelOf(n), fs); widths[n.id] = m; if (m > maxW) maxW = m; });
 
     var noteH = 0, res = null;
     for (var pass = 0; pass < 2; pass++) {
       var availH = h - noteH;
-      var half = Math.max(20, Math.min(w, availH) / 2 - 4);
-      var pad = nodeSize + 7;
-      var cap = Math.max(fs * 3, half * 0.34);
+      var half = Math.max(20, (Math.min(w, availH) / 2 - 4) * opt(s.sizePct, 100) / 100);
+      var pad = nodeSize + opt(s.labelGap, 7);
+      var cap = Math.max(fs * 3, half * opt(s.labelMaxPct, 34) / 100);
       var Lw = s.showLabels ? Math.min(cap, maxW) : 0;
       var nameBand = s.showGroupNames ? Math.round(fs * 1.45) + 4 : 0;
 
@@ -316,7 +338,7 @@
 
       /* Label slots: leaf angles come from the same cluster maths, so
        * compute them with a throwaway layout at this radius. */
-      var lay = layout(graph, { R: R, beta: s.beta, gap: s.groupGap, rotation: (s.rotation || 0) * Math.PI / 180, groupOrder: s.groupOrder, nodeSort: s.nodeSort });
+      var lay = layout(graph, { R: R, beta: s.beta, gap: s.groupGap, rotation: (s.rotation || 0) * Math.PI / 180, groupOrder: s.groupOrder, nodeSort: s.nodeSort, direction: s.direction, manualOrder: s.manualOrder, arcPad: opt(s.arcPad, 40) / 100 });
       var r0 = R + pad;
       var chosen = { shown: Object.create(null), count: 0 };
       if (labelsOn) {
@@ -325,8 +347,8 @@
       var labelText = Object.create(null), clipped = 0;
       if (labelsOn) {
         Object.keys(chosen.shown).forEach(function (id) {
-          var t = fitText(id, Lw, fs, measure);
-          if (t !== id) clipped++;
+          var t = fitText(labelOf(graph.byId[id]), Lw, fs, measure);
+          if (t !== labelOf(graph.byId[id])) clipped++;
           labelText[id] = t;
         });
       }

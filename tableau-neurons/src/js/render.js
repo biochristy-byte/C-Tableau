@@ -69,7 +69,22 @@
   }
 
   var uid = 0;
-  var LIT_ALPHA = 0.95;
+  var CP = global.CTabPanel;
+  var EASES = {
+    out: function (t) { return 1 - Math.pow(1 - t, 3); },
+    inout: function (t) { return easeInOutCubic(t); },
+    linear: function (t) { return t; }
+  };
+  var CSS_EASE = { out: 'cubic-bezier(0.22, 0.61, 0.36, 1)', inout: 'ease-in-out', linear: 'linear' };
+  /* Weights through the shared Number format settings; a weight with a fraction never rounds to a bare integer. */
+  function fmtW (v, s) {
+    if (!CP || typeof v !== 'number') return String(v);
+    if (Number(s.numDecimals) === 0 && Math.floor(v) !== v) {
+      var str = CP.formatNumber(v, Object.assign({}, s, { numDecimals: 2 }));
+      return str.replace(/(\.\d*?)0+(?=[^\d]|$)/, '$1').replace(/\.(?=[^\d]|$)/, '');
+    }
+    return CP.formatNumber(v, s);
+  }
 
   function View (host) {
     this.host = host;
@@ -82,6 +97,8 @@
     host.appendChild(this.svg);
     this.readout = div('nx-readout', host);
     this.readout.hidden = true;
+    this.titleEl = div('nx-title', host);
+    this.titleEl.hidden = true;
     this.noteEl = div('nx-note', host);
     this.noteEl.hidden = true;
     this.emptyEl = div('nx-empty', host);
@@ -115,6 +132,8 @@
       self.setHover(n ? n.getAttribute('data-id') : null);
     });
     svg.addEventListener('pointerleave', function () { self.setHover(null); });
+    /* The readout can follow the pointer (Tooltip tab); it stays inside the chart. */
+    host_move(this.host, function (e) { self._pt = e; self._place(e); });
     svg.addEventListener('focusin', function (e) { var n = nodeOf(e.target); if (n) self.setHover(n.getAttribute('data-id')); });
     svg.addEventListener('focusout', function () { self.setHover(null); });
     svg.addEventListener('click', function (e) {
@@ -136,16 +155,42 @@
     this.settings = settings;
     this.hooks = hooks || this.hooks;
     this.model = model;
-    var w = Math.max(1, this.host.clientWidth), h = Math.max(1, this.host.clientHeight);
+    var hw = Math.max(1, this.host.clientWidth), hh = Math.max(1, this.host.clientHeight);
     this.theme = pal.resolveTheme(settings, model.worksheetBg);
     var T = this.theme;
-    this.host.style.background = T.bg;
+    /* The drawing box: inside the padding, under the title. */
+    var padPx = Math.max(0, Number(settings.padding) || 0);
+    var titleOn = !!(settings.showTitle && settings.titleText);
+    var titleH = titleOn ? Math.ceil(settings.titleSize * 1.3) + 8 : 0;
+    var ox = padPx, oy = padPx + titleH;
+    var w = Math.max(1, hw - 2 * padPx), h = Math.max(1, hh - 2 * padPx - titleH);
+    this.box = { ox: ox, oy: oy, w: w, h: h, pad: padPx };
+    this.titleEl.hidden = !titleOn;
+    if (!titleOn) { this.titleEl.textContent = ''; this.titleEl.removeAttribute('style'); }
+    if (titleOn) {
+      this.titleEl.textContent = settings.titleText;
+      this.titleEl.style.cssText = 'left:' + padPx + 'px;right:' + padPx + 'px;top:' + padPx + 'px;font-size:' + settings.titleSize + 'px;font-weight:' + (settings.titleWeight === 'bold' ? 700 : 400) + ';color:' + T.ink;
+    }
+    this.canvas.style.left = ox + 'px'; this.canvas.style.top = oy + 'px';
+    this.svg.style.left = ox + 'px'; this.svg.style.top = oy + 'px';
+    this.noteEl.style.left = padPx + 'px'; this.noteEl.style.right = padPx + 'px'; this.noteEl.style.bottom = padPx + 'px';
+    this.host.style.background = settings.bgMode === 'transparent' ? 'transparent' : T.bg;
+    this.host.style.border = settings.borderOn ? settings.borderWidth + 'px solid ' + ((CP && CP.color.normHex(settings.borderColor)) || T.muted) : '0';
+    this.host.style.borderRadius = settings.borderOn ? settings.borderRadius + 'px' : '0';
+    this.host.style.setProperty('--nx-focus', String(settings.focusScale));
+    this.host.style.setProperty('--nx-nbr', String(settings.neighborScale));
+    this.host.style.setProperty('--nx-dim-node', String(settings.dimNodes / 100));
+    this.host.style.setProperty('--nx-dim-halo', String(Math.min(0.2, settings.dimNodes / 100)));
     this.host.style.setProperty('--nx-chart-ink', T.ink);
     this.host.style.setProperty('--nx-chart-muted', T.muted);
     this.host.style.setProperty('--nx-chart-bg', T.bg);
     this.host.style.fontFamily = settings.fontFamily;
     this.noteEl.style.fontSize = Math.max(14, settings.fontSize) + 'px';
-    this.readout.style.fontSize = Math.max(14, settings.fontSize) + 'px';
+    this.readout.style.fontSize = Math.max(14, settings.tipSize) + 'px';
+    this.readout.style.maxWidth = settings.tipMaxW + 'px';
+    this.readout.setAttribute('data-follow', settings.tipFollow);
+    this.readout.style.left = (12 + padPx) + 'px';
+    this.readout.style.top = (oy + 12) + 'px';
     this.emptyEl.style.fontSize = Math.max(14, settings.fontSize) + 'px';
 
     var graph = model.graph;
@@ -165,11 +210,17 @@
       return;
     }
     this.emptyEl.hidden = true;
+    this.emptyEl.textContent = '';
 
     var family = settings.fontFamily;
     var measure = function (t, px) { return measureText(t, px, family); };
     measure.height = function (px) { return measureHeight(px, family); };
-    var plan = layoutLib.plan(graph, w, h, settings, measure);
+    var labelOf = function (n) {
+      return settings.valueLabels ? n.id + '  ' + fmtW(n.outW + n.inW, settings) : n.id;
+    };
+    measure.labelOf = labelOf;
+    var planS = Object.assign({}, settings, { manualOrder: this.manualOrder || null });
+    var plan = layoutLib.plan(graph, w, h, planS, measure);
     this.planned = plan;
     var lay = plan.lay;
     var fs = plan.fs;
@@ -188,22 +239,39 @@
 
     /* Group colours are keyed by first appearance in the data, so re-ordering
      * the ring never reshuffles hues. */
-    var gcolor = {};
-    var gi = 0;
-    graph.nodes.forEach(function (n) { if (gcolor[n.group] === undefined) { gcolor[n.group] = T.groups[gi % T.groups.length]; gi++; } });
-    this.groupColor = gcolor;
+    var self0 = this, gcolor = {}, gpal = {}, gname = {};
+    var gi = 0, ov = this.groupItems || {};
+    graph.nodes.forEach(function (n) {
+      if (gcolor[n.group] !== undefined) return;
+      var idx = self0.groupIndex && self0.groupIndex[n.group] !== undefined ? self0.groupIndex[n.group] : gi;
+      var base = T.groups[idx % T.groups.length]; gi++;
+      var o = ov[n.group];
+      gpal[n.group] = base;
+      gcolor[n.group] = o && o.color ? pal.ensureContrast(o.color, T.bg, 3) : base;
+      gname[n.group] = o && o.name ? o.name : n.group;
+    });
+    this.groupColor = gcolor; this.groupPalette = gpal; this.groupName = gname;
 
     var root = el('g', { transform: 'translate(' + plan.cx + ',' + plan.cy + ')' }, this.svg);
-    if (settings.entrance && !reducedMotion() && !this._entered) root.setAttribute('class', 'nx-enter');
+    if (settings.entrance && !reducedMotion() && !this._entered) {
+      root.setAttribute('class', 'nx-enter');
+      root.style.animationDuration = settings.animMs + 'ms';
+      root.style.animationTimingFunction = CSS_EASE[settings.animEase] || CSS_EASE.inout;
+      root.setAttribute('data-anim-ms', settings.animMs);
+      /* The svg outlives later redraws, so this records how the entrance was set up even after its class is gone. */
+      this.svg.setAttribute('data-entrance', settings.animMs + ',' + settings.animEase);
+    }
     var self = this;
 
     /* Group arcs, then group names along them. */
     var gArcs = el('g', { 'class': 'nx-arcs' }, root);
     lay.arcs.forEach(function (a, i) {
-      var col = gcolor[a.name];
-      var arc = el('path', { d: arcPath(plan.arcR, a.a0, a.a1), fill: 'none', stroke: col, 'stroke-width': plan.arcW, 'stroke-linecap': 'butt', 'class': 'nx-arc', 'data-group': a.name }, gArcs);
-      var title = el('title', null, arc);
-      title.textContent = a.name + ', ' + a.n + ' nodes';
+      var col = gcolor[a.name], shownName = gname[a.name] || a.name;
+      if (settings.showArcs) {
+        var arc = el('path', { d: arcPath(plan.arcR, a.a0, a.a1), fill: 'none', stroke: col, 'stroke-width': plan.arcW, 'stroke-opacity': settings.arcOpacity / 100, 'stroke-linecap': 'butt', 'class': 'nx-arc', 'data-group': a.name }, gArcs);
+        var title = el('title', null, arc);
+        title.textContent = shownName + ', ' + a.n + ' nodes';
+      }
       if (settings.showGroupNames && plan.nameShown[a.name]) {
         var mid = layoutLib.norm(a.mid);
         var bottom = mid > Math.PI / 2 && mid < Math.PI * 3 / 2;
@@ -211,18 +279,26 @@
         var pid = 'nx-gp-' + self.id + '-' + i;
         el('path', { id: pid, d: bottom ? arcPathRev(rText, a.a0, a.a1) : arcPath(rText, a.a0, a.a1), fill: 'none', stroke: 'none' }, gArcs);
         var tx = el('text', { 'class': 'nx-gname', 'font-size': fs, fill: T.ink, 'text-anchor': 'middle' }, gArcs);
-        tx.setAttribute('font-weight', '600');
+        tx.setAttribute('font-weight', settings.groupNameWeight === 'bold' ? '600' : '400');
         var tp = el('textPath', { href: '#' + pid, startOffset: '50%' }, tx);
-        tp.textContent = a.name;
+        tp.textContent = shownName;
       }
     });
 
     /* Nodes with their labels. */
     var nodeSize = settings.nodeSize;
     var showHalo = settings.nodeHalo && graph.nodes.length <= 900;
+    var szOf = function () { return nodeSize; };
+    var sized = settings.nodeSizeBy && settings.nodeSizeBy !== 'fixed';
+    if (sized) {
+      var vOf = function (n) { return settings.nodeSizeBy === 'links' ? n.out + n.inn : n.outW + n.inW; }, vlo = Infinity, vhi = -Infinity;
+      graph.nodes.forEach(function (n) { var v = vOf(n); if (v < vlo) vlo = v; if (v > vhi) vhi = v; });
+      szOf = function (n) { return vhi > vlo ? nodeSize * (1 + (settings.nodeSizeMax - 1) * (vOf(n) - vlo) / (vhi - vlo)) : nodeSize; };
+    }
+    var maxNode = sized ? nodeSize * settings.nodeSizeMax : nodeSize;
     var gNodes = el('g', { 'class': 'nx-nodes' }, root);
     /* A hit circle must not reach into its neighbour: cap it at half the slot. */
-    var hitR = Math.min(9, Math.max(nodeSize + 1, plan.R * lay.unit / 2));
+    var hitR = Math.min(9, Math.max(maxNode + 1, plan.R * lay.unit / 2));
     var nodeEls = {};
     lay.leaves.forEach(function (leaf) {
       var n = leaf.data.node;
@@ -231,13 +307,16 @@
       var g = el('g', { 'class': 'nx-node', 'data-id': n.id, transform: 'translate(' + pos[0].toFixed(2) + ',' + pos[1].toFixed(2) + ')', tabindex: 0, role: 'button' }, gNodes);
       g.setAttribute('aria-label', n.id + ', ' + n.group + ', ' + n.out + ' outgoing and ' + n.inn + ' incoming links');
       var hit = el('circle', { r: hitR, fill: 'transparent', 'class': 'nx-hit' }, g);
-      if (showHalo) el('circle', { r: nodeSize * 2.2, fill: col, 'fill-opacity': 0.2, 'class': 'nx-halo' }, g);
-      el('circle', { r: nodeSize, fill: col, stroke: T.bg, 'stroke-width': 1, 'class': 'nx-dot' }, g);
+      var rN = szOf(n);
+      if (showHalo) el('circle', { r: rN * settings.haloSize, fill: col, 'fill-opacity': settings.haloOpacity / 100, 'class': 'nx-halo' }, g);
+      if (settings.nodeShape === 'square') el('rect', { x: -rN, y: -rN, width: rN * 2, height: rN * 2, fill: col, stroke: T.bg, 'stroke-width': settings.nodeStroke, 'class': 'nx-dot' }, g);
+      else el('circle', { r: rN, fill: col, stroke: T.bg, 'stroke-width': settings.nodeStroke, 'class': 'nx-dot' }, g);
       if (plan.shown[leaf.id]) {
         var p = layoutLib.labelPlacement(leaf.x);
         var off = plan.pad;
         var lg = el('g', { transform: 'rotate(' + p.rotate.toFixed(3) + ') translate(' + (p.flip ? -off : off) + ',0)', 'class': 'nx-lab' }, g);
         var t = el('text', { 'class': 'nx-label', 'font-size': fs, fill: T.ink, 'text-anchor': p.flip ? 'end' : 'start', 'dominant-baseline': 'central', x: 0, y: 0 }, lg);
+        if (settings.labelWeight === 'bold') t.style.fontWeight = '700';
         t.textContent = plan.labelText[leaf.id];
       }
       nodeEls[n.id] = g;
@@ -249,13 +328,14 @@
     var wlo = Infinity, whi = -Infinity;
     graph.links.forEach(function (l) { if (l.weight < wlo) wlo = l.weight; if (l.weight > whi) whi = l.weight; });
     var scale = settings.weightScale;
+    var byWeight = settings.widthByWeight && graph.hasWeight;
     function tf (v) { return scale === 'log' ? Math.log(1 + Math.max(0, v)) : (scale === 'linear' ? v : Math.sqrt(Math.max(0, v))); }
     var tlo = tf(wlo), thi = tf(whi);
     var minW = settings.linkMinWidth, maxW = Math.max(settings.linkMaxWidth, minW);
     var rgb = pal.hexToRgb;
     var items = lay.links.map(function (lk) {
       var l = lk.link;
-      var width = graph.hasWeight && thi > tlo ? minW + (maxW - minW) * ((tf(l.weight) - tlo) / (thi - tlo)) : (minW + maxW) / 2;
+      var width = byWeight && thi > tlo ? minW + (maxW - minW) * ((tf(l.weight) - tlo) / (thi - tlo)) : (minW + maxW) / 2;
       var sg = gcolor[lk.a.data.node.group], tg = gcolor[lk.b.data.node.group];
       var base = settings.linkColorMode === 'single' ? T.single : (settings.linkColorMode === 'target' ? tg : sg);
       var c = rgb(base);
@@ -266,7 +346,7 @@
         from: new Float64Array(5), to: new Float64Array(5), lit: 0, own: false
       };
     });
-    items.sort(function (x, y) { return x.l.weight - y.l.weight; });
+    items.sort(function (x, y) { return settings.linkOrder === 'lightTop' ? y.l.weight - x.l.weight : x.l.weight - y.l.weight; });
     this.items = items;
     this.outRgb = rgb(T.out); this.inRgb = rgb(T.inn);
 
@@ -277,7 +357,7 @@
     layer.width = this.canvas.width; layer.height = this.canvas.height;
     var lx = layer.getContext('2d');
     lx.setTransform(dpr, 0, 0, dpr, plan.cx * dpr, plan.cy * dpr);
-    lx.lineCap = 'round'; lx.lineJoin = 'round';
+    lx.lineCap = settings.linkCap; lx.lineJoin = 'round';
     lx.globalAlpha = settings.linkOpacity;
     items.forEach(function (it) {
       lx.strokeStyle = 'rgb(' + it.base[0] + ',' + it.base[1] + ',' + it.base[2] + ')';
@@ -297,7 +377,7 @@
     /* Entrance. */
     if (settings.entrance && !reducedMotion() && !this._entered) {
       this._entered = true;
-      this.entrance = { t0: performance.now(), dur: 700, on: true };
+      this.entrance = { t0: performance.now(), dur: Math.max(1, settings.animMs), on: true };
     } else this.entrance.on = false;
 
     /* Re-apply whatever is focused, instantly, so a redraw never flashes. */
@@ -347,9 +427,9 @@
       var to = it.to, cur = it.cur;
       if (lit) {
         var c = isOut ? out : inn;
-        var w = it.width * 1.4 + 0.6;
+        var w = it.width * s.litWidth + 0.6;
         if (!wasOwn) { cur[0] = c.r; cur[1] = c.g; cur[2] = c.b; cur[3] = 0; cur[4] = w; }
-        to[0] = c.r; to[1] = c.g; to[2] = c.b; to[3] = LIT_ALPHA; to[4] = w;
+        to[0] = c.r; to[1] = c.g; to[2] = c.b; to[3] = s.litOpacity / 100; to[4] = w;
         it.own = true;
         litCount++;
         if (isOut) outSet[it.t] = true; else inSet[it.s] = true;
@@ -384,6 +464,19 @@
     else this._kick();
   };
 
+  function host_move (host, fn) { host.addEventListener('pointermove', fn); }
+
+  P._place = function (e) {
+    var r = this.readout, s = this.settings;
+    if (!s || r.hidden || s.tipFollow !== 'cursor' || !e) return;
+    var hr = this.host.getBoundingClientRect(), w = r.offsetWidth, h = r.offsetHeight;
+    var x = e.clientX - hr.left + 16, y = e.clientY - hr.top + 16;
+    if (x + w > hr.width - 4) x = e.clientX - hr.left - w - 16;
+    if (y + h > hr.height - 4) y = e.clientY - hr.top - h - 16;
+    r.style.left = Math.max(4, Math.min(x, hr.width - w - 4)) + 'px';
+    r.style.top = Math.max(4, Math.min(y, hr.height - h - 4)) + 'px';
+  };
+
   P._readout = function (node) {
     var r = this.readout, s = this.settings, T = this.theme;
     if (!node || !s.showReadout) { r.hidden = true; return; }
@@ -397,23 +490,26 @@
     a.textContent = node.id;
     var g = document.createElement('span');
     g.className = 'nx-ro-group';
-    g.textContent = '  ' + node.group;
+    g.textContent = '  ' + ((this.groupName && this.groupName[node.group]) || node.group);
     g.style.color = T.muted;
     a.appendChild(g);
     r.appendChild(a);
-    var wl = this.model.weightName ? (' (' + Math.round(node.outW * 100) / 100 + ' ' + this.model.weightName + ')') : '';
-    var wi = this.model.weightName ? (' (' + Math.round(node.inW * 100) / 100 + ' ' + this.model.weightName + ')') : '';
+    var wl = this.model.weightName ? (' (' + fmtW(node.outW, s) + ' ' + this.model.weightName + ')') : '';
+    var wi = this.model.weightName ? (' (' + fmtW(node.inW, s) + ' ' + this.model.weightName + ')') : '';
     function line (rgbHex, text) {
       var d = document.createElement('div');
-      var sw = document.createElement('span');
-      sw.className = 'nx-sw';
-      sw.style.background = rgbHex;
-      d.appendChild(sw);
+      if (s.tipSwatch) {
+        var sw = document.createElement('span');
+        sw.className = 'nx-sw';
+        sw.style.background = rgbHex;
+        d.appendChild(sw);
+      }
       d.appendChild(document.createTextNode(text));
       r.appendChild(d);
     }
     if (s.hoverMode !== 'in') line(T.out, node.out + ' outgoing' + wl);
     if (s.hoverMode !== 'out') line(T.inn, node.inn + ' incoming' + wi);
+    this._place(this._pt);
   };
 
   /* ---------------------------------------------------------------- motion */
@@ -457,16 +553,16 @@
   };
 
   P._paint = function (now) {
-    var ctx = this.ctx, p = this.planned;
+    var ctx = this.ctx, p = this.planned, s0 = this.settings;
     if (!ctx || !p) return;
     var dpr = this.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, p.cx * dpr, p.cy * dpr);
-    ctx.lineCap = 'round';
+    ctx.lineCap = this.settings.linkCap;
     ctx.lineJoin = 'round';
     var ent = 1;
-    if (this.entrance.on) ent = easeInOutCubic(clamp(((now || performance.now()) - this.entrance.t0) / this.entrance.dur, 0, 1));
+    if (this.entrance.on) ent = (EASES[s0.animEase] || EASES.inout)(clamp(((now || performance.now()) - this.entrance.t0) / this.entrance.dur, 0, 1));
     var items = this.items, s = this.settings;
     var glow = s.glow && this.litCount > 0 && this.litCount <= 160;
     if (this.layer && this.layerA > 0.002) {
@@ -485,7 +581,7 @@
       var col = 'rgb(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ')';
       ctx.strokeStyle = col;
       ctx.lineWidth = c[4];
-      if (glow && it.lit) { ctx.shadowColor = col; ctx.shadowBlur = 10 * dpr; } else ctx.shadowBlur = 0;
+      if (glow && it.lit) { ctx.shadowColor = col; ctx.shadowBlur = s.glowSize * dpr; } else ctx.shadowBlur = 0;
       ctx.stroke(it.path);
     }
     ctx.shadowBlur = 0;
@@ -500,7 +596,7 @@
         ctx.globalAlpha = a * ent;
         ctx.fillStyle = 'rgb(' + (q.cur[0] | 0) + ',' + (q.cur[1] | 0) + ',' + (q.cur[2] | 0) + ')';
         ctx.beginPath();
-        ctx.arc(pos[0], pos[1], Math.max(2.4, q.cur[4] * 0.9 + 1.2), 0, Math.PI * 2);
+        ctx.arc(pos[0], pos[1], Math.max(2.4, q.cur[4] * 0.9 + 1.2) * s.terminalSize, 0, Math.PI * 2);
         ctx.fill();
       }
     }

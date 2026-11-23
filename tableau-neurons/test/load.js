@@ -9,7 +9,7 @@ function load(files) {
   const sandbox = { console, Math, Date, Object, Array, String, Number, JSON, isFinite, parseFloat, parseInt, Set, Map, Promise };
   sandbox.window = undefined;
   const ctx = vm.createContext(sandbox);
-  const list = ['lib/d3/d3-path.min.js', 'lib/d3/d3-shape.min.js', 'lib/d3/d3-hierarchy.min.js'].concat(files || []);
+  const list = ['lib/ctab-panel/ctab-panel.js', 'lib/d3/d3-path.min.js', 'lib/d3/d3-shape.min.js', 'lib/d3/d3-hierarchy.min.js'].concat(files || []);
   list.forEach(f => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }));
   return ctx;
 }

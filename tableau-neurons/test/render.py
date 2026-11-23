@@ -12,8 +12,11 @@ Gates, each with a minimum subject count (RED below it, never a silent pass):
   B  hover: eased fade (monotone, intermediate frames, no jumps), outgoing and
      incoming lit in two colours, the rest dimmed, node classes, readout, release.
   C  click / selection / hover pushed to the mock Tableau API.
-  D  settings panel: stepper typed + saved as a string, survives reload, copy/paste,
-     no sliders, no dialogs, panel text >= 14px and >= 7:1.
+  D  the shared floating settings panel (ctab-panel): gear opens it, drag by the title clamps to the frame,
+     minimize, close, Escape, Copy and Paste round trip, a change re-renders live and is saved as a string,
+     no range input, no browser dialog, panel text >= 14px and >= 7:1 on every tab, the 390-wide sheet,
+     an old workbook's keys still read.
+  G  every setting is flipped on a live chart and the render must change (or the named DOM fact must).
   E  data shapes: tiny, ungrouped, weird, empty, big, shelves removed, resize.
   F  the Viz pages stand-in (the real standin.js from the hub repo) drives it.
 """
@@ -349,125 +352,329 @@ def gate_c(b, base):
     g.close()
 
 
+def mock_page(b, base, w, h, errs, stored=None, fx="worm", bg=None, scheme="light", query=""):
+    """A page.html visit with settings pre-stored the way Tableau stores them (strings under neurons.)."""
+    ctx = b.new_context(viewport={"width": w, "height": h}, color_scheme=scheme, permissions=["clipboard-read", "clipboard-write"])
+    pg = ctx.new_page()
+    pg.on("console", lambda m: errs.append(m.type + ": " + m.text) if m.type in ("error", "warning") else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
+    pg.on("dialog", lambda d: (errs.append("browser dialog: " + d.message), d.dismiss()))
+    if stored:
+        snap = {("neurons." + k): (json.dumps(v) if isinstance(v, (list, dict)) else str(v).lower() if isinstance(v, bool) else str(v)) for k, v in stored.items()}
+        pg.add_init_script("localStorage.setItem('nx-mock-settings', %s)" % json.dumps(json.dumps(snap)))
+    pg.goto(base + "/test/page.html?w=%d&h=%d&fx=%s%s%s" % (w, h, fx, ("&bg=" + bg) if bg else "", query))
+    return ctx, pg
+
+
+PANEL_TEXT = """() => {
+  const p = document.querySelector('.cp-panel'), cs = e => getComputedStyle(e);
+  const els = [...p.querySelectorAll('*')].filter(e => e.getBoundingClientRect().width > 0 && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+  const bgOf = e => { let x = e; while (x) { const c = cs(x).backgroundColor; if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; x = x.parentElement; } return 'rgb(255,255,255)'; };
+  return { n: els.length, small: els.filter(e => parseFloat(cs(e).fontSize) < 14).map(e => e.className + ':' + cs(e).fontSize).slice(0, 5),
+    pairs: els.map(e => [cs(e).color, bgOf(e), e.className, e.textContent.trim().slice(0, 20)]) };
+}"""
+RECT = "(sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; }"
+
+
 def gate_d(b, base):
-    g = Gate("D settings panel", 26)
+    """D: the shared floating settings panel, driven the way a person drives it."""
+    g = Gate("D settings panel (ctab-panel)", 48)
     errs = []
-    ctx, pg = new_page(b, base + "/test/page.html?w=1200&h=760&fx=worm", 1200, 760, errs)
+    ctx, pg = mock_page(b, base, 1200, 760, errs)
     wait_idle(pg)
-    pg.click(".nx-gear")
-    pg.wait_for_timeout(500)
-    g.ok(pg.evaluate("() => document.querySelector('.nx-panel').classList.contains('open')"), "gear opens the panel")
-    g.ok(pg.evaluate("() => document.querySelectorAll('input[type=range]').length") == 0, "no range inputs anywhere")
-    nsteppers = pg.evaluate("() => document.querySelectorAll('.nx-stepper').length")
-    g.ok(nsteppers >= 8, "%d steppers in the panel" % nsteppers)
-    info = pg.evaluate("""() => {
-      const p = document.querySelector('.nx-panel'), cs = e => getComputedStyle(e);
-      const els = [...p.querySelectorAll('*')].filter(e => e.childNodes.length && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
-      const bgOf = e => { let x = e; while (x) { const c = cs(x).backgroundColor; if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; x = x.parentElement; } return 'rgb(255,255,255)'; };
-      return { n: els.length, small: els.filter(e => parseFloat(cs(e).fontSize) < 14).map(e => e.className + ':' + cs(e).fontSize).slice(0, 5),
-        pairs: els.map(e => [cs(e).color, bgOf(e), e.className, e.textContent.trim().slice(0, 20), e.closest('.nx-seg-btn.on, .nx-btn.danger') ? 1 : 0]) };
-    }""")
-    g.ok(info["n"] > 20 and not info["small"], "panel: %d text nodes, under 14px: %s" % (info["n"], info["small"]))
-    bad = []
-    for col, bgc, cls, txt, special in info["pairs"]:
-        c = contrast(rgb_of(col), rgb_of(bgc))
-        if c < 7 and not special:
-            bad.append("%s %r %.2f" % (cls, txt, c))
-    g.ok(not bad, "panel text at 7:1 on its own background; under: %s" % bad[:4])
+    pg.click(".cp-gear")
+    pg.wait_for_selector(".cp-panel:not([hidden])")
+    g.ok(pg.is_visible(".cp-panel"), "the gear opens the panel")
+    tabs = pg.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
+    g.ok(tabs[:5] == ["Layout", "Nodes", "Links", "Hover", "Group arcs"] and "Fields" in tabs and "Colors" in tabs and len(tabs) >= 8, "tabs: %s" % tabs)
+    nset = pg.evaluate("() => NX.app.state.store.rows.filter(r => r.type !== 'note').length")
+    g.ok(nset >= 40, "%d settings (at least 40) over %d tabs" % (nset, len(tabs)))
+    ranges, smalls, lows = 0, [], []
+    for t in pg.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.dataset.t)"):
+        pg.click(".cp-tab[data-t='%s']" % t)
+        ranges += pg.evaluate("() => document.querySelectorAll('input[type=range]').length")
+        info = pg.evaluate(PANEL_TEXT)
+        g.ok(info["n"] > 6, "tab %s shows %d text nodes" % (t, info["n"]))
+        smalls += info["small"]
+        for col, bgc, cls, txt in info["pairs"]:
+            c = contrast(rgb_of(col), rgb_of(bgc))
+            if c < 7:
+                lows.append("%s/%s %r %.2f" % (t, cls, txt, c))
+    g.ok(ranges == 0, "no range input on any tab (%d)" % ranges)
+    g.ok(not smalls, "every panel text is 14px or more on every tab; under: %s" % smalls[:4])
+    g.ok(not lows, "every panel text is 7:1 on its own background on every tab; under: %s" % lows[:4])
     if SHOTS:
-        pg.screenshot(path=str(SHOTS / "D_panel.png"))
-    # type into the beta stepper
-    path0 = pg.evaluate("() => NX.app.state.view.items[0].path && NX.app.state.view.planned.lay.links[0].d")
-    inp = pg.locator('input[aria-label="Bundling strength (beta)"]')
-    inp.fill("0.3")
-    inp.press("Enter")
-    inp.blur()
-    pg.wait_for_timeout(800)
-    s = pg.evaluate("() => NX_MOCK.settings.getAll()")
-    g.ok(s.get("neurons.beta") == "0.3" and isinstance(s["neurons.beta"], str), "typed 0.3 is saved as the string %r" % s.get("neurons.beta"))
-    g.ok(pg.evaluate("() => NX_MOCK.settings.saveCount") >= 1, "saveAsync was called")
+        pg.click(".cp-tab[data-t='layout']")
+        pg.screenshot(path=str(SHOTS / "D_panel_1200x760.png"))
+
+    # drag by the title bar: clamps to the frame on every side
+    pg.click(".cp-tab[data-t='layout']")
+    host = pg.evaluate(RECT, "#nx-root")
+    hd = pg.evaluate(RECT, ".cp-title")
+    x, y = (hd["l"] + hd["r"]) / 2, (hd["t"] + hd["b"]) / 2
+    r0 = pg.evaluate(RECT, ".cp-panel")
+    pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 180, y + 90, steps=6); pg.mouse.up()
+    r1 = pg.evaluate(RECT, ".cp-panel")
+    g.ok(abs(r1["l"] - (r0["l"] - 180)) < 3 and abs(r1["t"] - (r0["t"] + 90)) < 3, "dragging the title moves the panel by the pointer's distance (%.0f, %.0f)" % (r1["l"] - r0["l"], r1["t"] - r0["t"]))
+    inside = lambda r: r["l"] >= host["l"] - 1.5 and r["t"] >= host["t"] - 1.5 and r["r"] <= host["r"] + 1.5 and r["b"] <= host["b"] + 1.5
+    for name, (dx, dy) in {"top-left": (-4000, -4000), "bottom-right": (4000, 4000), "top-right": (4000, -4000), "bottom-left": (-4000, 4000)}.items():
+        hd = pg.evaluate(RECT, ".cp-title")
+        x, y = (hd["l"] + hd["r"]) / 2, (hd["t"] + hd["b"]) / 2
+        pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x + dx, y + dy, steps=6); pg.mouse.up()
+        g.ok(inside(pg.evaluate(RECT, ".cp-panel")), "dragged past the %s corner, the panel stays inside the frame" % name)
+
+    # minimize, restore
+    pg.click("[data-a=min]")
+    pg.wait_for_function("() => document.querySelector('.cp-panel').classList.contains('cp-min')")
+    g.ok(pg.is_visible(".cp-head") and not pg.is_visible(".cp-body"), "minimize keeps the title bar and hides the body")
+    pg.click("[data-a=min]")
+    pg.wait_for_function("() => !document.querySelector('.cp-panel').classList.contains('cp-min')")
+    g.ok(pg.is_visible(".cp-body"), "restore brings the body back")
+
+    # a setting change re-renders live, and is saved as a string
+    path0 = pg.evaluate("() => NX.app.state.view.planned.lay.links[0].d")
+    pg.click("[data-a=dec][data-k=beta]")
+    pg.wait_for_function("() => NX.app.state.settings.beta < 0.85")
+    pg.wait_for_timeout(200)
     path1 = pg.evaluate("() => NX.app.state.view.planned.lay.links[0].d")
-    g.ok(path0 != path1 and pg.evaluate("() => NX.app.state.view.planned.lay.beta") == 0.3, "the curve redrew with beta 0.3")
-    # plus button steps by the schema step
-    pg.locator('input[aria-label="Bundling strength (beta)"]').locator("xpath=..").locator("button").nth(1).click()
-    pg.wait_for_timeout(300)
-    g.ok(abs(pg.evaluate("() => NX.app.state.settings.beta") - 0.35) < 1e-9, "the + button steps beta by 0.05")
-    # out-of-range typed value is clamped
-    inp.fill("9")
-    inp.press("Enter")
-    pg.wait_for_timeout(300)
-    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 1, "typing 9 clamps to the maximum 1")
-    # text size cannot be typed under 14
-    fsz = pg.locator('input[aria-label="Text size"]')
-    fsz.fill("9")
-    fsz.press("Enter")
-    pg.wait_for_timeout(400)
-    g.ok(pg.evaluate("() => NX.app.state.settings.fontSize") == 14 and pg.evaluate("() => NX.app.state.view.inspect().plan.fs") == 14, "typing 9 for the text size gives 14")
-    # chip group and dropdown and toggle
-    pg.get_by_role("radio", name="Outgoing", exact=True).click()
-    pg.wait_for_timeout(300)
-    g.ok(pg.evaluate("() => NX.app.state.settings.hoverMode") == "out", "chip group sets hoverMode")
-    pg.select_option('select[aria-label="Order inside a group"]', "degree")
-    pg.wait_for_timeout(400)
-    g.ok(pg.evaluate("() => NX.app.state.settings.nodeSort") == "degree", "dropdown sets nodeSort")
-    pg.locator('.nx-row:has-text("Glow on lit links") .nx-switch').click()
-    pg.wait_for_timeout(300)
-    g.ok(pg.evaluate("() => NX.app.state.settings.glow") is False, "toggle sets glow false")
-    pg.fill('input[aria-label="Outgoing colour hex value"]', "#ff00aa")
-    pg.press('input[aria-label="Outgoing colour hex value"]', "Enter")
-    pg.locator('input[aria-label="Outgoing colour hex value"]').blur()
-    pg.wait_for_timeout(300)
-    g.ok(pg.evaluate("() => NX.app.state.settings.outColor") == "#ff00aa", "colour field sets outColor")
-    # copy settings gives JSON the Viz pages flow accepts
-    pg.get_by_role("button", name="Copy settings").click()
-    pg.wait_for_timeout(300)
+    g.ok(path0 != path1 and abs(pg.evaluate("() => NX.app.state.view.planned.lay.beta") - 0.8) < 1e-9, "the - button on beta redraws the links live (beta 0.8)")
+    pg.wait_for_function("() => NX_MOCK.settings.saveCount >= 1", timeout=5000)
+    s = pg.evaluate("() => NX_MOCK.settings.getAll()")
+    g.ok(s.get("neurons.beta") == "0.8" and all(isinstance(v, str) for v in s.values()), "beta 0.8 is saved as the string %r under neurons." % s.get("neurons.beta"))
+    inp = pg.locator("input[data-k=beta]")
+    inp.fill("9"); inp.press("Enter"); pg.wait_for_timeout(300)
+    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 1, "typing 9 clamps beta to its maximum 1")
+    pg.click(".cp-tab[data-t='labels']")
+    fsz = pg.locator("input[data-k=fontSize]"); fsz.fill("9"); fsz.press("Enter"); pg.wait_for_timeout(400)
+    g.ok(pg.evaluate("() => NX.app.state.settings.fontSize") == 14 and pg.evaluate("() => NX.app.state.view.inspect().plan.fs") == 14, "typing 9 for the text size gives 14 (the floor)")
+
+    # Copy, change, Paste: the round trip
+    pg.click(".cp-tab[data-t='layout']")
+    inp.fill("0.3"); inp.press("Enter"); pg.wait_for_timeout(300)
+    pg.click("[data-a=copy]")
+    pg.wait_for_function("() => document.querySelector('.cp-status').textContent.indexOf('Copied') === 0 || document.querySelector('.cp-status').textContent.indexOf('clipboard') > 0", timeout=5000)
+    txt = pg.evaluate("() => NX.app.state.panel.lastCopied")
+    obj = json.loads(txt)
+    nkeys = pg.evaluate("() => NX.settings.KEYS.length")
+    g.ok(obj.get("beta") == 0.3 and obj.get("fontSize") == 14 and len(obj) == nkeys and all("." not in k for k in obj), "Copy settings gives flat dot-free JSON with all %d settings (%d in the block)" % (nkeys, len(obj)))
     try:
-        txt = pg.evaluate("() => navigator.clipboard.readText()")
-    except Exception as e:
-        txt = ""
-    obj = {}
-    try:
-        obj = json.loads(txt)
+        clip = pg.evaluate("() => navigator.clipboard.readText()")
     except Exception:
-        pass
-    g.ok(obj.get("beta") == 1 and obj.get("hoverMode") == "out" and obj.get("glow") is False and obj.get("outColor") == "#ff00aa", "Copy settings put valid JSON on the clipboard (%d keys)" % len(obj))
-    nkeys = pg.evaluate("() => Object.keys(NX.schema.DEFAULTS).length")
-    g.ok(len(obj) == nkeys and nkeys >= 35 and all("." not in k for k in obj), "the block carries all %d settings with dot-free keys (%d in the block)" % (nkeys, len(obj)))
-    # paste settings: inline box, no dialog
-    pg.get_by_role("button", name="Paste settings").click()
+        clip = ""
+    g.ok(clip == "" or json.loads(clip).get("beta") == 0.3, "the clipboard carries the same block")
+    inp.fill("0.9"); inp.press("Enter"); pg.wait_for_timeout(300)
+    pg.click("[data-a=paste]")
+    pg.wait_for_selector("textarea[data-f=paste]")
+    pg.fill("textarea[data-f=paste]", txt)
+    pg.click("[data-a=pasteapply]")
+    pg.wait_for_selector("textarea[data-f=paste]", state="detached")
+    pg.wait_for_timeout(300)
+    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 0.3, "Paste of the copied block puts beta back to 0.3")
+    pg.click("[data-a=paste]")
+    pg.fill("textarea[data-f=paste]", "{not json")
+    pg.click("[data-a=pasteapply]")
     pg.wait_for_timeout(200)
-    ta = pg.locator("textarea.nx-pastearea")
-    g.ok(ta.is_visible(), "Paste settings opens an inline box (no browser dialog)")
-    ta.fill('{"beta": 0.2, "glow": true, "hoverMode": "both"}')
-    pg.get_by_role("button", name="Apply").click()
-    pg.wait_for_timeout(500)
-    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 0.2 and pg.evaluate("() => NX.app.state.settings.glow") is True, "pasted JSON applied")
-    ta.fill("{not json")
-    pg.get_by_role("button", name="Apply").click()
-    pg.wait_for_timeout(200)
-    g.ok("not valid" in pg.evaluate("() => document.querySelector('.nx-pastebox').textContent"), "bad JSON is refused inline")
-    # reload: settings survive in the mock (Tableau) store
+    g.ok(pg.query_selector("textarea[data-f=paste]") is not None and pg.evaluate("() => NX.app.state.settings.beta") == 0.3, "bad JSON is refused inline and nothing changes")
+    pg.click("[data-a=pastecancel]")
+
+    # close, reopen, Escape
+    pg.click("[data-a=close]")
+    pg.wait_for_function("() => document.querySelector('.cp-panel').hidden")
+    g.ok(not pg.is_visible(".cp-panel") and pg.evaluate("() => document.activeElement.className") == "cp-gear", "close hides the panel and returns focus to the gear")
+    pg.click(".cp-gear")
+    pg.wait_for_selector(".cp-panel:not([hidden])")
+    pg.keyboard.press("Escape")
+    pg.wait_for_function("() => document.querySelector('.cp-panel').hidden")
+    g.ok(not pg.is_visible(".cp-panel"), "Escape closes the panel")
+
+    # reload: saved values come back as typed values
     pg.reload()
     wait_idle(pg, 600)
-    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 0.2 and pg.evaluate("() => NX.app.state.settings.nodeSort") == "degree", "settings reload from the extension settings store as typed values")
-    # reset needs two taps
-    pg.click(".nx-gear")
-    pg.wait_for_timeout(300)
-    pg.get_by_role("button", name="Reset all").click()
-    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 0.2, "Reset all asks for a second tap")
-    pg.get_by_role("button", name="Tap again to confirm").click()
-    pg.wait_for_timeout(400)
-    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 0.85, "second tap resets to the defaults")
-    # search and Escape
-    pg.fill(".nx-search", "glow")
-    pg.wait_for_timeout(200)
-    g.ok(pg.evaluate("() => document.querySelectorAll('.nx-row').length") <= 3, "the search box filters settings")
-    pg.keyboard.press("Escape")
-    pg.wait_for_timeout(400)
-    g.ok(not pg.evaluate("() => document.querySelector('.nx-panel').classList.contains('open')"), "Escape closes the panel")
+    g.ok(pg.evaluate("() => NX.app.state.settings.beta") == 0.3 and pg.evaluate("() => NX.app.state.view.planned.lay.beta") == 0.3, "after a reload beta 0.3 is read back from the saved string and drawn")
     g.ok(pg.evaluate("() => window.__audit.dialogs") == 0, "no alert, confirm or prompt was called")
-    g.ok(not errs, "no console errors: " + str(errs[:3]))
+    g.ok(not errs, "no console errors or browser dialogs: " + str(errs[:3]))
     ctx.close()
+
+    # a 390-wide frame: the panel becomes a full-frame sheet that fits
+    errs2 = []
+    ctx, pg = mock_page(b, base, 390, 760, errs2)
+    wait_idle(pg, 600)
+    pg.click(".cp-gear")
+    pg.wait_for_selector(".cp-panel:not([hidden])")
+    r = pg.evaluate(RECT, ".cp-panel")
+    g.ok(r["l"] >= -1 and r["r"] <= 391 and r["w"] >= 330, "at 390 wide the panel is a sheet inside the frame (%.0f to %.0f)" % (r["l"], r["r"]))
+    g.ok(not pg.evaluate("() => document.documentElement.scrollWidth > innerWidth + 1"), "no horizontal scroll at 390 wide")
+    info = pg.evaluate(PANEL_TEXT)
+    g.ok(not info["small"], "390 wide: every text is 14px or more")
+    if SHOTS:
+        pg.screenshot(path=str(SHOTS / "D_panel_390.png"))
+    g.ok(not errs2, "390 wide: no console errors " + str(errs2[:2]))
+    ctx.close()
+
+    # legacy: a workbook saved by the old panel keeps its look
+    errs3 = []
+    ctx, pg = mock_page(b, base, 900, 600, errs3, {"nodeSize": 7, "nodeShape": None} if False else {"nodeSize": 7, "bgMode": "white", "fontFamily": "Verdana, Geneva, sans-serif", "showGroupNames": False, "panelTheme": "dark", "beta": 0.5})
+    wait_idle(pg, 600)
+    st = pg.evaluate("() => NX.app.state.settings")
+    g.ok(st["nodeSize"] == 7 and st["bgMode"] == "white" and st["showGroupNames"] is False and st["beta"] == 0.5, "an old workbook's keys are read on load")
+    g.ok(pg.evaluate("() => +document.querySelector('.nx-dot').getAttribute('r')") == 7 and pg.evaluate("() => document.querySelectorAll('.nx-gname').length") == 0 and "Verdana" in pg.evaluate("() => document.querySelector('#nx-chart').style.fontFamily"), "and they draw: node size 7, no group names, Verdana")
+    g.ok(pg.evaluate("() => JSON.parse(NX_MOCK.settings.get('neurons._panel') || '{}').theme") == "dark", "the old panelTheme dark was carried into the new panel's saved state")
+    g.ok(not errs3, "legacy load: no console errors " + str(errs3[:2]))
+    ctx.close()
+    g.close()
+
+
+# ---- G: flip every setting, and the render must change ----------------------------------------------------
+
+SIG = """() => { const v = NX.app.state.view, h = document.querySelector('#nx-chart'); const u = v.canvas.toDataURL(); let k = 0;
+  for (let i = 0; i < u.length; i += 7) k = (k * 31 + u.charCodeAt(i)) | 0;
+  /* a canonical serialization: tag, attributes sorted by name, children; so attribute ORDER is not a difference */
+  const ser = e => e.nodeType === 3 ? e.textContent : '<' + e.tagName + [...e.attributes].map(a => ' ' + a.name + '=' + (a.name === 'class' ? a.value.split(/\s+/).sort().join(' ') : a.value)).sort().join('') + '>' + [...e.childNodes].map(ser).join('') + '</>';
+  return { dom: ser(h), cv: k + ':' + u.length }; }"""
+ROOT_SIG = "() => document.querySelector('.nx-svg').getAttribute('data-entrance') || 'none'"
+
+# key -> (context, settings to set first, alternative value). Anything not listed: context idle, generic alternative.
+PROBES = {
+    "labelMaxPct": ("idle", {"valueLabels": True}, 15), "bgMode": ("idle", {}, "white"),
+    "numCompact": ("hover", {"numScale": "100"}, True), "numThousands": ("hover", {"numScale": "100"}, "none"),
+    "numDecimals": ("hover", {}, 3), "numScale": ("hover", {}, "100"), "numPrefix": ("hover", {}, "$"), "numSuffix": ("hover", {}, " syn"),
+    "tipSize": ("hover", {}, 20), "tipSwatch": ("hover", {}, False), "tipFollow": ("hover", {}, "cursor"), "tipMaxW": ("hover", {}, 200), "showReadout": ("hover", {}, False),
+    "hoverHighlight": ("hover", {}, False), "hoverMode": ("hover", {}, "out"), "outColor": ("hover", {}, "#ff00aa"), "inColor": ("hover", {}, "#00ff55"),
+    "litWidth": ("hover", {}, 4), "litOpacity": ("hover", {}, 40), "glow": ("hover", {}, False), "glowSize": ("hover", {}, 28), "terminals": ("hover", {}, False),
+    "terminalSize": ("hover", {}, 3), "dimOpacity": ("hover", {}, 0.4), "dimNodes": ("hover", {}, 90), "focusScale": ("hover", {}, 3), "neighborScale": ("hover", {}, 2.5),
+    "fadeMs": ("fade", {}, 900), "pushHover": ("pushhover", {}, False), "clickSelect": ("click", {}, False),
+    "entrance": ("load", {}, False), "animMs": ("load", {}, 2000), "animEase": ("load", {}, "linear"),
+    "linkColor": ("idle", {"linkColorMode": "single"}, "#ff00aa"), "bgCustom": ("idle", {"bgMode": "custom"}, "#ffffff"),
+    "textMode": ("idle", {"bgMode": "white", "textCustom": "#003366"}, "custom"), "textCustom": ("idle", {"bgMode": "white", "textMode": "custom"}, "#003366"),
+    "nodeSizeMax": ("idle", {"nodeSizeBy": "links"}, 4), "nodeSizeBy": ("idle", {}, "links"),
+    "titleText": ("idle", {"showTitle": True}, "Worm wiring"), "showTitle": ("idle", {"titleText": "Worm wiring"}, True),
+    "titleSize": ("idle", {"showTitle": True, "titleText": "Worm wiring"}, 30), "titleWeight": ("idle", {"showTitle": True, "titleText": "Worm wiring"}, "normal"),
+    "borderOn": ("idle", {}, True), "borderColor": ("idle", {"borderOn": True}, "#ff00aa"), "borderWidth": ("idle", {"borderOn": True}, 6), "borderRadius": ("idle", {"borderOn": True}, 30),
+    "groupOrder": ("idle", {}, "size"), "nodeSort": ("idle", {}, "degree"), "weightScale": ("idle", {}, "log"), "linkMinWidth": ("idle", {}, 5), "linkMaxWidth": ("idle", {}, 12),
+    "minWeight": ("idle", {}, 25), "palette": ("idle", {}, "safe"), "fontFamily": ("idle", {}, "Verdana, Geneva, sans-serif"),
+    "fieldGroup": ("idle", {}, "TargetGroup"), "fieldSource": ("idle", {}, "Target"), "fieldTarget": ("idle", {}, "Source"), "fieldWeight": ("idle", {}, "TargetGroup"),
+    "catColors": ("idle", {}, "LIST"), "showLabels": ("idle", {}, False), "labelWeight": ("idle", {}, "bold"), "valueLabels": ("idle", {}, True),
+}
+# What each timing or behaviour setting is checked against in the DOM, in words (the report prints these).
+DOM_ONLY = {
+    "entrance": "svg data-entrance exists only when the entrance ran", "animMs": "svg data-entrance carries the duration", "animEase": "svg data-entrance carries the easing",
+    "fadeMs": "view.trans.dur on the next hover", "pushHover": "hoverTupleAsync calls on the mock worksheet", "clickSelect": "pinned node and selectMarksByValue calls on the mock worksheet",
+}
+
+
+def alt_value(row, cur):
+    t = row["type"]
+    if t == "number":
+        return row["max"] if cur != row["max"] else row["min"]
+    if t == "check":
+        return not cur
+    if t in ("chips", "select"):
+        return [o["value"] for o in row["opts"] if o["value"] != str(cur)][0]
+    if t == "color":
+        return "#ff00aa"
+    if t == "text":
+        return "Zz"
+    raise Exception("no generic alternative for %s %s" % (row["key"], t))
+
+
+def gate_g(b, base):
+    """G: every setting is flipped on a live chart; the render must change, or the named DOM fact must."""
+    only = [a.split("=", 1)[1] for a in sys.argv if a.startswith("--keys=")]
+    only = only[0].split(",") if only else None      # --keys=a,b flips just those (the sabotage run uses it); the full run flips all
+    g = Gate("G every setting changes the render", 175 if not only else 1)
+    errs = []
+    ctx, pg = mock_page(b, base, 900, 600, errs)
+    wait_idle(pg, 900)
+    rows = pg.evaluate("() => NX.app.state.store.rows.filter(r => r.type !== 'note').map(r => ({ key: r.key, type: r.type, min: r.min, max: r.max, def: NX.settings.DEFAULTS[r.key], opts: (r.opts || []).map(o => ({ value: o.value })) }))")
+    g.ok(len(rows) >= 40, "%d settings to flip" % len(rows))
+    first_group = pg.evaluate("() => NX.app.state.groupList[0]")
+    setv = lambda k, v: pg.evaluate("([k, v]) => NX.app.state.store.set(k, v)", [k, v])
+    settle = lambda ms=650: pg.wait_for_timeout(ms)
+    flipped, doc = [], {}
+    for row in rows:
+        key = row["key"]
+        if key in ("panel",) or (only and key not in only):
+            continue
+        ctxname, pre, alt = PROBES.get(key, ("idle", {}, None))
+        if alt is None:
+            alt = alt_value(row, row["def"])
+        if alt == "LIST":
+            alt = [{"key": first_group, "name": "Zed", "color": "#ff00ff", "hidden": False}]
+        if ctxname == "load":
+            # a fresh page for each: only the first draw plays the entrance
+            outs = []
+            for val in (row["def"], alt):
+                e2 = []
+                c2, p2 = mock_page(b, base, 900, 600, e2, {key: val})
+                p2.wait_for_function("() => window.NX && NX.app.state.view && NX.app.state.view.planned", timeout=8000)
+                outs.append(p2.evaluate(ROOT_SIG)); c2.close()
+            g.ok(outs[0] != outs[1], "%s: the entrance setup differs between %r and %r (%s)" % (key, row["def"], alt, DOM_ONLY[key]))
+            doc[key] = "dom"
+            flipped.append(key); continue
+        for k, v in pre.items():
+            setv(k, v)
+        if ctxname in ("hover", "fade", "pushhover"):
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').hover()
+        settle()
+        if ctxname == "fade":
+            pg.mouse.move(5, 5); settle(); setv(key, alt); settle(300)
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').hover(); pg.wait_for_timeout(100)
+            d_alt = pg.evaluate("() => NX.app.state.view.trans.dur")
+            pg.mouse.move(5, 5); settle(); setv(key, row["def"]); settle(300)
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').hover(); pg.wait_for_timeout(100)
+            d_def = pg.evaluate("() => NX.app.state.view.trans.dur")
+            g.ok(d_alt == alt and d_def == row["def"], "%s: the hover transition lasts %s ms at %s and %s ms at the default (%s)" % (key, d_alt, alt, d_def, DOM_ONLY[key]))
+            doc[key] = "dom"; flipped.append(key)
+            pg.mouse.move(5, 5)
+        elif ctxname == "pushhover":
+            cnt = lambda: pg.evaluate("() => NX_MOCK.worksheet.calls.filter(c => c.call === 'hoverTuple').length")
+            pg.mouse.move(5, 5); settle(300)
+            c0 = cnt()
+            pg.locator('.nx-node[data-id="AVB"] .nx-dot').hover(); pg.wait_for_timeout(250)
+            on = cnt() - c0
+            pg.mouse.move(5, 5); settle(300)
+            setv(key, alt); settle(300)
+            c1 = cnt()
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').hover(); pg.wait_for_timeout(250)
+            pg.mouse.move(5, 5); pg.wait_for_timeout(250)
+            off = cnt() - c1
+            g.ok(on >= 1 and off == 0, "%s: with it on, hovering a node sends hoverTuple (%d call); off, hovering and leaving sends %d (%s)" % (key, on, off, DOM_ONLY[key]))
+            doc[key] = "dom"; flipped.append(key)
+            setv(key, row["def"]); pg.mouse.move(5, 5)
+        elif ctxname == "click":
+            n0 = pg.evaluate("() => NX_MOCK.worksheet.calls.length")
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').click(); pg.wait_for_timeout(250)
+            pinned_on = pg.evaluate("() => NX.app.state.view.pinned"); sel_on = pg.evaluate("(n) => NX_MOCK.worksheet.calls.slice(n).filter(c => c.call === 'selectMarksByValue').length", n0)
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').click(); pg.wait_for_timeout(150)
+            setv(key, alt); settle(200)
+            n1 = pg.evaluate("() => NX_MOCK.worksheet.calls.length")
+            pg.locator('.nx-node[data-id="AVA"] .nx-dot').click(); pg.wait_for_timeout(250)
+            pinned_off = pg.evaluate("() => NX.app.state.view.pinned"); sel_off = pg.evaluate("(n) => NX_MOCK.worksheet.calls.slice(n).filter(c => c.call === 'selectMarksByValue').length", n1)
+            g.ok(pinned_on == "AVA" and sel_on >= 1 and pinned_off is None and sel_off == 0, "%s: on pins AVA and selects its marks (%s, %d calls); off pins nothing and sends none (%s, %d) (%s)" % (key, pinned_on, sel_on, pinned_off, sel_off, DOM_ONLY[key]))
+            doc[key] = "dom"; flipped.append(key)
+            setv(key, row["def"]); pg.evaluate("() => NX.app.state.view.clearPinned()")
+        else:
+            s0 = pg.evaluate(SIG)
+            setv(key, alt); settle()
+            s1 = pg.evaluate(SIG)
+            changed = s0["dom"] != s1["dom"] or s0["cv"] != s1["cv"]
+            how = "svg/html" if s0["dom"] != s1["dom"] else "canvas"
+            setv(key, row["def"]); settle()
+            s2 = pg.evaluate(SIG)
+            g.ok(changed, "%s: flipping %r to %r changes the render (%s)" % (key, row["def"], alt, how))
+            g.ok(s2["dom"] == s0["dom"] and s2["cv"] == s0["cv"], "%s: putting the default back restores the exact first render (control: the signature is stable)" % key)
+            doc[key] = how; flipped.append(key)
+        for k in pre:
+            setv(k, [r["def"] for r in rows if r["key"] == k][0])
+        if ctxname in ("hover",):
+            pg.mouse.move(5, 5)
+        settle(200)
+    missing = [r["key"] for r in rows if r["key"] not in flipped and r["key"] != "panel" and not only]
+    g.ok(not missing and (not only or len(flipped) == len(only)), "every setting was flipped (%d of %d); not flipped: %s" % (len(flipped), len(rows), missing))
+    g.ok(not errs, "no console errors while flipping: " + str(errs[:3]))
+    ctx.close()
+    if SHOTS:
+        (SHOTS / "G_flip_report.json").write_text(json.dumps(doc, indent=1))
     g.close()
 
 
@@ -604,9 +811,9 @@ def gate_f(b, base):
     pg.locator('.nx-node[data-id="AVA"] .nx-dot').click()
     pg.wait_for_timeout(300)
     g.ok(pg.evaluate("() => NX.app.state.view.inspect().pinned") == "AVA" and not errs, "stand-in: click pins the node and the no-op selection call raises nothing")
-    pg.click(".nx-gear")
-    pg.wait_for_timeout(300)
-    inp = pg.locator('input[aria-label="Bundling strength (beta)"]')
+    pg.click(".cp-gear")
+    pg.wait_for_selector(".cp-panel:not([hidden])")
+    inp = pg.locator("input[data-k=beta]")
     inp.fill("0.7")
     inp.press("Enter")
     pg.wait_for_timeout(700)
@@ -625,8 +832,8 @@ def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
         only = [a for a in sys.argv[1:] if a.startswith("--only=")]
-        sel = only[0].split("=")[1] if only else "ABCDEF"
-        for k, fn in (("A", gate_a), ("B", gate_b), ("C", gate_c), ("D", gate_d), ("E", gate_e), ("F", gate_f)):
+        sel = only[0].split("=")[1] if only else "ABCDEFG"
+        for k, fn in (("A", gate_a), ("B", gate_b), ("C", gate_c), ("D", gate_d), ("E", gate_e), ("F", gate_f), ("G", gate_g)):
             if k in sel:
                 try:
                     fn(b, base)

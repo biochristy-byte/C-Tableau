@@ -15,77 +15,25 @@
 (function (global) {
   'use strict';
 
-  var schema = global.NX.schema;
+  var SET = global.NX.settings;
+  var CP = global.CTabPanel;
   var layoutLib = global.NX.layout;
   var PREFIX = 'neurons.';
+  /* Settings that change which rows or nodes exist, so the model is rebuilt, not just redrawn. */
+  var DATA_KEYS = { fieldGroup: 1, fieldSource: 1, fieldTarget: 1, fieldWeight: 1, minWeight: 1, catColors: 1 };
 
   var state = {
-    worksheet: null, view: null, panel: null,
-    settings: schema.resolve({}),
+    worksheet: null, view: null, panel: null, store: null, raw: null,
     model: { graph: null, emptyMessage: '' },
-    saveTimer: null, ready: false, errors: []
+    ready: false, errors: []
   };
+  /* state.settings is the store's live typed values, so a test or the panel can read and set it the same way. */
+  Object.defineProperty(state, 'settings', { enumerable: true, get: function () { return state.store ? state.store.get() : SET.resolve({}); } });
 
   function log () {
     var args = [].slice.call(arguments);
     state.errors.push(args.map(String).join(' ').slice(0, 200));
     if (global.console && console.warn) console.warn.apply(console, ['[NX]'].concat(args));
-  }
-
-  /* ------------------------------------------------------------- settings */
-
-  function readStoredSettings () {
-    var stored = {};
-    var st = null;
-    try { st = global.tableau.extensions.settings; } catch (e) { log('no settings api', e); }
-    if (st) {
-      Object.keys(schema.DEFAULTS).forEach(function (k) {
-        try {
-          var v = st.get(PREFIX + k);
-          if (v !== undefined && v !== null) stored[k] = v;
-        } catch (e) { log('could not read setting', k, e); }
-      });
-    }
-    return schema.resolve(stored);
-  }
-
-  function persist (key, value) {
-    try { global.tableau.extensions.settings.set(PREFIX + key, String(value)); } catch (e) { log('could not stage setting', key, e); }
-    if (state.saveTimer) clearTimeout(state.saveTimer);
-    state.saveTimer = setTimeout(function () {
-      state.saveTimer = null;
-      try {
-        var p = global.tableau.extensions.settings.saveAsync();
-        if (p && p.catch) p.catch(function (e) { log('saveAsync rejected', e); });
-      } catch (e) { log('saveAsync threw', e); }
-    }, 400);
-  }
-
-  function setSetting (key, value) {
-    state.settings[key] = schema.coerce(key, value);
-    persist(key, state.settings[key]);
-    redraw();
-  }
-
-  function resetSettings () {
-    state.settings = schema.resolve({});
-    Object.keys(schema.DEFAULTS).forEach(function (k) { persist(k, state.settings[k]); });
-    redraw();
-  }
-
-  function replaceAllSettings (obj) {
-    var src = obj;
-    /* A block saved with the prefix ("neurons.beta") is accepted too. */
-    Object.keys(schema.DEFAULTS).forEach(function (k) {
-      var has = Object.prototype.hasOwnProperty;
-      var raw;
-      if (has.call(src, k)) raw = src[k];
-      else if (has.call(src, PREFIX + k)) raw = src[PREFIX + k];
-      else return;
-      state.settings[k] = schema.coerce(k, raw);
-      persist(k, state.settings[k]);
-    });
-    redraw();
   }
 
   /* ----------------------------------------------------------------- data */
@@ -138,45 +86,67 @@
     return String(n || '').replace(/^(?:SUM|AVG|MIN|MAX|CNT|COUNT|CNTD|ATTR|MEDIAN)\((.*)\)$/i, '$1');
   }
 
-  function buildModel (worksheet) {
+  /* Reads the sheet once: summary rows, the shelf mapping and the background. The model is rebuilt from this
+   * whenever a field, filter or group setting changes, without asking Tableau again. */
+  function readData (worksheet) {
     return Promise.all([readSummary(worksheet), readEncodings(worksheet)]).then(function (res) {
-      var data = res[0], enc = res[1];
-      var cols = data.columns;
-      var srcF = fieldName(enc.source), tgtF = fieldName(enc.target), grpF = fieldName(enc.group), wtF = fieldName(enc.weight);
-      var used = [];
-      if (!srcF || cols.indexOf(srcF) < 0) srcF = pickByName(cols, /^(?:source|from|origin|src)\b|source|from/i, used);
-      if (srcF) used.push(srcF);
-      if (!tgtF || cols.indexOf(tgtF) < 0) tgtF = pickByName(cols, /^(?:target|to|dest|destination|tgt)\b|target|dest/i, used);
-      if (tgtF) used.push(tgtF);
-      if (grpF && cols.indexOf(grpF) < 0) grpF = null;
-      if (!grpF && !enc.group) grpF = pickByName(cols, /^group$|^parent$|group|parent|category/i, used.concat([]).filter(function (c) { return !/target/i.test(c); }));
-      if (grpF && /target/i.test(grpF) && cols.length > 2) grpF = null;
-      if (wtF && cols.indexOf(wtF) < 0) wtF = null;
-      if (!wtF && !enc.weight) {
-        var cand = pickByName(cols, /weight|synapse|count|value|flow|sum|strength/i, used.concat([grpF]));
-        if (cand && data.rows.length && typeof data.rows[0][cand] === 'number') wtF = cand;
-      }
-      var tgF = pickByName(cols, /target.?group|to.?group|dest.?group/i, used.concat([grpF, wtF]));
-
-      var model = { graph: null, rows: [], names: { group: grpF, source: srcF, target: tgtF, weight: wtF }, worksheetBg: null,
-        weightName: wtF ? cleanName(wtF).toLowerCase() : null, emptyMessage: '' };
-      if (!srcF || !tgtF) {
-        model.emptyMessage = data.rows.length
-          ? 'Drop a dimension on Source and another on Target. Group (the parent) and Weight are optional.'
-          : 'No data yet. Drop a dimension on Source and another on Target.';
-        model.graph = layoutLib.buildGraph([]);
-        return model;
-      }
-      var rows = data.rows.map(function (r) {
-        return { group: grpF ? r[grpF] : '', source: r[srcF], target: r[tgtF], weight: wtF ? r[wtF] : undefined, targetGroup: tgF ? r[tgF] : '' };
-      });
-      model.rows = rows;
-      model.graph = layoutLib.buildGraph(rows);
-      model.emptyMessage = model.graph.links.length ? '' : 'No links to draw: every row had an empty or identical Source and Target.';
-      try { if (worksheet.backgroundColor) model.worksheetBg = worksheet.backgroundColor; } catch (e) { /* optional */ }
-      model.srcField = srcF; model.tgtField = tgtF;
-      return model;
+      var bg = null;
+      try { if (worksheet.backgroundColor) bg = worksheet.backgroundColor; } catch (e) { /* optional */ }
+      return { data: res[0], enc: res[1], bg: bg };
     });
+  }
+
+  function pickSetting (key, auto, cols) { var v = state.store ? state.store.get()[key] : ''; return v && cols.indexOf(v) >= 0 ? v : auto; }
+
+  function buildModel () {
+    var raw = state.raw, s = state.settings;
+    if (!raw) return { graph: layoutLib.buildGraph([]), rows: [], names: {}, emptyMessage: 'Loading.' };
+    var data = raw.data, enc = raw.enc, cols = data.columns;
+    var srcF = fieldName(enc.source), tgtF = fieldName(enc.target), grpF = fieldName(enc.group), wtF = fieldName(enc.weight);
+    var used = [];
+    if (!srcF || cols.indexOf(srcF) < 0) srcF = pickByName(cols, /^(?:source|from|origin|src)\b|source|from/i, used);
+    if (srcF) used.push(srcF);
+    if (!tgtF || cols.indexOf(tgtF) < 0) tgtF = pickByName(cols, /^(?:target|to|dest|destination|tgt)\b|target|dest/i, used);
+    if (tgtF) used.push(tgtF);
+    if (grpF && cols.indexOf(grpF) < 0) grpF = null;
+    if (!grpF && !enc.group) grpF = pickByName(cols, /^group$|^parent$|group|parent|category/i, used.concat([]).filter(function (c) { return !/target/i.test(c); }));
+    if (grpF && /target/i.test(grpF) && cols.length > 2) grpF = null;
+    if (wtF && cols.indexOf(wtF) < 0) wtF = null;
+    if (!wtF && !enc.weight) {
+      var cand = pickByName(cols, /weight|synapse|count|value|flow|sum|strength/i, used.concat([grpF]));
+      if (cand && data.rows.length && typeof data.rows[0][cand] === 'number') wtF = cand;
+    }
+    /* A field picked by hand on the Fields tab wins over the shelf. */
+    srcF = pickSetting('fieldSource', srcF, cols); tgtF = pickSetting('fieldTarget', tgtF, cols);
+    grpF = pickSetting('fieldGroup', grpF, cols); wtF = pickSetting('fieldWeight', wtF, cols);
+    var tgF = pickByName(cols, /target.?group|to.?group|dest.?group/i, used.concat([grpF, wtF]));
+
+    var model = { graph: null, rows: [], names: { group: grpF, source: srcF, target: tgtF, weight: wtF }, worksheetBg: raw.bg,
+      weightName: wtF ? cleanName(wtF).toLowerCase() : null, emptyMessage: '', columns: cols,
+      numeric: cols.filter(function (c) { return data.rows.some(function (r) { return typeof r[c] === 'number' && isFinite(r[c]); }); }) };
+    if (!srcF || !tgtF) {
+      model.emptyMessage = data.rows.length
+        ? 'Drop a dimension on Source and another on Target. Group (the parent) and Weight are optional.'
+        : 'No data yet. Drop a dimension on Source and another on Target.';
+      model.graph = layoutLib.buildGraph([]);
+      state.groupList = [];
+      return model;
+    }
+    var rows = data.rows.map(function (r) {
+      return { group: grpF ? r[grpF] : '', source: r[srcF], target: r[tgtF], weight: wtF ? r[wtF] : undefined, targetGroup: tgF ? r[tgF] : '' };
+    });
+    model.rows = rows;
+    /* Every group in first-appearance order (this fixes its palette colour), then the Colors tab list on top. */
+    var full = layoutLib.buildGraph(rows), seen = {}, groups = [];
+    full.nodes.forEach(function (n) { if (!seen[n.group]) { seen[n.group] = true; groups.push(n.group); } });
+    state.groupList = groups;
+    var items = CP.mergeList(s.catColors, groups.map(function (g) { return { key: g, name: g, color: '' }; }));
+    var hidden = {}, any = false;
+    items.forEach(function (m) { if (m.hidden) { hidden[m.key] = true; any = true; } });
+    model.graph = layoutLib.buildGraph(rows, { hiddenGroups: any ? hidden : null, minWeight: s.minWeight });
+    model.emptyMessage = model.graph.links.length ? '' : (full.links.length ? 'No links left to draw: the weight floor or a hidden group removed them all.' : 'No links to draw: every row had an empty or identical Source and Target.');
+    model.srcField = srcF; model.tgtField = tgtF;
+    return model;
   }
 
   /* ----------------------------------------------------------- Tableau out */
@@ -220,10 +190,30 @@
 
   /* --------------------------------------------------------------- render */
 
+  /* The Colors tab list: per-group name, colour and visibility. The palette colour is what the group would get
+   * with no override, so Reset restores it. */
+  function groupItemsFor (theme) {
+    var groups = state.groupList || [], pc = theme && theme.groups && theme.groups.length ? theme.groups : ['#c9d6e0'];
+    return groups.map(function (g, i) { return { key: g, name: g, color: pc[i % pc.length] }; });
+  }
+
   function redraw () {
     if (!state.view) return;
-    state.view.draw(state.model, state.settings, { onSelect: pushSelect, onHover: pushHover });
-    if (state.panel) state.panel.applyAppearance(state.settings, state.view.theme ? state.view.theme.bg : null);
+    var s = state.settings, view = state.view;
+    var groups = state.groupList || [], idx = {}, ov = {};
+    groups.forEach(function (g, i) { idx[g] = i; });
+    var merged = CP.mergeList(s.catColors, groups.map(function (g) { return { key: g, name: g, color: '' }; }));
+    merged.forEach(function (m) {
+      ov[m.key] = { name: m.name !== m.defName ? m.name : '', color: m.color !== m.defColor ? m.color : '' };
+    });
+    view.groupIndex = idx; view.groupItems = ov; view.manualOrder = merged.map(function (m) { return m.key; });
+    view.draw(state.model, s, { onSelect: pushSelect, onHover: pushHover });
+    if (state.panel && view.theme) { state.panel.applyAppearance(view.theme.bg, view.theme.ink); state.panel.render(); }
+  }
+
+  function onChange (keys) {
+    if (keys.some(function (k) { return DATA_KEYS[k]; })) state.model = buildModel();
+    redraw();
   }
 
   /* One reader at a time, and the last request always wins. */
@@ -237,29 +227,43 @@
       if (refreshQueued) { refreshQueued = false; return refreshData(); }
       return undefined;
     };
-    return buildModel(state.worksheet).then(function (m) {
-      state.model = m;
+    return readData(state.worksheet).then(function (raw) {
+      state.raw = raw;
+      state.model = buildModel();
       redraw();
     }, function (e) {
       log('data refresh failed', e);
+      state.raw = null;
       state.model = { graph: layoutLib.buildGraph([]), emptyMessage: 'Could not read data from this worksheet.' };
       redraw();
     }).then(done, done);
+  }
+
+  function info () {
+    var m = state.model || {}, theme = state.view && state.view.theme;
+    return { columns: m.columns || [], numericColumns: m.numeric || [],
+      auto: { fieldGroup: m.names && m.names.group, fieldSource: m.names && m.names.source, fieldTarget: m.names && m.names.target, fieldWeight: m.names && m.names.weight },
+      lists: { categories: groupItemsFor(theme) } };
   }
 
   /* ----------------------------------------------------------------- boot */
 
   function mount (worksheet) {
     state.worksheet = worksheet;
-    state.settings = readStoredSettings();
+    var st = global.tableau.extensions.settings;
+    state.store = CP.createStore({ rows: SET.prepared.rows, settings: st, prefix: PREFIX, onChange: onChange, log: log });
+    state.store.load();
     var root = document.getElementById('nx-root');
     var chart = document.getElementById('nx-chart');
     state.view = new global.NX.View(chart);
-    state.panel = new global.NX.Panel(root, {
-      get: function () { return state.settings; },
-      set: setSetting, reset: resetSettings, replaceAll: replaceAllSettings
-    });
-    state.panel.applyAppearance(state.settings, null);
+    /* The old home-made panel kept its theme under panelTheme; carry it into the shared panel's saved state once. */
+    try {
+      var lg = SET.legacy(function (k) { var v = st.get(PREFIX + k); return v === undefined || v === null ? undefined : v; });
+      var ps = state.store.panelState, cur = ps.get() || {};
+      if (lg.panel.theme && !cur.theme) { cur.theme = lg.panel.theme; ps.set(cur); }
+    } catch (e) { log('legacy settings not carried', e); }
+    state.panel = CP.create(root, { title: 'Neurons settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
+    state.panel.applyAppearance('#081f33', '#f3f5f7');
 
     /* Resize: the guard skips a callback whose size did not change, and the
      * redraw is deferred to a frame, which is what stops the ResizeObserver
@@ -299,7 +303,7 @@
     });
   }
 
-  global.NX.app = { boot: boot, mount: mount, refreshData: refreshData, redraw: redraw, state: state, pushSelect: pushSelect };
+  global.NX.app = { boot: boot, mount: mount, refreshData: refreshData, redraw: redraw, state: state, pushSelect: pushSelect, buildModel: buildModel };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

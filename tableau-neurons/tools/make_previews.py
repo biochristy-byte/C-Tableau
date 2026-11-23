@@ -42,12 +42,32 @@ def shot(b, base, w, h, bg, hover, path):
     return im
 
 
+def panel_shot(b, base, w, h, tab, hover, path):
+    errs = []
+    ctx, pg = render.new_page(b, "%s/test/page.html?w=%d&h=%d&fx=worm" % (base, w, h), w, h, errs)
+    render.wait_idle(pg, 1400)
+    if hover:
+        bb = pg.locator('.nx-node[data-id="%s"] .nx-dot' % hover).bounding_box()
+        pg.mouse.move(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+        pg.wait_for_timeout(900)
+    pg.click(".cp-gear")
+    pg.wait_for_selector(".cp-panel:not([hidden])")
+    pg.click(".cp-tab[data-t='%s']" % tab)
+    pg.wait_for_timeout(500)
+    pg.screenshot(path=str(path))
+    ctx.close()
+    assert not errs, errs
+    print("wrote", path.name)
+
+
 srv, base = render.serve()
 with sync_playwright() as p:
     b = p.chromium.launch()
     dark = shot(b, base, 1200, 700, None, "AVA", OUT / "neurons-dark.png")
     shot(b, base, 1200, 700, "ffffff", None, OUT / "neurons-light.png")
     shot(b, base, 300, 300, None, None, OUT / "neurons-small.png")
+    panel_shot(b, base, 1280, 800, "hover", None, OUT / "neurons-panel-1280x800.png")
+    panel_shot(b, base, 390, 800, "links", None, OUT / "neurons-panel-390.png")
     b.close()
 srv.shutdown()
 w, h = dark.size

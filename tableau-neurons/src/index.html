@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Neurons</title>
+  <link rel="stylesheet" href="../lib/ctab-panel/ctab-panel.css">
   <link rel="stylesheet" href="css/neurons.css">
 </head>
 <body>
@@ -22,11 +23,12 @@
   <script src="../lib/d3/d3-shape.min.js"></script>
   <script src="../lib/d3/d3-hierarchy.min.js"></script>
 
-  <script src="js/settings-schema.js"></script>
+  <!-- The shared settings panel, vendored byte-for-byte from shared/ctab-panel (a sync gate checks it). -->
+  <script src="../lib/ctab-panel/ctab-panel.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/palettes.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/render.js"></script>
-  <script src="js/settings-panel.js"></script>
   <script src="js/neurons.js"></script>
 </body>
 </html>
