@@ -1,0 +1,17 @@
+{
+  "bgMode": "custom",
+  "bgColor": "#081f33",
+  "benchMode": "series",
+  "benchSeries": "Global",
+  "curve": "smooth",
+  "smooth": 0.7,
+  "fillOpacity": 16,
+  "lineWidth": 2.5,
+  "minMode": "zero",
+  "ringCount": 5,
+  "ringLabels": true,
+  "palette": "datadivers",
+  "legendPos": "bottom",
+  "showTitle": true,
+  "titleText": "Health indicators by WHO region, 2019"
+}

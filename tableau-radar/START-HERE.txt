@@ -1,0 +1,26 @@
+RADAR FOR TABLEAU - QUICK START
+================================
+Requested by Celia Fryar. Built by Chris Fryar.
+
+Needs: Tableau Desktop 2024.2 or newer (the free edition works).
+Tableau Public: works while you author; viewers see "not supported" until Exchange approval.
+For a public audience use the C-Tableau Viz pages instead. See README.md.
+
+1. Unzip this folder somewhere permanent, like your Desktop. Do not run it from inside the zip.
+
+2. Double-click  Start-Radar.bat
+   A black window opens and says "Radar server is running." LEAVE IT OPEN the whole time
+   you use the chart. Closing it makes the chart go blank.
+   (If Windows shows a blue "protected your PC" box: More info > Run anyway.)
+
+3. In Tableau, open a worksheet. For the example, connect to example/who-health-2019.csv.
+
+4. Marks card > the mark type dropdown > Viz Extensions > Add Extension
+   > Access Local Viz Extensions > pick  radar.trex  from this folder. Click Allow.
+
+5. Drag "Indicator" onto Axis and "Value" onto Value.
+   Optional: "WHO region" on Series (one outline per region), "Indicator long name" on Label.
+   Every Axis and Series pair needs one row of data, so the example needs no extra Detail pill.
+
+6. Hover the chart and click the gear in the top right. The settings panel floats: drag it by its
+   title bar, minimize it, or press Escape to close it.

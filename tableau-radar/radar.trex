@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.datadivers.vizext.radar" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Radar (spider) chart, requested by Celia Fryar: overlay or small multiples, straight or smoothed outlines, shared or per-axis scales, a dashed benchmark ring, hover and click to isolate, and a floating settings panel inside the viz.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <!-- 1.12 is the floor because this extension uses worksheetContent, which
+         the shipped type definitions tag as "since 1.12.0 and Tableau 2024.2". -->
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8776/src/index.html</url>
+    </source-location>
+    <icon/>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="axis">
+      <display-name resource-id="enc-axis">Axis</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-a"/>
+      <tooltip resource-id="tip-axis">The dimension that gives each spoke of the radar its own axis. It needs at least 3 values.</tooltip>
+    </encoding>
+
+    <encoding id="value">
+      <display-name resource-id="enc-value">Value</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-v"/>
+      <tooltip resource-id="tip-value">The numeric measure plotted along each axis. Put it on the shelf as one number per Axis and Series pair.</tooltip>
+    </encoding>
+
+    <encoding id="series">
+      <display-name resource-id="enc-series">Series</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="color"/>
+      <tooltip resource-id="tip-series">Optional. One outline per value, overlaid or as small multiples. Leave empty for a single outline.</tooltip>
+    </encoding>
+
+    <encoding id="label">
+      <display-name resource-id="enc-label">Label</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="text"/>
+      <tooltip resource-id="tip-label">Optional. Display name written beside each axis instead of the Axis value.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Radar</text>
+    </resource>
+    <resource id="enc-axis">
+      <text locale="en_US">Axis</text>
+    </resource>
+    <resource id="enc-value">
+      <text locale="en_US">Value</text>
+    </resource>
+    <resource id="enc-series">
+      <text locale="en_US">Series</text>
+    </resource>
+    <resource id="enc-label">
+      <text locale="en_US">Label</text>
+    </resource>
+    <resource id="tip-axis">
+      <text locale="en_US">The dimension that gives each spoke its own axis.</text>
+    </resource>
+    <resource id="tip-value">
+      <text locale="en_US">The numeric measure plotted along each axis.</text>
+    </resource>
+    <resource id="tip-series">
+      <text locale="en_US">Optional. One outline per value.</text>
+    </resource>
+    <resource id="tip-label">
+      <text locale="en_US">Optional. Display name written beside each axis.</text>
+    </resource>
+  </resources>
+</manifest>

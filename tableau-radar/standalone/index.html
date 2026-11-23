@@ -1,0 +1,2238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Health indicators by WHO region</title>
+<style>
+/* ctab-panel 1.0.0 styles. Colors come from the --cp-* variables ctab-panel.js sets per theme.
+   Text is never below 14px. No range inputs. Everything animates only opacity/transform, briefly. */
+.cp-gear { position: absolute; top: 8px; right: 8px; z-index: 40; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid var(--cp-border, #6b7a8c); background: var(--cp-bg, #fff); color: var(--cp-ink, #14202e); cursor: pointer; padding: 0; opacity: .82; transition: opacity .15s; }
+.cp-gear:hover, .cp-gear:focus-visible { opacity: 1; }
+.cp-gear[hidden], .cp-panel[hidden] { display: none !important; }
+
+.cp-panel { --cp-bg: #ffffff; --cp-surface: #f2f4f8; --cp-ink: #14202e; --cp-muted: #3d4b5e; --cp-border: #6b7a8c; --cp-accent: #0a54a0; --cp-danger: #a3180e;
+  position: absolute; left: 0; top: 0; z-index: 50; box-sizing: border-box; width: min(400px, calc(100% - 16px)); height: min(640px, calc(100% - 16px));
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; border: 1px solid var(--cp-border);
+  background: var(--cp-bg); color: var(--cp-ink); font: 14px/1.4 Inter, "Segoe UI", system-ui, Arial, sans-serif; box-shadow: 0 10px 34px rgba(0, 0, 0, .28); text-align: left; }
+.cp-panel *, .cp-panel *::before, .cp-panel *::after { box-sizing: border-box; }
+.cp-panel:focus { outline: none; }
+.cp-panel.cp-dragging { user-select: none; box-shadow: 0 16px 44px rgba(0, 0, 0, .36); }
+.cp-panel.cp-min { height: auto; }
+.cp-panel.cp-min .cp-main { display: none; }
+
+.cp-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; background: var(--cp-surface); color: var(--cp-ink); cursor: grab; touch-action: none; user-select: none; border-bottom: 1px solid var(--cp-border); }
+.cp-panel.cp-dragging .cp-head { cursor: grabbing; }
+.cp-head:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: -3px; }
+.cp-grip { color: var(--cp-muted); font-size: 18px; letter-spacing: -3px; }
+.cp-title { margin: 0; flex: 1; font-size: 16px; font-weight: 700; color: var(--cp-ink); }
+.cp-ib { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--cp-border); background: var(--cp-bg); color: var(--cp-ink); border-radius: 8px; font: 700 20px/1 Inter, "Segoe UI", system-ui, sans-serif; cursor: pointer; padding: 0; }
+
+.cp-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cp-search { padding: 8px 14px 4px; }
+.cp-q { width: 100%; }
+.cp-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 14px 8px; }
+.cp-tab { border: 1px solid var(--cp-border); background: var(--cp-bg); color: var(--cp-ink); border-radius: 999px; padding: 3px 10px; min-height: 30px; font: 600 14px/1.2 Inter, "Segoe UI", system-ui, Arial, sans-serif; cursor: pointer; }
+.cp-tab[aria-selected="true"] { background: var(--cp-ink); color: var(--cp-bg); border-color: var(--cp-ink); }
+.cp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 14px 12px; border-top: 1px solid var(--cp-border); background: var(--cp-bg); overscroll-behavior: contain; }
+.cp-sec { margin: 14px 0 6px; font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--cp-accent); }
+.cp-count, .cp-empty { margin: 10px 0; color: var(--cp-muted); }
+.cp-row { display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 3px 10px; align-items: center; margin: 8px 0; }
+.cp-lab { color: var(--cp-ink); font-weight: 600; }
+.cp-full { grid-column: 1 / 3; }
+.cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 14px; }
+.cp-check { display: flex; gap: 10px; align-items: center; cursor: pointer; font-weight: 600; min-height: 32px; }
+.cp-check input { width: 20px; height: 20px; accent-color: var(--cp-accent); flex: none; }
+
+.cp-panel input[type=text], .cp-panel input[type=number], .cp-panel select, .cp-panel textarea { width: 100%; min-width: 0; min-height: 34px; border: 1px solid var(--cp-border); border-radius: 8px;
+  padding: 4px 8px; background: var(--cp-bg); color: var(--cp-ink); font: 14px/1.3 Inter, "Segoe UI", system-ui, Arial, sans-serif; }
+.cp-panel select option { background: var(--cp-bg); color: var(--cp-ink); }
+.cp-panel textarea { resize: vertical; }
+.cp-panel input::placeholder, .cp-panel textarea::placeholder { color: var(--cp-muted); opacity: 1; }
+.cp-panel input[type=number] { -moz-appearance: textfield; appearance: textfield; text-align: center; }
+.cp-panel input[type=number]::-webkit-outer-spin-button, .cp-panel input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cp-num { display: flex; align-items: center; gap: 4px; }
+.cp-num input { flex: 1; width: auto; }
+.cp-unit { color: var(--cp-muted); min-width: 22px; }
+.cp-step { width: 34px; height: 34px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--cp-border); background: var(--cp-bg); color: var(--cp-ink); border-radius: 8px; font: 700 18px/1 Inter, "Segoe UI", system-ui, sans-serif; cursor: pointer; }
+.cp-color { display: flex; align-items: center; gap: 6px; }
+.cp-color input[type=color], .cp-lcol { width: 44px; height: 34px; flex: none; padding: 2px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-bg); cursor: pointer; }
+.cp-hex { width: 96px !important; font-family: inherit; }
+.cp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.cp-chip { border: 1px solid var(--cp-border); background: var(--cp-bg); color: var(--cp-ink); border-radius: 8px; padding: 4px 10px; min-height: 32px; font: 600 14px/1.2 Inter, "Segoe UI", system-ui, Arial, sans-serif; cursor: pointer; }
+.cp-chip[aria-pressed="true"], .cp-pal[aria-pressed="true"] { background: var(--cp-ink); color: var(--cp-bg); border-color: var(--cp-ink); }
+.cp-pals { grid-column: 1 / 3; display: grid; gap: 4px; }
+.cp-lab + .cp-pals { grid-column: 1 / 3; }
+.cp-pal { display: flex; align-items: center; gap: 10px; border: 1px solid var(--cp-border); background: var(--cp-bg); color: var(--cp-ink); border-radius: 8px; padding: 4px 8px; min-height: 34px; font: 600 14px/1.2 Inter, "Segoe UI", system-ui, Arial, sans-serif; cursor: pointer; text-align: left; }
+.cp-pname em { font-style: normal; font-weight: 400; }
+.cp-strip { display: inline-flex; flex: 0 0 132px; width: 132px; border-radius: 4px; overflow: hidden; border: 1px solid var(--cp-border); }
+.cp-strip i { display: block; flex: 1; height: 18px; }
+.cp-list { display: grid; gap: 4px; }
+.cp-li { display: flex; align-items: center; gap: 4px; }
+.cp-li .cp-lname { flex: 1; }
+.cp-li .cp-lshow { width: 20px; height: 20px; flex: none; accent-color: var(--cp-accent); }
+.cp-btn { border: 1px solid var(--cp-border); background: var(--cp-bg); color: var(--cp-ink); border-radius: 8px; padding: 4px 12px; min-height: 34px; font: 600 14px/1.2 Inter, "Segoe UI", system-ui, Arial, sans-serif; cursor: pointer; }
+.cp-small { padding: 2px 10px; min-height: 30px; }
+.cp-primary { background: var(--cp-ink); color: var(--cp-bg); border-color: var(--cp-ink); }
+.cp-status { min-height: 0; padding: 0 14px; color: var(--cp-muted); }
+.cp-status:not(:empty) { padding: 6px 14px; border-top: 1px solid var(--cp-border); background: var(--cp-surface); }
+.cp-err { color: var(--cp-danger); font-weight: 600; }
+.cp-foot { padding: 8px 14px 12px; border-top: 1px solid var(--cp-border); background: var(--cp-surface); }
+.cp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-extra { display: grid; gap: 6px; }
+.cp-msg { min-height: 0; color: var(--cp-ink); font-weight: 600; }
+.cp-msg.cp-err { color: var(--cp-danger); }
+
+.cp-panel button:focus-visible, .cp-panel input:focus-visible, .cp-panel select:focus-visible, .cp-panel textarea:focus-visible, .cp-gear:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 1px; }
+
+/* Under 420px wide the panel is a sheet that fills the whole frame; it scrolls as one piece. */
+.cp-panel.cp-sheet { left: 0; top: 0; width: 100%; height: 100%; border-radius: 0; border: 0; transform: none !important; box-shadow: none; }
+.cp-panel.cp-sheet .cp-head { cursor: default; }
+.cp-panel.cp-sheet .cp-grip { display: none; }
+.cp-panel.cp-sheet .cp-main { overflow-y: auto; }
+.cp-panel.cp-sheet .cp-main > * { flex: none; }
+.cp-panel.cp-sheet .cp-body { flex: none; overflow: visible; }
+.cp-panel.cp-sheet .cp-tabs { flex-wrap: nowrap; overflow-x: auto; }
+.cp-panel.cp-sheet .cp-tab { flex: none; }
+.cp-panel.cp-sheet .cp-row { grid-template-columns: minmax(0, 1fr); }
+.cp-panel.cp-sheet .cp-full, .cp-panel.cp-sheet .cp-help, .cp-panel.cp-sheet .cp-pals { grid-column: 1; }
+.cp-panel.cp-sheet.cp-min { height: auto; }
+
+@media (prefers-reduced-motion: reduce) { .cp-gear { transition: none; } }
+
+/* Radar. Sans-serif only, 14px minimum text, colors come from the renderer (worksheet background aware). */
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: transparent; }
+body { font: 14px/1.35 Inter, "Tableau Book", "Segoe UI", system-ui, Arial, sans-serif; }
+#rd-root { position: absolute; inset: 0; overflow: hidden; }
+.rd-chart { position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.rd-title { flex: none; text-align: center; padding: 4px 8px 6px; line-height: 1.25; }
+.rd-mid { flex: 1; min-height: 0; display: flex; flex-direction: row; min-width: 0; }
+.rd-stage { flex: 1; position: relative; min-width: 0; min-height: 0; }
+.rd-svg { position: absolute; left: 0; top: 0; display: block; max-width: 100%; max-height: 100%; overflow: hidden; touch-action: manipulation; }
+.rd-legend { flex: none; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; justify-content: center; padding: 4px 6px; line-height: 1.25; }
+.rd-legend-right { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; justify-content: center; max-width: 40%; overflow-y: auto; }
+.rd-lg-t { font-weight: 700; }
+.rd-lg { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 2px 8px; border-radius: 999px; cursor: pointer; text-align: left; transition: opacity var(--rd-ms, .18s) ease, border-color .15s; }
+.rd-lg:focus-visible { outline: 2px solid var(--rd-ink, #10202c); outline-offset: 1px; }
+.rd-lg.is-on, .rd-lg[aria-pressed="true"] { border-color: var(--rd-muted, #4a5c66); }
+.rd-legend:hover .rd-lg:not(.is-on):not(.rd-lg-bench) { opacity: .55; }
+.rd-lg-bench { cursor: default; }
+.rd-lg-sw { flex: none; width: 16px; height: 16px; border-radius: 4px; }
+.rd-lg-dash { background: transparent; border-top: 3px dashed; border-radius: 0; height: 0; width: 20px; }
+.rd-lg-n { min-width: 0; overflow-wrap: anywhere; }
+.rd-note { flex: none; padding: 2px 10px 4px; text-align: center; color: var(--rd-muted, #4a5c66); line-height: 1.3; }
+.rd-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; line-height: 1.4; }
+.rd-s { cursor: pointer; transition: opacity var(--rd-ms, .18s) ease; outline: none; }
+.rd-s:focus-visible .rd-shape { stroke-width: 4; }
+.rd-s .rd-shape { pointer-events: all; }
+.rd-svg.rd-focus .rd-s:not(.is-on) { opacity: var(--rd-dim, .25); }
+.rd-svg.rd-iso .rd-s:not(.is-on) { opacity: 0; pointer-events: none; }
+.rd-svg.rd-focus .rd-bench { opacity: .9; }
+.rd-dhit { cursor: pointer; }
+.rd-label, .rd-ringlabel, .rd-value, .rd-ptitle { pointer-events: none; user-select: none; }
+.rd-tip { position: absolute; z-index: 20; left: 0; top: 0; display: none; max-width: var(--rd-tip-w, 280px); box-sizing: border-box; padding: 8px 10px; border-radius: 8px;
+  background: var(--rd-tip-bg, #fff); color: var(--rd-ink, #10202c); border: 1px solid var(--rd-muted, #4a5c66); font-size: var(--rd-tip-size, 14px); line-height: 1.3; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.rd-tip.on { display: block; }
+.rd-tip-h { font-weight: 700; margin-bottom: 4px; }
+.rd-tip-r { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.rd-tip-r.is-on { font-weight: 700; }
+.rd-tip-n { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rd-tip-v { flex: none; font-variant-numeric: tabular-nums; }
+.rd-tip-sw { flex: none; width: 12px; height: 12px; border-radius: 3px; }
+.rd-tip-m { color: var(--rd-muted, #4a5c66); margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .rd-s, .rd-lg { transition: none; } }
+
+html, body { overflow: hidden; }
+#root { position: absolute; inset: 0; }
+#rd-root { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root"><div id="rd-root"><div id="rd-chart"></div></div></div>
+<script>window.__CTAB_VIZ = {"dataUrl": "data:application/json;base64,eyJjb2x1bW5zIjpbIldITyByZWdpb24iLCJJbmRpY2F0b3IiLCJJbmRpY2F0b3IgbG9uZyBuYW1lIiwiVmFsdWUiXSwibnVtZXJpYyI6W2ZhbHNlLGZhbHNlLGZhbHNlLHRydWVdLCJyb3dzIjpbWyJBZnJpY2EiLCJVSEMgaW5kZXgiLCJVbml2ZXJzYWwgaGVhbHRoIGNvdmVyYWdlIHNlcnZpY2UgaW5kZXggKDAgdG8gMTAwKSIsNDguMF0sWyJBbWVyaWNhcyIsIlVIQyBpbmRleCIsIlVuaXZlcnNhbCBoZWFsdGggY292ZXJhZ2Ugc2VydmljZSBpbmRleCAoMCB0byAxMDApIiw4Mi4wXSxbIkVhc3Rlcm4gTWVkaXRlcnJhbmVhbiIsIlVIQyBpbmRleCIsIlVuaXZlcnNhbCBoZWFsdGggY292ZXJhZ2Ugc2VydmljZSBpbmRleCAoMCB0byAxMDApIiw2Mi4wXSxbIkV1cm9wZSIsIlVIQyBpbmRleCIsIlVuaXZlcnNhbCBoZWFsdGggY292ZXJhZ2Ugc2VydmljZSBpbmRleCAoMCB0byAxMDApIiw4MS4wXSxbIlNvdXRoLUVhc3QgQXNpYSIsIlVIQyBpbmRleCIsIlVuaXZlcnNhbCBoZWFsdGggY292ZXJhZ2Ugc2VydmljZSBpbmRleCAoMCB0byAxMDApIiw2NC4wXSxbIldlc3Rlcm4gUGFjaWZpYyIsIlVIQyBpbmRleCIsIlVuaXZlcnNhbCBoZWFsdGggY292ZXJhZ2Ugc2VydmljZSBpbmRleCAoMCB0byAxMDApIiw3OS4wXSxbIkdsb2JhbCIsIlVIQyBpbmRleCIsIlVuaXZlcnNhbCBoZWFsdGggY292ZXJhZ2Ugc2VydmljZSBpbmRleCAoMCB0byAxMDApIiw3MC4wXSxbIkFmcmljYSIsIkRUUDMgdmFjY2luZSIsIkRUUDMgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDc3LjBdLFsiQW1lcmljYXMiLCJEVFAzIHZhY2NpbmUiLCJEVFAzIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw4NC4wXSxbIkVhc3Rlcm4gTWVkaXRlcnJhbmVhbiIsIkRUUDMgdmFjY2luZSIsIkRUUDMgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDg0LjBdLFsiRXVyb3BlIiwiRFRQMyB2YWNjaW5lIiwiRFRQMyBpbW11bml6YXRpb24gY292ZXJhZ2UsIDEteWVhci1vbGRzICglKSIsOTQuMF0sWyJTb3V0aC1FYXN0IEFzaWEiLCJEVFAzIHZhY2NpbmUiLCJEVFAzIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw5Mi4wXSxbIldlc3Rlcm4gUGFjaWZpYyIsIkRUUDMgdmFjY2luZSIsIkRUUDMgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDk0LjBdLFsiR2xvYmFsIiwiRFRQMyB2YWNjaW5lIiwiRFRQMyBpbW11bml6YXRpb24gY292ZXJhZ2UsIDEteWVhci1vbGRzICglKSIsODYuMF0sWyJBZnJpY2EiLCJNZWFzbGVzIHZhY2NpbmUiLCJNZWFzbGVzIChNQ1YxKSBpbW11bml6YXRpb24gY292ZXJhZ2UsIDEteWVhci1vbGRzICglKSIsNzIuMF0sWyJBbWVyaWNhcyIsIk1lYXNsZXMgdmFjY2luZSIsIk1lYXNsZXMgKE1DVjEpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw4Ny4wXSxbIkVhc3Rlcm4gTWVkaXRlcnJhbmVhbiIsIk1lYXNsZXMgdmFjY2luZSIsIk1lYXNsZXMgKE1DVjEpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw4Mi4wXSxbIkV1cm9wZSIsIk1lYXNsZXMgdmFjY2luZSIsIk1lYXNsZXMgKE1DVjEpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw5NC4wXSxbIlNvdXRoLUVhc3QgQXNpYSIsIk1lYXNsZXMgdmFjY2luZSIsIk1lYXNsZXMgKE1DVjEpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw5NS4wXSxbIldlc3Rlcm4gUGFjaWZpYyIsIk1lYXNsZXMgdmFjY2luZSIsIk1lYXNsZXMgKE1DVjEpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw5NC4wXSxbIkdsb2JhbCIsIk1lYXNsZXMgdmFjY2luZSIsIk1lYXNsZXMgKE1DVjEpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw4Ni4wXSxbIkFmcmljYSIsIkhlcGF0aXRpcyBCIHZhY2NpbmUiLCJIZXBhdGl0aXMgQiAoSGVwQjMpIGltbXVuaXphdGlvbiBjb3ZlcmFnZSwgMS15ZWFyLW9sZHMgKCUpIiw3Ny4wXSxbIkFtZXJpY2FzIiwiSGVwYXRpdGlzIEIgdmFjY2luZSIsIkhlcGF0aXRpcyBCIChIZXBCMykgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDc5LjBdLFsiRWFzdGVybiBNZWRpdGVycmFuZWFuIiwiSGVwYXRpdGlzIEIgdmFjY2luZSIsIkhlcGF0aXRpcyBCIChIZXBCMykgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDg0LjBdLFsiRXVyb3BlIiwiSGVwYXRpdGlzIEIgdmFjY2luZSIsIkhlcGF0aXRpcyBCIChIZXBCMykgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDkxLjBdLFsiU291dGgtRWFzdCBBc2lhIiwiSGVwYXRpdGlzIEIgdmFjY2luZSIsIkhlcGF0aXRpcyBCIChIZXBCMykgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDkyLjBdLFsiV2VzdGVybiBQYWNpZmljIiwiSGVwYXRpdGlzIEIgdmFjY2luZSIsIkhlcGF0aXRpcyBCIChIZXBCMykgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDkzLjBdLFsiR2xvYmFsIiwiSGVwYXRpdGlzIEIgdmFjY2luZSIsIkhlcGF0aXRpcyBCIChIZXBCMykgaW1tdW5pemF0aW9uIGNvdmVyYWdlLCAxLXllYXItb2xkcyAoJSkiLDg2LjBdLFsiQWZyaWNhIiwiU2tpbGxlZCBiaXJ0aCBjYXJlIiwiQmlydGhzIGF0dGVuZGVkIGJ5IHNraWxsZWQgaGVhbHRoIHBlcnNvbm5lbCAoJSkiLDY3LjNdLFsiQW1lcmljYXMiLCJTa2lsbGVkIGJpcnRoIGNhcmUiLCJCaXJ0aHMgYXR0ZW5kZWQgYnkgc2tpbGxlZCBoZWFsdGggcGVyc29ubmVsICglKSIsOTYuNF0sWyJFYXN0ZXJuIE1lZGl0ZXJyYW5lYW4iLCJTa2lsbGVkIGJpcnRoIGNhcmUiLCJCaXJ0aHMgYXR0ZW5kZWQgYnkgc2tpbGxlZCBoZWFsdGggcGVyc29ubmVsICglKSIsNzguN10sWyJFdXJvcGUiLCJTa2lsbGVkIGJpcnRoIGNhcmUiLCJCaXJ0aHMgYXR0ZW5kZWQgYnkgc2tpbGxlZCBoZWFsdGggcGVyc29ubmVsICglKSIsOTguOV0sWyJTb3V0aC1FYXN0IEFzaWEiLCJTa2lsbGVkIGJpcnRoIGNhcmUiLCJCaXJ0aHMgYXR0ZW5kZWQgYnkgc2tpbGxlZCBoZWFsdGggcGVyc29ubmVsICglKSIsODMuNl0sWyJXZXN0ZXJuIFBhY2lmaWMiLCJTa2lsbGVkIGJpcnRoIGNhcmUiLCJCaXJ0aHMgYXR0ZW5kZWQgYnkgc2tpbGxlZCBoZWFsdGggcGVyc29ubmVsICglKSIsOTYuOV0sWyJHbG9iYWwiLCJTa2lsbGVkIGJpcnRoIGNhcmUiLCJCaXJ0aHMgYXR0ZW5kZWQgYnkgc2tpbGxlZCBoZWFsdGggcGVyc29ubmVsICglKSIsODMuM10sWyJBZnJpY2EiLCJMaWZlIGV4cGVjdGFuY3kiLCJMaWZlIGV4cGVjdGFuY3kgYXQgYmlydGgsIGJvdGggc2V4ZXMgKHllYXJzKSIsNjQuM10sWyJBbWVyaWNhcyIsIkxpZmUgZXhwZWN0YW5jeSIsIkxpZmUgZXhwZWN0YW5jeSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw3Ny4wXSxbIkVhc3Rlcm4gTWVkaXRlcnJhbmVhbiIsIkxpZmUgZXhwZWN0YW5jeSIsIkxpZmUgZXhwZWN0YW5jeSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw3MC4yXSxbIkV1cm9wZSIsIkxpZmUgZXhwZWN0YW5jeSIsIkxpZmUgZXhwZWN0YW5jeSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw3OC4yXSxbIlNvdXRoLUVhc3QgQXNpYSIsIkxpZmUgZXhwZWN0YW5jeSIsIkxpZmUgZXhwZWN0YW5jeSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw3MS4yXSxbIldlc3Rlcm4gUGFjaWZpYyIsIkxpZmUgZXhwZWN0YW5jeSIsIkxpZmUgZXhwZWN0YW5jeSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw3Ny43XSxbIkdsb2JhbCIsIkxpZmUgZXhwZWN0YW5jeSIsIkxpZmUgZXhwZWN0YW5jeSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw3My40XSxbIkFmcmljYSIsIkhlYWx0aHkgbGlmZSBleHBlY3RhbmN5IiwiSGVhbHRoeSBsaWZlIGV4cGVjdGFuY3kgKEhBTEUpIGF0IGJpcnRoLCBib3RoIHNleGVzICh5ZWFycykiLDU1LjddLFsiQW1lcmljYXMiLCJIZWFsdGh5IGxpZmUgZXhwZWN0YW5jeSIsIkhlYWx0aHkgbGlmZSBleHBlY3RhbmN5IChIQUxFKSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw2NS4wXSxbIkVhc3Rlcm4gTWVkaXRlcnJhbmVhbiIsIkhlYWx0aHkgbGlmZSBleHBlY3RhbmN5IiwiSGVhbHRoeSBsaWZlIGV4cGVjdGFuY3kgKEhBTEUpIGF0IGJpcnRoLCBib3RoIHNleGVzICh5ZWFycykiLDYwLjJdLFsiRXVyb3BlIiwiSGVhbHRoeSBsaWZlIGV4cGVjdGFuY3kiLCJIZWFsdGh5IGxpZmUgZXhwZWN0YW5jeSAoSEFMRSkgYXQgYmlydGgsIGJvdGggc2V4ZXMgKHllYXJzKSIsNjcuNF0sWyJTb3V0aC1FYXN0IEFzaWEiLCJIZWFsdGh5IGxpZmUgZXhwZWN0YW5jeSIsIkhlYWx0aHkgbGlmZSBleHBlY3RhbmN5IChIQUxFKSBhdCBiaXJ0aCwgYm90aCBzZXhlcyAoeWVhcnMpIiw2MS4zXSxbIldlc3Rlcm4gUGFjaWZpYyIsIkhlYWx0aHkgbGlmZSBleHBlY3RhbmN5IiwiSGVhbHRoeSBsaWZlIGV4cGVjdGFuY3kgKEhBTEUpIGF0IGJpcnRoLCBib3RoIHNleGVzICh5ZWFycykiLDY3LjddLFsiR2xvYmFsIiwiSGVhbHRoeSBsaWZlIGV4cGVjdGFuY3kiLCJIZWFsdGh5IGxpZmUgZXhwZWN0YW5jeSAoSEFMRSkgYXQgYmlydGgsIGJvdGggc2V4ZXMgKHllYXJzKSIsNjMuMl1dfQ==", "encodings": [{"id": "axis", "field": "Indicator"}, {"id": "value", "field": "Value"}, {"id": "series", "field": "WHO region"}, {"id": "label", "field": "Indicator long name"}], "settings": {"bgMode": "custom", "bgColor": "#081f33", "benchMode": "series", "benchSeries": "Global", "curve": "smooth", "smooth": 0.7, "fillOpacity": 16, "lineWidth": 2.5, "minMode": "zero", "ringCount": 5, "ringLabels": true, "palette": "datadivers", "legendPos": "bottom", "showTitle": true, "titleText": "Health indicators by WHO region, 2019"}, "prefix": "", "title": "Health indicators by WHO region", "home": "/"};</script>
+<script>
+/* C-Tableau stand-in for the Tableau Extensions API (viz pages). One shared, reviewed file: never forked per extension.
+   The hosted shell sets window.__CTAB_VIZ = { dataUrl, encodings:[{id, field}], settings, prefix, title, home } before this runs.
+   It is READ-ONLY: it serves the owner's CSV rows as Tableau summary data, answers the encoding lookup from the owner's column
+   mapping, keeps settings in memory (visitor changes last for the visit), and makes every other call a harmless no-op.
+   What it cannot do: filters, parameters, several worksheets, dashboard extensions, dialogs, writing back to a workbook. */
+(function (global) {
+  'use strict';
+  var V = global.__CTAB_VIZ || {};
+  var PAGE = 10000;
+  var ET = { SummaryDataChanged: 'summary-data-changed', FilterChanged: 'filter-changed', ParameterChanged: 'parameter-changed',
+    SettingsChanged: 'settings-changed', MarkSelectionChanged: 'mark-selection-changed', WorksheetFormattingChanged: 'worksheet-formatting-changed',
+    DashboardLayoutChanged: 'dashboard-layout-changed', TabSwitched: 'tab-switched', WorkbookFormattingChanged: 'workbook-formatting-changed' };
+  var dataP = null, settingsRaw = V.settings, settingsPrefix = V.prefix, ready = Promise.resolve();
+  var errors = [];
+  if (V.preview) {   // account-app preview: the parent page sends the data by postMessage; nothing is stored
+    var onErr = function (m) { errors.push(String(m).slice(0, 200)); };
+    global.addEventListener('error', function (e) { onErr(e.message || 'error'); });
+    global.addEventListener('unhandledrejection', function (e) { onErr((e.reason && e.reason.message) || 'unhandled rejection'); });
+    var ce = console.error; console.error = function () { onErr(Array.prototype.join.call(arguments, ' ')); return ce.apply(console, arguments); };
+    ready = new Promise(function (res) {
+      global.addEventListener('message', function (e) {
+        if (e.source !== global.parent || e.origin !== V.parent || !e.data || e.data.ctab !== 'config') return;
+        dataP = Promise.resolve(e.data.data); V.encodings = e.data.encodings || []; settingsRaw = e.data.settings || {}; settingsPrefix = e.data.prefix || '';
+        initSettings();
+        res();
+        var tries = 0;
+        (function poll() { setTimeout(function () { if (looksDrawn() || ++tries >= 12) report(); else poll(); }, 700); })();
+      });
+      try { global.parent.postMessage({ ctab: 'ready' }, V.parent); } catch (x) { /* not framed */ }
+    });
+  }
+  function looksDrawn() {
+    var drawn = false;
+    Array.prototype.forEach.call(document.querySelectorAll('canvas'), function (c) {
+      try { var d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (var i = 3; i < d.length; i += 4 * 61) if (d[i] > 0) { drawn = true; break; } } catch (x) { drawn = true; }
+    });
+    if (!drawn && document.querySelectorAll('svg path, svg rect, svg circle, svg line, svg ellipse, svg polygon, svg text').length >= 2) drawn = true;
+    return drawn;
+  }
+  function report() {
+    var drawn = looksDrawn(), de = document.documentElement;
+    try { global.parent.postMessage({ ctab: 'report', drawn: drawn, hscroll: de.scrollWidth > global.innerWidth + 1, errors: errors.slice(0, 3), w: global.innerWidth, h: global.innerHeight }, V.parent); } catch (x) { /* ignore */ }
+  }
+  function load() {
+    if (V.preview) return ready.then(function () { return dataP; });
+    if (!dataP) {
+      dataP = fetch(V.dataUrl, { credentials: 'omit' }).then(function (r) {
+        if (!r.ok) throw new Error('viz data unavailable (' + r.status + ')');
+        return r.json();
+      });
+    }
+    return dataP;
+  }
+  function cell(v) { return { value: v, nativeValue: v, formattedValue: v == null ? '' : String(v) }; }
+  function columnsOf(d) {
+    return d.columns.map(function (n, i) { return { fieldName: n, index: i, dataType: d.numeric[i] ? 'float' : 'string', isReferenced: true }; });
+  }
+  function pageOf(d, i) {
+    var rows = d.rows.slice(i * PAGE, (i + 1) * PAGE);
+    return { columns: columnsOf(d), data: rows.map(function (r) { return r.map(cell); }), totalRowCount: d.rows.length, isLastPage: (i + 1) * PAGE >= d.rows.length };
+  }
+  function Sheet() { this.name = V.title || 'Sheet 1'; this.sheetType = 'worksheet'; }
+  var P = Sheet.prototype;
+  P.getSummaryDataReaderAsync = function () {
+    return load().then(function (d) {
+      return {
+        pageCount: Math.max(1, Math.ceil(d.rows.length / PAGE)), totalRowCount: d.rows.length,
+        getPageAsync: function (i) { return Promise.resolve(pageOf(d, i)); },
+        releaseAsync: function () { return Promise.resolve(); }
+      };
+    });
+  };
+  P.getUnderlyingTableDataReaderAsync = P.getSummaryDataReaderAsync;
+  P.getSummaryDataAsync = function () { return load().then(function (d) { return { columns: columnsOf(d), data: d.rows.map(function (r) { return r.map(cell); }), totalRowCount: d.rows.length, isSummaryData: true }; }); };
+  P.getUnderlyingDataAsync = P.getUnderlyingTableDataAsync = P.getSummaryDataAsync;
+  P.getVisualSpecificationAsync = function () { return ready.then(visualSpec); };
+  function visualSpec() {
+    var enc = (V.encodings || []).map(function (e) {
+      return { id: e.id, fieldEncodingId: e.id + '-0', type: 'custom', field: { name: e.field, fieldId: 'f-' + e.id, fieldName: e.field } };
+    });
+    return Promise.resolve({ rowFields: [], columnFields: [], activeMarksSpecificationIndex: 0,
+      marksSpecifications: [{ primitiveType: 'viz-extension', encodings: enc }] });
+  }
+  P.addEventListener = function () { return function () {}; };
+  P.removeEventListener = function () { return true; };
+  P.getSelectedMarksAsync = P.getHighlightedMarksAsync = function () { return Promise.resolve({ data: [{ columns: [], data: [], totalRowCount: 0 }] }); };
+  P.getFiltersAsync = P.getParametersAsync = P.getDataSourcesAsync = function () { return Promise.resolve([]); };
+  P.findParameterAsync = function () { return Promise.resolve(undefined); };
+  P.selectMarksByValueAsync = P.clearSelectedMarksAsync = P.applyFilterAsync = P.clearFilterAsync = P.annotateMarkAsync = function () { return Promise.resolve(); };
+
+  // ---- settings. A flat map of strings is Tableau's own shape. A nested object (what a panel's "Copy settings" often gives)
+  // is expanded: with a prefix, every top-level key becomes prefix + key holding a JSON string; with no prefix, a read of
+  // "<anything>.<name>" is answered from the nested key <name>.
+  var store = {}, nested = {};
+  function initSettings() {
+    var raw = settingsRaw && typeof settingsRaw === 'object' ? settingsRaw : {};
+    var flat = Object.keys(raw).length > 0 && Object.keys(raw).every(function (k) { return typeof raw[k] === 'string'; });
+    store = {}; nested = {};
+    if (flat) { Object.keys(raw).forEach(function (k) { store[k] = raw[k]; }); }
+    else if (settingsPrefix) { Object.keys(raw).forEach(function (k) { store[settingsPrefix + k] = typeof raw[k] === 'string' ? raw[k] : JSON.stringify(raw[k]); }); }
+    else { nested = raw; }
+  }
+  initSettings();
+  function nestedGet(k) {
+    var n = String(k).split('.').pop();
+    if (Object.prototype.hasOwnProperty.call(nested, n)) return typeof nested[n] === 'string' ? nested[n] : JSON.stringify(nested[n]);
+    return undefined;
+  }
+  var settings = {
+    getAll: function () {
+      var o = {}; Object.keys(store).forEach(function (k) { o[k] = store[k]; });
+      if (typeof Proxy !== 'function' || !Object.keys(nested).length) return o;
+      return new Proxy(o, { get: function (t, p) { return typeof p === 'string' && !(p in t) ? nestedGet(p) : t[p]; } });
+    },
+    get: function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : nestedGet(k); },
+    set: function (k, v) { store[k] = String(v); },
+    erase: function (k) { delete store[k]; },
+    saveAsync: function () { return Promise.resolve(settings.getAll()); },
+    addEventListener: function () { return function () {}; },
+    removeEventListener: function () { return true; },
+    isModified: false
+  };
+
+  var ext = {
+    initializeAsync: function () { return ready; },
+    initializeDialogAsync: function () { return Promise.resolve(''); },
+    worksheetContent: { worksheet: new Sheet() },
+    settings: settings,
+    environment: { mode: 'viewing', context: 'server', apiVersion: '1.13', tableauVersion: 'none', language: 'en', country: 'US', locale: 'en-US', operatingSystem: 'web', workbookFormatting: { formattingSheets: [] } },
+    ui: { displayDialogAsync: function () { return Promise.reject(new Error('Dialogs are not available on a viz page.')); }, closeDialog: function () {} },
+    setClickThroughAsync: function () { return Promise.resolve(); }
+  };
+  global.tableau = { extensions: ext, TableauEventType: ET, ExtensionContext: { Desktop: 'desktop', Server: 'server' }, ExtensionMode: { Authoring: 'authoring', Viewing: 'viewing' },
+    FilterUpdateType: { Add: 'add', All: 'all', Replace: 'replace', Remove: 'remove' }, SelectionUpdateType: { Replace: 'select-replace', Add: 'select-add', Remove: 'select-remove' },
+    ApiVersion: { Latest: '1.13' } };
+  for (var k in ET) if (Object.prototype.hasOwnProperty.call(ET, k)) global.tableau[k] = ET[k];
+
+  // ---- Exit pill: only when the page is opened on its own. Inside a frame or with ?embed=1 it never shows.
+  var solo = true;
+  try { solo = global.top === global.self; } catch (e) { solo = false; }
+  if (/[?&]embed=1(&|$)/.test(global.location.search)) solo = false;
+  if (solo) {
+    document.documentElement.classList.add('ctab-solo');
+    var st = document.createElement('style');
+    st.textContent = 'html.ctab-solo #root{top:52px !important}' +
+      '.ctab-exit{position:fixed;z-index:2147483000;top:max(10px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));display:inline-flex;align-items:center;gap:.5em;' +
+      'font:600 14px/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.04em;color:#f3f5f7;background:rgba(8,31,51,.94);border:1px solid rgba(60,196,209,.7);' +
+      'border-radius:999px;padding:11px 16px;text-decoration:none;box-shadow:0 6px 20px rgba(4,18,29,.5)}' +
+      '.ctab-exit:hover,.ctab-exit:focus-visible{color:#8fe3ec;border-color:#8fe3ec}.ctab-exit:focus-visible{outline:2px solid #8fe3ec;outline-offset:3px}';
+    var add = function () {
+      if (document.querySelector('.ctab-exit')) return;
+      var a = document.createElement('a');
+      a.className = 'ctab-exit dd-exit'; a.href = V.home || 'https://c-tableau.netlify.app/'; a.setAttribute('aria-label', 'Exit to C-Tableau');
+      a.textContent = '× Exit';
+      document.body.appendChild(a); document.head.appendChild(st);
+    };
+    if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+  }
+})(window);
+
+</script>
+<script>
+/* ---- ctab-panel ---- */
+/* ctab-panel 1.0.0 - the shared floating settings panel for the C-Tableau viz extensions.
+ * One library, vendored byte-for-byte into every extension at lib/ctab-panel/ (shared/ctab-panel/sync_check.py
+ * fails if a copy differs). Generalized from Garden Petals' settings-panel.js ("float like the AI Garden").
+ *
+ *   CTabPanel.create(host, { title, schema, store, info, state, prefix })  -> panel instance
+ *   CTabPanel.createStore({ rows, settings, prefix, onChange })            -> settings store (debounced save)
+ *   CTabPanel.standard(opts)                                               -> the standard tabs and rows
+ *   CTabPanel.engine pieces for renderers: coerce, defaultsOf, formatNumber, paletteColors, mergeList, fontStack
+ *
+ * No range inputs, no window.alert/confirm/prompt, text never below 14px, text at 7:1 in every theme.
+ * ASCII only on purpose (entities for symbols). Pure engine functions run under node (module.exports). */
+(function (root, factory) {
+  var lib = factory();
+  if (typeof module === 'object' && module.exports) module.exports = lib;
+  else root.CTabPanel = lib;
+})(typeof window !== 'undefined' ? window : globalThis, function () {
+  'use strict';
+
+  var VERSION = '1.0.0';
+
+  /* ------------------------------------------------------------------ data */
+
+  var FONTS = [
+    { id: 'worksheet', label: 'Worksheet font (Inter)', stack: 'Inter, "Tableau Book", "Segoe UI", system-ui, Arial, sans-serif' },
+    { id: 'segoe', label: 'Segoe UI', stack: '"Segoe UI", system-ui, Arial, sans-serif' },
+    { id: 'arial', label: 'Arial', stack: 'Arial, Helvetica, sans-serif' },
+    { id: 'helvetica', label: 'Helvetica Neue', stack: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { id: 'trebuchet', label: 'Trebuchet MS', stack: '"Trebuchet MS", Tahoma, sans-serif' },
+    { id: 'verdana', label: 'Verdana', stack: 'Verdana, Geneva, sans-serif' },
+    { id: 'tahoma', label: 'Tahoma', stack: 'Tahoma, Geneva, sans-serif' }
+  ];
+  function fontStack(id) {
+    for (var i = 0; i < FONTS.length; i++) if (FONTS[i].id === id) return FONTS[i].stack;
+    return FONTS[0].stack;
+  }
+
+  /* The Data Divers palette first, then six colorblind-safe sets. */
+  var PALETTES = [
+    { id: 'datadivers', label: 'Data Divers', safe: false, colors: ['#3cc4d1', '#12527a', '#f26b5b', '#f5b83d', '#8a6bd6', '#2fa58a', '#e0457b', '#8fa7b8'] },
+    { id: 'okabe', label: 'Okabe-Ito', safe: true, colors: ['#e69f00', '#56b4e9', '#009e73', '#f0e442', '#0072b2', '#d55e00', '#cc79a7', '#999999'] },
+    { id: 'tolbright', label: 'Tol Bright', safe: true, colors: ['#4477aa', '#ee6677', '#228833', '#ccbb44', '#66ccee', '#aa3377', '#bbbbbb'] },
+    { id: 'tolmuted', label: 'Tol Muted', safe: true, colors: ['#cc6677', '#332288', '#ddcc77', '#117733', '#88ccee', '#882255', '#44aa99', '#999933', '#aa4499'] },
+    { id: 'ibm', label: 'IBM', safe: true, colors: ['#648fff', '#785ef0', '#dc267f', '#fe6100', '#ffb000', '#009d9a'] },
+    { id: 'viridis', label: 'Viridis', safe: true, colors: ['#440154', '#46337e', '#365c8d', '#277f8e', '#1fa187', '#4ac16d', '#9fda3a', '#fde725'] },
+    { id: 'cividis', label: 'Cividis', safe: true, colors: ['#00224e', '#35456c', '#666970', '#948e77', '#c8b866', '#fee838'] }
+  ];
+  function paletteColors(id, reverse) {
+    var c = PALETTES[0].colors;
+    for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === id) c = PALETTES[i].colors;
+    c = c.slice();
+    return reverse ? c.reverse() : c;
+  }
+
+  /* ----------------------------------------------------------------- colour */
+
+  function normHex(h) {
+    if (typeof h !== 'string') return null;
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(h.trim());
+    if (!m) return null;
+    var s = m[1].toLowerCase();
+    if (s.length === 3) s = s.charAt(0) + s.charAt(0) + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2);
+    return '#' + s;
+  }
+  function toRgb(h) {
+    var n = normHex(h);
+    if (!n) return null;
+    return [parseInt(n.substr(1, 2), 16), parseInt(n.substr(3, 2), 16), parseInt(n.substr(5, 2), 16)];
+  }
+  function toHex(rgb) {
+    return '#' + rgb.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }).join('');
+  }
+  function lum(h) {
+    var c = toRgb(h) || [0, 0, 0];
+    var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  }
+  function contrast(a, b) {
+    var la = lum(a), lb = lum(b), hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  function mix(a, b, t) {
+    var x = toRgb(a) || [0, 0, 0], y = toRgb(b) || [0, 0, 0];
+    return toHex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]);
+  }
+  function minContrast(fg, bgs) {
+    var m = Infinity;
+    for (var i = 0; i < bgs.length; i++) m = Math.min(m, contrast(fg, bgs[i]));
+    return m;
+  }
+  /* Push fg toward black or white (whichever helps) until it reaches `min` against every background. */
+  function ensureContrast(fg, bgs, min) {
+    fg = normHex(fg) || '#000000';
+    if (minContrast(fg, bgs) >= min) return fg;
+    var avg = 0; bgs.forEach(function (b) { avg += lum(b); }); avg /= bgs.length;
+    var target = avg > 0.18 ? '#000000' : '#ffffff';
+    for (var t = 0.05; t <= 1.0001; t += 0.05) {
+      var c = mix(fg, target, t);
+      if (minContrast(c, bgs) >= min) return c;
+    }
+    return target;
+  }
+  /* A background that black or white text can reach 7:1 on. Mid-greys are lightened or darkened. */
+  function legalBg(bg) {
+    bg = normHex(bg) || '#ffffff';
+    var l = lum(bg);
+    var target = l >= 0.18 ? '#ffffff' : '#000000';
+    for (var t = 0; t <= 1.0001; t += 0.02) {
+      var c = mix(bg, target, t);
+      if (Math.max(contrast('#000000', c), contrast('#ffffff', c)) >= 7.5) return c;
+    }
+    return target;
+  }
+  function bestInk(bg) { return contrast('#101820', bg) >= contrast('#f5f7fa', bg) ? '#101820' : '#f5f7fa'; }
+
+  /* Every colour the panel paints comes from one function so every theme meets 7:1 by construction. */
+  function tokens(bgIn, inkIn, accentHint, dangerHint) {
+    var bg = legalBg(bgIn);
+    var ink = ensureContrast(inkIn || bestInk(bg), [bg], 8);
+    var surface = bg, k = 0.07;
+    for (var i = 0; i < 6; i++) {
+      surface = mix(bg, ink, k);
+      if (contrast(ink, surface) >= 7.5) break;
+      k = k / 2;
+    }
+    var muted = ensureContrast(mix(ink, bg, 0.25), [bg, surface], 7.2);
+    var border = ensureContrast(mix(bg, ink, 0.55), [bg], 3.2);
+    var accent = ensureContrast(accentHint || '#0a54a0', [bg, surface], 7.2);
+    var danger = ensureContrast(dangerHint || '#a3180e', [bg, surface], 7.2);
+    return { bg: bg, surface: surface, ink: ink, muted: muted, border: border, accent: accent, danger: danger };
+  }
+  var THEMES = {
+    light: { bg: '#ffffff', ink: '#14202e', accent: '#0a54a0', danger: '#a3180e' },
+    dark: { bg: '#101a26', ink: '#f1f5f9', accent: '#8ccbff', danger: '#ffb4ab' }
+  };
+  function themeTokens(name, chart, custom) {
+    if (name === 'dark') return tokens(THEMES.dark.bg, THEMES.dark.ink, THEMES.dark.accent, THEMES.dark.danger);
+    if (name === 'match' && chart && normHex(chart.bg)) {
+      var dark = lum(legalBg(chart.bg)) < 0.18;
+      return tokens(chart.bg, chart.ink, dark ? THEMES.dark.accent : THEMES.light.accent, dark ? THEMES.dark.danger : THEMES.light.danger);
+    }
+    if (name === 'custom' && custom) {
+      var d2 = lum(legalBg(custom.bg)) < 0.18;
+      return tokens(custom.bg, custom.ink, d2 ? THEMES.dark.accent : THEMES.light.accent, d2 ? THEMES.dark.danger : THEMES.light.danger);
+    }
+    return tokens(THEMES.light.bg, THEMES.light.ink, THEMES.light.accent, THEMES.light.danger);
+  }
+
+  /* ------------------------------------------------------------ schema engine */
+
+  var TYPES = ['number', 'select', 'chips', 'check', 'color', 'text', 'font', 'list', 'palette', 'field', 'note'];
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function optPair(o) { return Array.isArray(o) ? { value: String(o[0]), label: String(o[1]) } : { value: String(o.value), label: String(o.label) }; }
+
+  /* Validates and normalizes a schema. Throws on a bad schema so a typo fails loudly at startup, not silently on screen. */
+  function prepare(schema) {
+    if (!schema || !Array.isArray(schema.rows) || !Array.isArray(schema.tabs)) throw new Error('ctab-panel: schema needs tabs[] and rows[]');
+    var tabs = schema.tabs.map(function (t) { return typeof t === 'string' ? { id: t, label: t } : { id: String(t.id), label: String(t.label || t.id) }; });
+    var tabIds = {}; tabs.forEach(function (t) { tabIds[t.id] = true; });
+    var seen = {}, rows = schema.rows.map(function (r) {
+      if (TYPES.indexOf(r.type) < 0) throw new Error('ctab-panel: unknown row type "' + r.type + '" (' + r.key + ')');
+      if (!r.key) throw new Error('ctab-panel: a row has no key');
+      if (seen[r.key]) throw new Error('ctab-panel: duplicate key ' + r.key);
+      seen[r.key] = true;
+      if (!tabIds[r.tab]) throw new Error('ctab-panel: row ' + r.key + ' names unknown tab "' + r.tab + '"');
+      var n = {}; Object.keys(r).forEach(function (k) { n[k] = r[k]; });
+      if (n.type === 'select' || n.type === 'chips') {
+        if (!Array.isArray(n.opts) || !n.opts.length) throw new Error('ctab-panel: ' + n.key + ' needs opts');
+        n.opts = n.opts.map(optPair);
+        if (n.def === undefined) n.def = n.opts[0].value;
+      }
+      if (n.type === 'number') {
+        if (typeof n.min !== 'number' || typeof n.max !== 'number' || !(n.step > 0)) throw new Error('ctab-panel: ' + n.key + ' needs min, max and step');
+        if (n.def === undefined) n.def = n.min;
+      }
+      if (n.def === undefined) n.def = n.type === 'check' ? false : n.type === 'list' ? [] : n.type === 'palette' ? 'datadivers' : n.type === 'font' ? 'worksheet' : '';
+      n.sec = n.sec || 'General';
+      return n;
+    });
+    return { tabs: tabs, rows: rows };
+  }
+
+  function decimalsOf(step) {
+    var s = String(step), i = s.indexOf('.');
+    return i < 0 ? 0 : s.length - i - 1;
+  }
+
+  /* Returns a valid value for the row, or undefined when v cannot be one. */
+  function coerce(row, v) {
+    switch (row.type) {
+      case 'number': {
+        if (v === '' || v === null || v === undefined || typeof v === 'boolean') return undefined;
+        var n = typeof v === 'number' ? v : Number(v);
+        if (!isFinite(n)) return undefined;
+        n = Math.min(row.max, Math.max(row.min, n));
+        var d = Math.max(decimalsOf(row.step), decimalsOf(row.min));
+        return Number(n.toFixed(Math.min(d, 6)));
+      }
+      case 'select': case 'chips': {
+        if (row.dynamic && typeof v === 'string') return v.slice(0, 300);
+        var s = String(v);
+        for (var i = 0; i < row.opts.length; i++) if (row.opts[i].value === s) return s;
+        return undefined;
+      }
+      case 'check':
+        if (v === true || v === 'true' || v === 1 || v === '1') return true;
+        if (v === false || v === 'false' || v === 0 || v === '0') return false;
+        return undefined;
+      case 'color': {
+        if (v === '' && row.auto) return '';
+        return normHex(v) || undefined;
+      }
+      case 'text': return typeof v === 'string' ? v.slice(0, row.maxLength || 200) : (typeof v === 'number' ? String(v) : undefined);
+      case 'font': {
+        for (var j = 0; j < FONTS.length; j++) if (FONTS[j].id === v) return v;
+        return undefined;
+      }
+      case 'palette': {
+        for (var k = 0; k < PALETTES.length; k++) if (PALETTES[k].id === v) return v;
+        return undefined;
+      }
+      case 'field': return typeof v === 'string' ? v.slice(0, 300) : undefined;
+      case 'list': return normList(v);
+      default: return undefined;
+    }
+  }
+  function normList(v) {
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { return undefined; } }
+    if (!Array.isArray(v) || v.length > 300) return undefined;
+    var out = [];
+    for (var i = 0; i < v.length; i++) {
+      var it = v[i];
+      if (!it || typeof it !== 'object' || typeof it.key !== 'string' || !it.key || it.key.length > 300) return undefined;
+      out.push({ key: it.key, name: typeof it.name === 'string' ? it.name.slice(0, 120) : '', color: normHex(it.color) || '', hidden: it.hidden === true });
+    }
+    return out;
+  }
+  function serialize(row, v) { return row.type === 'list' ? JSON.stringify(v) : String(v); }
+  function same(a, b) { return typeof a === 'object' || typeof b === 'object' ? JSON.stringify(a) === JSON.stringify(b) : a === b; }
+
+  function settable(rows) { return rows.filter(function (r) { return r.type !== 'note'; }); }
+  function defaultsOf(rows) {
+    var o = {}; settable(rows).forEach(function (r) { o[r.key] = JSON.parse(JSON.stringify(r.def)); });
+    return o;
+  }
+  function isVisible(row, s, info) {
+    var w = row.when;
+    if (!w) return true;
+    if (typeof w === 'function') { try { return !!w(s, info || {}); } catch (e) { return true; } }
+    var list = Array.isArray(w) ? w : [w];
+    return list.every(function (c) {
+      var v = s[c.key];
+      if (c.eq !== undefined) return same(v, c.eq);
+      if (c.ne !== undefined) return !same(v, c.ne);
+      if (c.in) return c.in.indexOf(v) >= 0;
+      if (c.truthy) return !!v;
+      return true;
+    });
+  }
+  function visibleRows(rows, s, info) { return rows.filter(function (r) { return isVisible(r, s, info); }); }
+  function haystack(row, tabs) {
+    var tab = '';
+    tabs.forEach(function (t) { if (t.id === row.tab) tab = t.label; });
+    var opts = row.opts ? row.opts.map(function (o) { return o.label; }).join(' ') : '';
+    return (tab + ' ' + row.sec + ' ' + (row.label || '') + ' ' + (row.help || '') + ' ' + row.key + ' ' + opts).toLowerCase();
+  }
+  /* Rows (visible ones only) whose text contains every word of q, across all tabs. */
+  function searchRows(prepared, s, info, q) {
+    var words = String(q || '').toLowerCase().split(' ').filter(Boolean);
+    if (!words.length) return [];
+    return visibleRows(prepared.rows, s, info).filter(function (r) {
+      var h = haystack(r, prepared.tabs);
+      return words.every(function (w) { return h.indexOf(w) >= 0; });
+    });
+  }
+
+  /* Validated paste. Accepts the flat map Copy settings makes, with or without the extension prefix. */
+  function parsePaste(rows, text, prefix) {
+    var t = String(text || '').trim();
+    if (!t) return { ok: false, message: 'Paste the settings text first.', values: {}, applied: 0, ignored: [], invalid: [] };
+    var obj;
+    try { obj = JSON.parse(t); } catch (e) { return { ok: false, message: 'That is not valid JSON. Paste the text exactly as Copy settings made it.', values: {}, applied: 0, ignored: [], invalid: [] }; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { ok: false, message: 'Settings must be a JSON object, like the text Copy settings makes.', values: {}, applied: 0, ignored: [], invalid: [] };
+    var byKey = {}; settable(rows).forEach(function (r) { byKey[r.key] = r; });
+    var values = {}, ignored = [], invalid = [], applied = 0;
+    Object.keys(obj).forEach(function (k0) {
+      var k = k0;
+      if (!byKey[k] && prefix && k.indexOf(prefix) === 0) k = k.slice(prefix.length);
+      if (!byKey[k] && k.indexOf('.') >= 0) k = k.split('.').pop();
+      var row = byKey[k];
+      if (!row) { ignored.push(k0); return; }
+      var c = coerce(row, obj[k0]);
+      if (c === undefined) { invalid.push(k0); return; }
+      values[k] = c; applied++;
+    });
+    if (!applied) return { ok: false, message: 'No settings in that text match this chart.' + (invalid.length ? ' Invalid values: ' + invalid.slice(0, 3).join(', ') + '.' : ''), values: {}, applied: 0, ignored: ignored, invalid: invalid };
+    var msg = 'Applied ' + applied + ' setting' + (applied === 1 ? '' : 's') + '.';
+    if (ignored.length) msg += ' Skipped ' + ignored.length + ' unknown.';
+    if (invalid.length) msg += ' Skipped ' + invalid.length + ' invalid (' + invalid.slice(0, 3).join(', ') + ').';
+    return { ok: true, message: msg, values: values, applied: applied, ignored: ignored, invalid: invalid };
+  }
+
+  /* Saved list over the live items: saved order and names win, new items are appended, gone items drop. */
+  function mergeList(saved, items) {
+    var byKey = {}, out = [], used = {};
+    (items || []).forEach(function (it) { byKey[it.key] = it; });
+    (saved || []).forEach(function (s) {
+      var it = byKey[s.key]; if (!it || used[s.key]) return;
+      used[s.key] = true;
+      out.push({ key: s.key, name: s.name || it.name || s.key, color: s.color || it.color || '', hidden: !!s.hidden, defName: it.name || s.key, defColor: it.color || '' });
+    });
+    (items || []).forEach(function (it) {
+      if (used[it.key]) return;
+      out.push({ key: it.key, name: it.name || it.key, color: it.color || '', hidden: false, defName: it.name || it.key, defColor: it.color || '' });
+    });
+    return out;
+  }
+
+  /* Number format shared by every renderer: the keys are the standard Number format tab's. */
+  function formatNumber(v, s) {
+    s = s || {};
+    if (typeof v !== 'number' || !isFinite(v)) return '';
+    var scale = parseFloat(s.numScale); if (!isFinite(scale) || scale === 0) scale = 1;
+    var x = v * scale, suffix = '';
+    if (s.numCompact) {
+      var a = Math.abs(x);
+      if (a >= 1e9) { x /= 1e9; suffix = 'B'; } else if (a >= 1e6) { x /= 1e6; suffix = 'M'; } else if (a >= 1e3) { x /= 1e3; suffix = 'K'; }
+    }
+    var dec = typeof s.numDecimals === 'number' ? s.numDecimals : 1;
+    var str = Math.abs(x).toFixed(dec), parts = str.split('.');
+    var sep = s.numThousands === 'space' ? ' ' : s.numThousands === 'none' ? '' : ',';
+    if (sep) parts[0] = parts[0].replace(/(\d)(?=(\d{3})+$)/g, '$1' + sep);
+    var neg = x < 0 && Number(str) !== 0;
+    return (neg ? '-' : '') + (s.numPrefix || '') + parts.join('.') + suffix + (s.numSuffix || '');
+  }
+
+  /* ------------------------------------------------------------ standard rows */
+
+  /* The tabs every extension shares. opts.fields = [{key, label, help}] for the Fields tab;
+   * opts.over = { key: { def: ... } } to change a default; opts.skip = [tab ids] to leave a tab out. */
+  function standard(opts) {
+    opts = opts || {};
+    var over = opts.over || {}, skip = opts.skip || [], rows = [];
+    var T = function (id, label) { return { id: id, label: label }; };
+    var all = [T('colors', 'Colors'), T('labels', 'Labels'), T('numbers', 'Number format'), T('tooltip', 'Tooltip'), T('fonts', 'Fonts'),
+      T('background', 'Background'), T('animation', 'Animation'), T('interaction', 'Interaction'), T('fields', 'Fields')];
+    var tabs = all.filter(function (t) { return skip.indexOf(t.id) < 0; });
+    function add(r) { if (over[r.key]) Object.keys(over[r.key]).forEach(function (k) { r[k] = over[r.key][k]; }); if (skip.indexOf(r.tab) < 0) rows.push(r); }
+    var CH = function (a) { return a.map(function (p) { return [p[0], p[1]]; }); };
+
+    add({ tab: 'colors', sec: 'Palette', key: 'palette', label: 'Palette', type: 'palette', def: 'datadivers', help: 'Data Divers is the house palette. The other six are colorblind-safe.' });
+    add({ tab: 'colors', sec: 'Palette', key: 'paletteReverse', label: 'Reverse the palette order', type: 'check', def: false });
+    add({ tab: 'colors', sec: 'Per-category overrides', key: 'catColors', label: 'Colors and names', type: 'list', source: 'categories', def: [], visible: true,
+      help: 'Rename, recolor, hide or reorder each category. Reset restores the palette.' });
+
+    add({ tab: 'labels', sec: 'Labels', key: 'labelsOn', label: 'Show labels', type: 'check', def: true });
+    add({ tab: 'labels', sec: 'Labels', key: 'labelSize', label: 'Label size', type: 'number', min: 14, max: 28, step: 1, unit: 'px', def: 14, help: 'Never below 14px.', when: { key: 'labelsOn', truthy: true } });
+    add({ tab: 'labels', sec: 'Labels', key: 'labelWeight', label: 'Label weight', type: 'chips', opts: CH([['normal', 'Regular'], ['bold', 'Bold']]), def: 'normal', when: { key: 'labelsOn', truthy: true } });
+    add({ tab: 'labels', sec: 'Labels', key: 'labelColor', label: 'Label color', type: 'color', auto: true, def: '', help: 'Auto picks the color that reads best on the background.', when: { key: 'labelsOn', truthy: true } });
+    add({ tab: 'labels', sec: 'Labels', key: 'labelLines', label: 'Wrap onto up to', type: 'number', min: 1, max: 4, step: 1, unit: 'lines', def: 2, when: { key: 'labelsOn', truthy: true } });
+    add({ tab: 'labels', sec: 'Values', key: 'valueLabels', label: 'Show value labels', type: 'check', def: false });
+    add({ tab: 'labels', sec: 'Values', key: 'valueLabelSize', label: 'Value label size', type: 'number', min: 14, max: 24, step: 1, unit: 'px', def: 14, when: { key: 'valueLabels', truthy: true } });
+
+    add({ tab: 'numbers', sec: 'Format', key: 'numDecimals', label: 'Decimal places', type: 'number', min: 0, max: 6, step: 1, def: 1 });
+    add({ tab: 'numbers', sec: 'Format', key: 'numThousands', label: 'Thousands separator', type: 'chips', opts: CH([['comma', 'Comma'], ['space', 'Space'], ['none', 'None']]), def: 'comma' });
+    add({ tab: 'numbers', sec: 'Format', key: 'numCompact', label: 'Short form (1.2K, 3.4M)', type: 'check', def: false });
+    add({ tab: 'numbers', sec: 'Format', key: 'numScale', label: 'Multiply by', type: 'chips', opts: CH([['1', 'As is'], ['100', '100 (percent)'], ['0.001', '0.001']]), def: '1' });
+    add({ tab: 'numbers', sec: 'Text', key: 'numPrefix', label: 'Prefix', type: 'text', def: '', maxLength: 12, placeholder: 'for example $' });
+    add({ tab: 'numbers', sec: 'Text', key: 'numSuffix', label: 'Suffix', type: 'text', def: '', maxLength: 12, placeholder: 'for example %' });
+
+    add({ tab: 'tooltip', sec: 'Tooltip', key: 'tipOn', label: 'Show tooltips', type: 'check', def: true });
+    add({ tab: 'tooltip', sec: 'Tooltip', key: 'tipSize', label: 'Tooltip text size', type: 'number', min: 14, max: 22, step: 1, unit: 'px', def: 14, when: { key: 'tipOn', truthy: true } });
+    add({ tab: 'tooltip', sec: 'Tooltip', key: 'tipSwatch', label: 'Color swatch beside each name', type: 'check', def: true, when: { key: 'tipOn', truthy: true } });
+    add({ tab: 'tooltip', sec: 'Tooltip', key: 'tipFollow', label: 'Placement', type: 'chips', opts: CH([['cursor', 'Follow the cursor'], ['corner', 'Fixed corner']]), def: 'cursor', when: { key: 'tipOn', truthy: true } });
+    add({ tab: 'tooltip', sec: 'Tooltip', key: 'tipMaxW', label: 'Maximum width', type: 'number', min: 160, max: 520, step: 10, unit: 'px', def: 280, when: { key: 'tipOn', truthy: true } });
+
+    add({ tab: 'fonts', sec: 'Font', key: 'fontFamily', label: 'Font', type: 'font', def: 'worksheet', help: 'Sans-serif families only.' });
+    add({ tab: 'fonts', sec: 'Title', key: 'showTitle', label: 'Show a title', type: 'check', def: false });
+    add({ tab: 'fonts', sec: 'Title', key: 'titleText', label: 'Title text', type: 'text', def: '', maxLength: 120, placeholder: 'Chart title', when: { key: 'showTitle', truthy: true } });
+    add({ tab: 'fonts', sec: 'Title', key: 'titleSize', label: 'Title size', type: 'number', min: 14, max: 40, step: 1, unit: 'px', def: 18, when: { key: 'showTitle', truthy: true } });
+    add({ tab: 'fonts', sec: 'Title', key: 'titleWeight', label: 'Title weight', type: 'chips', opts: CH([['normal', 'Regular'], ['bold', 'Bold']]), def: 'bold', when: { key: 'showTitle', truthy: true } });
+
+    add({ tab: 'background', sec: 'Background', key: 'bgMode', label: 'Background', type: 'chips', opts: CH([['worksheet', 'Worksheet'], ['custom', 'Custom'], ['transparent', 'Transparent']]), def: 'worksheet' });
+    add({ tab: 'background', sec: 'Background', key: 'bgColor', label: 'Background color', type: 'color', def: '#ffffff', when: { key: 'bgMode', eq: 'custom' } });
+    add({ tab: 'background', sec: 'Background', key: 'padding', label: 'Padding', type: 'number', min: 0, max: 60, step: 2, unit: 'px', def: 12 });
+    add({ tab: 'background', sec: 'Border', key: 'borderOn', label: 'Draw a border', type: 'check', def: false });
+    add({ tab: 'background', sec: 'Border', key: 'borderColor', label: 'Border color', type: 'color', def: '#8fa7b8', when: { key: 'borderOn', truthy: true } });
+    add({ tab: 'background', sec: 'Border', key: 'borderWidth', label: 'Border width', type: 'number', min: 1, max: 8, step: 1, unit: 'px', def: 1, when: { key: 'borderOn', truthy: true } });
+    add({ tab: 'background', sec: 'Border', key: 'borderRadius', label: 'Corner radius', type: 'number', min: 0, max: 40, step: 2, unit: 'px', def: 0, when: { key: 'borderOn', truthy: true } });
+
+    add({ tab: 'animation', sec: 'Entrance', key: 'animOn', label: 'Animate the chart', type: 'check', def: true, help: 'Off draws everything at once. Reduced-motion users always get that.' });
+    add({ tab: 'animation', sec: 'Entrance', key: 'animMs', label: 'Duration', type: 'number', min: 100, max: 3000, step: 50, unit: 'ms', def: 600, when: { key: 'animOn', truthy: true } });
+    add({ tab: 'animation', sec: 'Entrance', key: 'animEase', label: 'Easing', type: 'chips', opts: CH([['out', 'Ease out'], ['inout', 'Ease in-out'], ['linear', 'Linear']]), def: 'out', when: { key: 'animOn', truthy: true } });
+    add({ tab: 'animation', sec: 'Hover', key: 'hoverMs', label: 'Hover fade', type: 'number', min: 0, max: 600, step: 20, unit: 'ms', def: 160, help: 'How long the dim and highlight take. 0 is instant.' });
+
+    add({ tab: 'interaction', sec: 'Marks', key: 'selectOn', label: 'Click selects marks in Tableau', type: 'check', def: true });
+    add({ tab: 'interaction', sec: 'Marks', key: 'hoverOn', label: 'Highlight on hover', type: 'check', def: true });
+    add({ tab: 'interaction', sec: 'Marks', key: 'dimOthers', label: 'Dim the others to', type: 'number', min: 5, max: 100, step: 5, unit: '%', def: 25, when: { key: 'hoverOn', truthy: true } });
+    add({ tab: 'interaction', sec: 'Marks', key: 'hoverPush', label: 'Send hover to Tableau', type: 'check', def: false, help: 'Makes other sheets on the dashboard highlight too. Not available on C-Tableau Viz pages.', when: { key: 'hoverOn', truthy: true } });
+
+    (opts.fields || []).forEach(function (f) {
+      add({ tab: 'fields', sec: 'Pick fields by hand', key: f.key, label: f.label, type: 'field', def: '', kind: f.kind || 'any', help: f.help || 'Auto uses the field on the shelf.' });
+    });
+    return { tabs: tabs, rows: rows };
+  }
+
+  /* ------------------------------------------------------------------ store */
+
+  function indexRows(rows) { var m = {}; settable(rows).forEach(function (r) { m[r.key] = r; }); return m; }
+
+  /* A settings store over tableau.extensions.settings: typed in memory, written as strings under prefix+key,
+   * saved through saveAsync after a quiet period, change notices batched to one per frame. */
+  function createStore(o) {
+    var prepared = o.rows ? { rows: o.rows } : prepare(o.schema);
+    var rows = prepared.rows, byKey = indexRows(rows), prefix = o.prefix || '', st = o.settings, wait = o.debounce === undefined ? 400 : o.debounce;
+    var vals = defaultsOf(rows), saveTimer = null, noteTimer = null, noteKeys = {}, log = o.log || function () {};
+    function stored(key) {
+      var v;
+      try { v = st.get(prefix + key); } catch (e) { v = undefined; }
+      if (v === undefined || v === null) {
+        var all = {}; try { all = st.getAll() || {}; } catch (e2) { all = {}; }
+        Object.keys(all).some(function (ak) { if (ak.split('.').pop() === key) { v = all[ak]; return true; } return false; });
+      }
+      return v;
+    }
+    function load() {
+      if (!st) return vals;
+      Object.keys(byKey).forEach(function (k) {
+        var raw = stored(k);
+        if (raw === undefined || raw === null) return;
+        var c = coerce(byKey[k], raw);
+        if (c !== undefined) vals[k] = c;
+      });
+      return vals;
+    }
+    function flush() {
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      try { var p = st.saveAsync(); if (p && p.catch) p.catch(function (e) { log('saveAsync rejected', e); }); } catch (e) { log('saveAsync threw', e); }
+    }
+    function later() { if (!st) return; if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(flush, wait); }
+    function notify(keys) {
+      keys.forEach(function (k) { noteKeys[k] = 1; });
+      if (noteTimer || !o.onChange) return;
+      var fire = function () { noteTimer = null; var ks = Object.keys(noteKeys); noteKeys = {}; try { o.onChange(ks); } catch (e) { log('onChange threw', e); } };
+      if (typeof requestAnimationFrame === 'function') noteTimer = requestAnimationFrame(fire); else noteTimer = setTimeout(fire, 0);
+    }
+    function setMany(obj) {
+      var changed = [];
+      Object.keys(obj).forEach(function (k) {
+        var row = byKey[k]; if (!row) return;
+        var c = coerce(row, obj[k]);
+        if (c === undefined || same(vals[k], c)) return;
+        vals[k] = c; changed.push(k);
+        if (st) { try { st.set(prefix + k, serialize(row, c)); } catch (e) { log('could not stage', k, e); } }
+      });
+      if (changed.length) { later(); notify(changed); }
+      return changed;
+    }
+    var panelKey = prefix + '_panel';
+    return {
+      rows: rows, load: load, flush: flush,
+      get: function () { return vals; },
+      snapshot: function () { return JSON.parse(JSON.stringify(vals)); },
+      set: function (k, v) { var o2 = {}; o2[k] = v; return setMany(o2); },
+      setMany: setMany,
+      reset: function (keys) { var d = defaultsOf(rows), o2 = {}; (keys || Object.keys(d)).forEach(function (k) { if (k in d) o2[k] = d[k]; }); return setMany(o2); },
+      panelState: {
+        get: function () { try { var r = st.get(panelKey); return r ? JSON.parse(r) : {}; } catch (e) { return {}; } },
+        set: function (obj) { if (!st) return; try { st.set(panelKey, JSON.stringify(obj)); } catch (e) { log('panel state', e); } later(); }
+      }
+    };
+  }
+
+  /* --------------------------------------------------------------------- UI */
+
+  var COUNT = 0;
+
+  function create(host, opts) {
+    var doc = host.ownerDocument, win = doc.defaultView;
+    var prepared = prepare(opts.schema), rows = prepared.rows, store = opts.store;
+    var infoFn = opts.info || function () { return {}; };
+    var uid = 'cp' + (++COUNT), title = opts.title || 'Settings';
+    var panelTab = { id: '_panel', label: 'Panel' };
+    var panelRows = [
+      { tab: '_panel', sec: 'Panel theme', key: 'theme', label: 'Theme', type: 'chips', _p: true, opts: [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'match', label: 'Match the chart' }, { value: 'custom', label: 'Custom' }], def: 'match' },
+      { tab: '_panel', sec: 'Panel theme', key: 'customBg', label: 'Custom background', type: 'color', _p: true, def: '#ffffff', when: { key: 'theme', eq: 'custom' } },
+      { tab: '_panel', sec: 'Panel theme', key: 'customInk', label: 'Custom text', type: 'color', _p: true, def: '#14202e', when: { key: 'theme', eq: 'custom' }, help: 'Text is always adjusted to stay readable (7:1).' },
+      { tab: '_panel', sec: 'Position', key: 'resetPos', label: 'Put the panel back top right', type: 'note', _p: true }
+    ];
+    var allTabs = prepared.tabs.concat([panelTab]);
+    var allRows = rows.concat(panelRows);
+    var ps = { theme: 'match', customBg: '#ffffff', customInk: '#14202e', x: null, y: null, min: false, tab: prepared.tabs[0].id };
+    var saved = {}; try { saved = (opts.state && opts.state.get && opts.state.get()) || {}; } catch (e) { saved = {}; }
+    Object.keys(ps).forEach(function (k) { if (saved[k] !== undefined && saved[k] !== null) ps[k] = saved[k]; });
+    if (!allTabs.some(function (t) { return t.id === ps.tab; })) ps.tab = prepared.tabs[0].id;
+    var chart = { bg: '#ffffff', ink: '#14202e' };
+    var query = '', mode = 'idle', confirm = null, status = '', statusErr = false, undo = [], lastCopied = '', pasteText = '', pasteMsg = '', drag = null, sheet = false;
+
+    /* --- skeleton --- */
+    var gear = doc.createElement('button');
+    gear.type = 'button'; gear.className = 'cp-gear'; gear.setAttribute('aria-label', 'Open ' + title.toLowerCase());
+    gear.setAttribute('aria-haspopup', 'dialog'); gear.setAttribute('aria-expanded', 'false'); gear.title = title;
+    gear.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6c-.6.3-1.2.6-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.6c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>';
+    var panel = doc.createElement('div');
+    panel.className = 'cp-panel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', title); panel.tabIndex = -1;
+    panel.innerHTML =
+      '<div class="cp-head" tabindex="0" aria-label="' + esc(title) + ' title bar. Drag to move, or use the arrow keys."><span class="cp-grip" aria-hidden="true">&#8942;&#8942;</span>' +
+      '<h2 class="cp-title">' + esc(title) + '</h2>' +
+      '<button type="button" class="cp-ib" data-a="min" aria-label="Minimize settings">&minus;</button>' +
+      '<button type="button" class="cp-ib" data-a="close" aria-label="Close settings">&times;</button></div>' +
+      '<div class="cp-main"><div class="cp-search"><input type="text" class="cp-q" data-f="q" aria-label="Search settings" placeholder="Search all settings" autocomplete="off" spellcheck="false"></div>' +
+      '<div class="cp-tabs" role="tablist" aria-label="Settings tabs"></div><div class="cp-body" role="tabpanel"></div>' +
+      '<div class="cp-status" role="status" aria-live="polite"></div><div class="cp-foot"></div></div>';
+    var cs = host.ownerDocument.defaultView.getComputedStyle(host);
+    if (cs.position === 'static') host.style.position = 'relative';
+    host.appendChild(gear); host.appendChild(panel);
+    var head = panel.querySelector('.cp-head'), main = panel.querySelector('.cp-main'), tabsEl = panel.querySelector('.cp-tabs');
+    var bodyEl = panel.querySelector('.cp-body'), statusEl = panel.querySelector('.cp-status'), footEl = panel.querySelector('.cp-foot'), qEl = panel.querySelector('.cp-q');
+
+    function pget(k) { return ps[k]; }
+    function curSettings() { return store.get(); }
+    function getVal(row) { return row._p ? ps[row.key] : curSettings()[row.key]; }
+    function info() { var i = null; try { i = infoFn(); } catch (e) { i = null; } return i || {}; }
+    function persistState() { try { if (opts.state && opts.state.set) opts.state.set({ theme: ps.theme, customBg: ps.customBg, customInk: ps.customInk, x: ps.x, y: ps.y, min: ps.min, tab: ps.tab }); } catch (e) { /* cosmetic */ } }
+    function say(msg, err) { status = msg || ''; statusErr = !!err; statusEl.textContent = status; statusEl.className = 'cp-status' + (err ? ' cp-err' : ''); }
+
+    /* --- theme --- */
+    function applyTheme() {
+      var t = themeTokens(ps.theme, chart, { bg: ps.customBg, ink: ps.customInk });
+      var s = panel.style;
+      s.setProperty('--cp-bg', t.bg); s.setProperty('--cp-surface', t.surface); s.setProperty('--cp-ink', t.ink); s.setProperty('--cp-muted', t.muted);
+      s.setProperty('--cp-border', t.border); s.setProperty('--cp-accent', t.accent); s.setProperty('--cp-danger', t.danger);
+      gear.style.setProperty('--cp-bg', t.bg); gear.style.setProperty('--cp-ink', t.ink); gear.style.setProperty('--cp-border', t.border); gear.style.setProperty('--cp-accent', t.accent);
+      panel.setAttribute('data-theme', ps.theme);
+    }
+
+    /* --- placement --- */
+    function hostSize() { return { w: host.clientWidth, h: host.clientHeight }; }
+    function clamp(x, y) {
+      var hs = hostSize(), w = panel.offsetWidth, h = panel.offsetHeight;
+      return { x: Math.round(Math.max(0, Math.min(hs.w - w, x))), y: Math.round(Math.max(0, Math.min(hs.h - h, y))) };
+    }
+    function place(x, y, save) {
+      if (sheet) return;
+      var c = clamp(x, y); ps.x = c.x; ps.y = c.y;
+      panel.style.transform = 'translate(' + c.x + 'px,' + c.y + 'px)';
+      if (save) persistState();
+    }
+    function layoutMode() {
+      var hs = hostSize(), was = sheet;
+      sheet = hs.w < 420;
+      panel.classList.toggle('cp-sheet', sheet);
+      if (sheet) panel.style.transform = '';
+      return was !== sheet;
+    }
+    function settle() {
+      layoutMode();
+      if (sheet) return;
+      var hs = hostSize(), w = panel.offsetWidth;
+      if (ps.x === null || ps.y === null) place(hs.w - w - 8, 8, false); else place(ps.x, ps.y, false);
+    }
+    function onResize() { if (!panel.hidden) settle(); }
+    var ro = null;
+    if (typeof win.ResizeObserver === 'function') { ro = new win.ResizeObserver(onResize); ro.observe(host); } else win.addEventListener('resize', onResize);
+
+    head.addEventListener('pointerdown', function (e) {
+      if (sheet || e.target.closest('button')) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: ps.x === null ? 0 : ps.x, oy: ps.y === null ? 0 : ps.y };
+      try { head.setPointerCapture(e.pointerId); } catch (er) { /* synthetic pointer */ }
+      panel.classList.add('cp-dragging');
+      e.preventDefault();
+    });
+    head.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      place(drag.ox + e.clientX - drag.sx, drag.oy + e.clientY - drag.sy, false);
+    });
+    function endDrag(e) {
+      if (!drag || (e && e.pointerId !== undefined && e.pointerId !== drag.id)) return;
+      drag = null; panel.classList.remove('cp-dragging'); persistState();
+    }
+    head.addEventListener('pointerup', endDrag); head.addEventListener('pointercancel', endDrag); head.addEventListener('lostpointercapture', endDrag);
+    head.addEventListener('keydown', function (e) {
+      if (e.target !== head || sheet) return;
+      var d = { ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16] }[e.key];
+      if (!d) return;
+      e.preventDefault(); place((ps.x || 0) + d[0], (ps.y || 0) + d[1], true);
+    });
+
+    /* --- rendering --- */
+    function sigOf(s, inf) { return visibleRows(allRows, s, inf).map(function (r) { return r.key; }).join(','); }
+    var lastSig = '';
+
+    function control(row, v, inf, fid) {
+      var id = uid + '-' + row.key, lab = '<label class="cp-lab" for="' + id + '">' + esc(row.label) + '</label>', t = row.type;
+      if (t === 'note') {
+        return '<div class="cp-full"><button type="button" class="cp-btn" data-a="resetpos" data-f="resetpos">' + esc(row.label) + '</button></div>';
+      }
+      if (t === 'check') {
+        return '<label class="cp-check cp-full"><input type="checkbox" id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '"' + (v ? ' checked' : '') + '><span>' + esc(row.label) + '</span></label>';
+      }
+      if (t === 'number') {
+        return lab + '<div class="cp-num"><button type="button" class="cp-step" data-a="dec" data-k="' + row.key + '" data-f="' + row.key + '-" aria-label="Decrease ' + esc(row.label) + '">&minus;</button>' +
+          '<input type="number" inputmode="decimal" id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '" min="' + row.min + '" max="' + row.max + '" step="' + row.step + '" value="' + esc(v) + '">' +
+          '<button type="button" class="cp-step" data-a="inc" data-k="' + row.key + '" data-f="' + row.key + '+" aria-label="Increase ' + esc(row.label) + '">+</button>' +
+          (row.unit ? '<span class="cp-unit">' + esc(row.unit) + '</span>' : '') + '</div>';
+      }
+      if (t === 'select') {
+        var sopts = row.opts;
+        if (row.dynamic) {
+          sopts = row.opts.slice();
+          ((inf.lists && inf.lists[row.source]) || []).forEach(function (it) { sopts.push({ value: it.key, label: it.name || it.key }); });
+          if (v && !sopts.some(function (o) { return o.value === String(v); })) sopts.push({ value: String(v), label: String(v) + ' (not in the data)' });
+        }
+        return lab + '<select id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '">' + sopts.map(function (o) { return '<option value="' + esc(o.value) + '"' + (o.value === String(v) ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('') + '</select>';
+      }
+      if (t === 'chips') {
+        return '<div class="cp-lab" id="' + id + '-l">' + esc(row.label) + '</div><div class="cp-chips" role="group" aria-labelledby="' + id + '-l">' + row.opts.map(function (o) {
+          return '<button type="button" class="cp-chip" data-a="chip" data-k="' + row.key + '" data-v="' + esc(o.value) + '" data-f="' + row.key + '=' + esc(o.value) + '" aria-pressed="' + (o.value === String(v)) + '">' + esc(o.label) + '</button>';
+        }).join('') + '</div>';
+      }
+      if (t === 'color') {
+        var hx = normHex(v), shown = hx || (row._p ? '#000000' : chart.ink);
+        return lab + '<div class="cp-color"><input type="color" id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '" value="' + esc(normHex(shown) || '#000000') + '" aria-label="' + esc(row.label) + ' picker">' +
+          '<input type="text" class="cp-hex" data-k="' + row.key + '" data-f="' + row.key + '#" value="' + esc(hx || '') + '" maxlength="7" placeholder="' + (row.auto ? 'auto' : '#rrggbb') + '" aria-label="' + esc(row.label) + ' hex value" spellcheck="false">' +
+          (row.auto ? '<button type="button" class="cp-btn cp-small" data-a="auto" data-k="' + row.key + '" data-f="' + row.key + '~">Auto</button>' : '') + '</div>';
+      }
+      if (t === 'text') {
+        return lab + '<input type="text" id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '" value="' + esc(v) + '" maxlength="' + (row.maxLength || 200) + '"' + (row.placeholder ? ' placeholder="' + esc(row.placeholder) + '"' : '') + '>';
+      }
+      if (t === 'font') {
+        return lab + '<select id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '">' + FONTS.map(function (f) { return '<option value="' + f.id + '"' + (f.id === v ? ' selected' : '') + '>' + esc(f.label) + '</option>'; }).join('') + '</select>';
+      }
+      if (t === 'palette') {
+        return '<div class="cp-lab" id="' + id + '-l">' + esc(row.label) + '</div><div class="cp-pals" role="group" aria-labelledby="' + id + '-l">' + PALETTES.map(function (p) {
+          return '<button type="button" class="cp-pal" data-a="chip" data-k="' + row.key + '" data-v="' + p.id + '" data-f="' + row.key + '=' + p.id + '" aria-pressed="' + (p.id === v) + '"><span class="cp-strip" aria-hidden="true">' +
+            p.colors.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span><span class="cp-pname">' + esc(p.label) + (p.safe ? ' <em>colorblind-safe</em>' : '') + '</span></button>';
+        }).join('') + '</div>';
+      }
+      if (t === 'field') {
+        var cols = (inf.columns || []).slice(), want = row.kind === 'numeric' ? (inf.numericColumns || cols) : cols;
+        var auto = inf.auto && inf.auto[row.key] ? ' (' + inf.auto[row.key] + ')' : '';
+        return lab + '<select id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '"><option value="">Auto' + esc(auto) + '</option>' + want.map(function (c) { return '<option value="' + esc(c) + '"' + (c === v ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select>';
+      }
+      if (t === 'list') {
+        var items = (inf.lists && inf.lists[row.source]) || [];
+        if (!items.length) return '<div class="cp-full cp-help">Nothing to list yet. Add the field to the shelf first.</div>';
+        var merged = mergeList(v, items);
+        return '<div class="cp-list cp-full" role="list">' + merged.map(function (it, i) {
+          return '<div class="cp-li" role="listitem">' +
+            '<button type="button" class="cp-step" data-a="up" data-k="' + row.key + '" data-i="' + i + '" data-f="' + row.key + '^' + i + '" aria-label="Move ' + esc(it.name) + ' up">&uarr;</button>' +
+            '<button type="button" class="cp-step" data-a="down" data-k="' + row.key + '" data-i="' + i + '" data-f="' + row.key + 'v' + i + '" aria-label="Move ' + esc(it.name) + ' down">&darr;</button>' +
+            (row.visible ? '<input type="checkbox" class="cp-lshow" data-lk="' + row.key + '" data-i="' + i + '" data-f="' + row.key + 's' + i + '"' + (it.hidden ? '' : ' checked') + ' aria-label="Show ' + esc(it.name) + '">' : '') +
+            '<input type="text" class="cp-lname" data-lk="' + row.key + '" data-i="' + i + '" data-f="' + row.key + 'n' + i + '" value="' + esc(it.name) + '" maxlength="120" aria-label="Name of ' + esc(it.defName) + '">' +
+            '<input type="color" class="cp-lcol" data-lk="' + row.key + '" data-i="' + i + '" data-f="' + row.key + 'c' + i + '" value="' + esc(normHex(it.color) || '#888888') + '" aria-label="Color of ' + esc(it.name) + '"></div>';
+        }).join('') + '<div><button type="button" class="cp-btn cp-small" data-a="listreset" data-k="' + row.key + '" data-f="' + row.key + '!">Reset names, colors and order</button></div></div>';
+      }
+      return '';
+    }
+
+    function rowHtml(row, s, inf) {
+      return '<div class="cp-row" data-row="' + row.key + '">' + control(row, getVal(row), inf, row.key) + (row.help ? '<div class="cp-help">' + esc(row.help) + '</div>' : '') + '</div>';
+    }
+
+    function renderTabs() {
+      tabsEl.innerHTML = allTabs.map(function (t) {
+        var on = !query && t.id === ps.tab;
+        return '<button type="button" role="tab" class="cp-tab" data-a="tab" data-t="' + t.id + '" data-f="tab-' + t.id + '" aria-selected="' + on + '" tabindex="' + (on || (query && t.id === ps.tab) ? 0 : -1) + '">' + esc(t.label) + '</button>';
+      }).join('');
+    }
+    function renderBody() {
+      var s = curSettings(), inf = info(), html = '', list;
+      if (query) {
+        list = searchRows(prepared, s, inf, query);
+        if (!list.length) html = '<p class="cp-empty">No setting matches "' + esc(query) + '".</p>';
+        else {
+          html = '<p class="cp-count">' + list.length + ' match' + (list.length === 1 ? '' : 'es') + '</p>';
+          var lastTab = '';
+          list.forEach(function (r) {
+            if (r.tab !== lastTab) { lastTab = r.tab; allTabs.forEach(function (t) { if (t.id === r.tab) html += '<h3 class="cp-sec">' + esc(t.label) + '</h3>'; }); }
+            html += rowHtml(r, s, inf);
+          });
+        }
+      } else {
+        list = visibleRows(allRows.filter(function (r) { return r.tab === ps.tab; }), mergedState(s), inf);
+        var lastSec = '';
+        list.forEach(function (r) {
+          if (r.sec !== lastSec) { lastSec = r.sec; html += '<h3 class="cp-sec">' + esc(r.sec) + '</h3>'; }
+          html += rowHtml(r, s, inf);
+        });
+        if (!list.length) html = '<p class="cp-empty">Nothing to set on this tab right now.</p>';
+      }
+      bodyEl.innerHTML = html;
+      lastSig = sigOf(mergedState(s), inf);
+    }
+    /* when() reads the chart settings; Panel-tab rows read the panel's own state */
+    function mergedState(s) { var m = {}; Object.keys(s).forEach(function (k) { m[k] = s[k]; }); Object.keys(ps).forEach(function (k) { if (!(k in m)) m[k] = ps[k]; }); return m; }
+
+    function renderFoot() {
+      var h = '';
+      if (mode === 'paste') {
+        h = '<div class="cp-extra"><label class="cp-lab" for="' + uid + '-paste">Paste settings text</label><textarea id="' + uid + '-paste" data-f="paste" rows="4" spellcheck="false" placeholder="Paste the text Copy settings made">' + esc(pasteText) + '</textarea>' +
+          '<div class="cp-msg' + (pasteMsg ? ' cp-err' : '') + '" role="alert">' + esc(pasteMsg) + '</div>' +
+          '<div class="cp-actions"><button type="button" class="cp-btn cp-primary" data-a="pasteapply" data-f="pasteapply">Apply</button><button type="button" class="cp-btn" data-a="pastecancel" data-f="pastecancel">Cancel</button></div></div>';
+      } else if (mode === 'confirm') {
+        h = '<div class="cp-extra" role="alertdialog" aria-label="Confirm reset"><div class="cp-msg">' + esc(confirm.message) + '</div><div class="cp-actions"><button type="button" class="cp-btn cp-primary" data-a="confirmyes" data-f="confirmyes">Yes, reset</button><button type="button" class="cp-btn" data-a="confirmno" data-f="confirmno">Cancel</button></div></div>';
+      } else {
+        h = '<div class="cp-actions"><button type="button" class="cp-btn" data-a="undo" data-f="undo">Undo</button><button type="button" class="cp-btn" data-a="copy" data-f="copy">Copy settings</button><button type="button" class="cp-btn" data-a="paste" data-f="paste-open">Paste settings</button>' +
+          '<button type="button" class="cp-btn" data-a="resettab" data-f="resettab">Reset this tab</button><button type="button" class="cp-btn" data-a="resetall" data-f="resetall">Reset all</button></div>';
+      }
+      footEl.innerHTML = h;
+    }
+
+    function activeFid() { var a = doc.activeElement; return a && panel.contains(a) && a.getAttribute ? a.getAttribute('data-f') : null; }
+    function refocus(fid) {
+      if (!fid) return;
+      var els = panel.querySelectorAll('[data-f]');
+      for (var i = 0; i < els.length; i++) if (els[i].getAttribute('data-f') === fid) { try { els[i].focus({ preventScroll: true }); } catch (e) { els[i].focus(); } return; }
+    }
+    function render() {
+      var fid = activeFid(), sc = bodyEl.scrollTop, msc = main.scrollTop;
+      renderTabs(); renderBody(); renderFoot();
+      bodyEl.scrollTop = sc; main.scrollTop = msc;
+      panel.classList.toggle('cp-min', !!ps.min);
+      head.querySelector('[data-a=min]').setAttribute('aria-label', ps.min ? 'Restore settings' : 'Minimize settings');
+      head.querySelector('[data-a=min]').innerHTML = ps.min ? '&#9633;' : '&minus;';
+      refocus(fid);
+    }
+    function softRender() {   /* after a typed change: redraw the body only if the set of visible rows moved */
+      var s = mergedState(curSettings());
+      if (sigOf(s, info()) !== lastSig) render();
+    }
+
+    /* --- changing values --- */
+    var lastEdit = { key: null, t: 0 };
+    function record(prev, label, coalesceKey) {
+      var now = Date.now();
+      if (coalesceKey && lastEdit.key === coalesceKey && now - lastEdit.t < 1200 && undo.length) { lastEdit.t = now; return; }
+      lastEdit = { key: coalesceKey || null, t: now };
+      undo.push({ prev: prev, label: label }); if (undo.length > 100) undo.shift();
+    }
+    function change(row, value, fromTyping) {
+      if (row._p) {
+        var c0 = coerce(row, value); if (c0 === undefined) return false;
+        ps[row.key] = c0; persistState(); applyTheme(); return true;
+      }
+      var c = coerce(row, value); if (c === undefined) return false;
+      var cur = curSettings()[row.key];
+      if (same(cur, c)) return true;
+      var prev = {}; prev[row.key] = JSON.parse(JSON.stringify(cur));
+      var changed = store.set(row.key, c);
+      if (changed && changed.length === 0 && !same(curSettings()[row.key], c)) return false;
+      record(prev, row.label || row.key, fromTyping ? row.key : null);
+      return true;
+    }
+    function rowOf(key) { for (var i = 0; i < allRows.length; i++) if (allRows[i].key === key) return allRows[i]; return null; }
+    function bulk(values, label) {
+      var s = curSettings(), prev = {};
+      Object.keys(values).forEach(function (k) { if (k in s && !same(s[k], values[k])) prev[k] = JSON.parse(JSON.stringify(s[k])); });
+      if (!Object.keys(prev).length) return 0;
+      store.setMany(values);
+      record(prev, label, null);
+      return Object.keys(prev).length;
+    }
+    function keysOfTab(tabId) { return settable(rows).filter(function (r) { return tabId === null || r.tab === tabId; }); }
+    function dirtyCount(rs) { var s = curSettings(); return rs.filter(function (r) { return !same(s[r.key], r.def); }).length; }
+    function defaultsFor(rs) { var o = {}; rs.forEach(function (r) { o[r.key] = JSON.parse(JSON.stringify(r.def)); }); return o; }
+
+    function stepBy(row, dir) {
+      var v = Number(curSettings()[row.key]); if (!isFinite(v)) v = row.def;
+      var d = Math.max(decimalsOf(row.step), decimalsOf(row.min));
+      change(row, Number((v + dir * row.step).toFixed(d)), true);
+    }
+    function moveItem(row, i, dir) {
+      var inf = info(), items = (inf.lists && inf.lists[row.source]) || [], merged = mergeList(curSettings()[row.key], items), j = i + dir;
+      if (j < 0 || j >= merged.length) return;
+      var t = merged[i]; merged[i] = merged[j]; merged[j] = t;
+      change(row, merged.map(function (m) { return { key: m.key, name: m.name === m.defName ? '' : m.name, color: m.color === m.defColor ? '' : m.color, hidden: m.hidden }; }), false);
+    }
+    function editItem(row, i, patch, typing) {
+      var inf = info(), items = (inf.lists && inf.lists[row.source]) || [], merged = mergeList(curSettings()[row.key], items);
+      if (!merged[i]) return;
+      Object.keys(patch).forEach(function (k) { merged[i][k] = patch[k]; });
+      change(row, merged.map(function (m) { return { key: m.key, name: m.name === m.defName ? '' : m.name, color: m.color === m.defColor ? '' : m.color, hidden: m.hidden }; }), typing ? row.key + '#' + i : false);
+    }
+
+    function doUndo() {
+      var u = undo.pop();
+      if (!u) { say('Nothing to undo.'); return; }
+      lastEdit = { key: null, t: 0 };
+      store.setMany(u.prev);
+      say('Undid ' + u.label + '.'); render();
+    }
+    function copyText() {
+      var s = curSettings(), o = {};
+      settable(rows).forEach(function (r) { o[r.key] = s[r.key]; });
+      lastCopied = JSON.stringify(o, null, 2);
+      var n = Object.keys(o).length;
+      function done(ok) { say(ok ? 'Copied ' + n + ' settings.' : 'Could not reach the clipboard. Paste settings opens a box you can copy from.', !ok); if (!ok) { mode = 'paste'; pasteText = lastCopied; pasteMsg = ''; render(); } }
+      try {
+        if (win.navigator.clipboard && win.navigator.clipboard.writeText) { win.navigator.clipboard.writeText(lastCopied).then(function () { done(true); }, function () { done(fallbackCopy(lastCopied)); }); return; }
+      } catch (e) { /* fall through */ }
+      done(fallbackCopy(lastCopied));
+    }
+    function fallbackCopy(text) {
+      try {
+        var ta = doc.createElement('textarea'); ta.value = text; ta.setAttribute('aria-hidden', 'true'); ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+        doc.body.appendChild(ta); ta.select(); var ok = doc.execCommand('copy'); doc.body.removeChild(ta); return !!ok;
+      } catch (e) { return false; }
+    }
+
+    /* --- events --- */
+    panel.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b || !panel.contains(b)) return;
+      var a = b.getAttribute('data-a'), k = b.getAttribute('data-k'), row = k ? rowOf(k) : null;
+      if (a === 'close') { close(); return; }
+      if (a === 'min') { ps.min = !ps.min; persistState(); panel.classList.toggle('cp-min', ps.min); render(); settle(); return; }
+      if (a === 'tab') { ps.tab = b.getAttribute('data-t'); query = ''; qEl.value = ''; persistState(); say(''); render(); return; }
+      if (a === 'chip' && row) { if (change(row, b.getAttribute('data-v'), false)) { render(); } return; }
+      if ((a === 'inc' || a === 'dec') && row) { stepBy(row, a === 'inc' ? 1 : -1); bodyEl.querySelector('[data-f="' + k + '"]').value = curSettings()[k]; softRender(); return; }
+      if (a === 'auto' && row) { change(row, '', false); render(); return; }
+      if ((a === 'up' || a === 'down') && row) { moveItem(row, +b.getAttribute('data-i'), a === 'up' ? -1 : 1); render(); return; }
+      if (a === 'listreset' && row) { change(row, [], false); render(); return; }
+      if (a === 'resetpos') { ps.x = null; ps.y = null; persistState(); settle(); say('Panel moved back to the top right.'); return; }
+      if (a === 'undo') { doUndo(); return; }
+      if (a === 'copy') { copyText(); return; }
+      if (a === 'paste') { mode = 'paste'; pasteText = ''; pasteMsg = ''; say(''); render(); refocus('paste'); return; }
+      if (a === 'pastecancel') { mode = 'idle'; pasteMsg = ''; render(); refocus('paste-open'); return; }
+      if (a === 'pasteapply') {
+        var ta = panel.querySelector('textarea[data-f="paste"]'); pasteText = ta ? ta.value : pasteText;
+        var res = parsePaste(rows, pasteText, opts.prefix);
+        if (!res.ok) { pasteMsg = res.message; render(); refocus('paste'); return; }
+        bulk(res.values, 'the pasted settings');
+        mode = 'idle'; pasteMsg = ''; say(res.message); render(); refocus('paste-open'); return;
+      }
+      if (a === 'resettab' || a === 'resetall') {
+        var tabId = a === 'resettab' ? ps.tab : null, rs;
+        if (a === 'resettab' && ps.tab === '_panel') { ps.theme = 'match'; ps.customBg = '#ffffff'; ps.customInk = '#14202e'; persistState(); applyTheme(); say('Panel theme reset.'); render(); return; }
+        rs = keysOfTab(tabId);
+        var n = dirtyCount(rs);
+        if (!n) { say(a === 'resettab' ? 'This tab is already at its defaults.' : 'Everything is already at its defaults.'); return; }
+        mode = 'confirm'; confirm = { tabId: tabId, message: 'Reset ' + n + ' setting' + (n === 1 ? '' : 's') + (tabId ? ' on this tab' : ' across every tab') + ' to the defaults? You can still Undo.' };
+        say(''); render(); refocus('confirmno'); return;
+      }
+      if (a === 'confirmno') { mode = 'idle'; confirm = null; render(); refocus('resettab'); return; }
+      if (a === 'confirmyes') {
+        var rs2 = keysOfTab(confirm.tabId), cnt = bulk(defaultsFor(rs2), confirm.tabId ? 'the tab reset' : 'the full reset');
+        mode = 'idle'; confirm = null; say('Reset ' + cnt + ' setting' + (cnt === 1 ? '' : 's') + '.'); render(); refocus('undo'); return;
+      }
+    });
+
+    panel.addEventListener('input', function (e) {
+      var t = e.target, k = t.getAttribute('data-k'), lk = t.getAttribute('data-lk');
+      if (t === qEl) { query = t.value; render(); return; }
+      if (t.getAttribute('data-f') === 'paste') { pasteText = t.value; return; }
+      if (lk) {
+        var lrow = rowOf(lk), i = +t.getAttribute('data-i');
+        if (t.classList.contains('cp-lname')) editItem(lrow, i, { name: t.value || '' }, true);
+        else if (t.classList.contains('cp-lcol')) editItem(lrow, i, { color: t.value }, true);
+        return;
+      }
+      if (!k) return;
+      var row = rowOf(k); if (!row) return;
+      if (row.type === 'number') {
+        if (t.value === '') return;
+        change(row, t.value, true); softRender();
+      } else if (row.type === 'text' && !t.classList.contains('cp-hex')) {
+        change(row, t.value, true);
+      } else if (row.type === 'color') {
+        if (t.classList.contains('cp-hex')) {
+          if (normHex(t.value)) { change(row, t.value, true); var pk = bodyEl.querySelector('input[type=color][data-k="' + k + '"]'); if (pk) pk.value = normHex(t.value); }
+        } else { change(row, t.value, true); var hx = bodyEl.querySelector('.cp-hex[data-k="' + k + '"]'); if (hx) hx.value = normHex(t.value); }
+      }
+    });
+    panel.addEventListener('change', function (e) {
+      var t = e.target, k = t.getAttribute('data-k'), lk = t.getAttribute('data-lk');
+      if (lk && t.classList.contains('cp-lshow')) { editItem(rowOf(lk), +t.getAttribute('data-i'), { hidden: !t.checked }, false); render(); return; }
+      if (!k) return;
+      var row = rowOf(k); if (!row) return;
+      if (row.type === 'number') {
+        var ok = change(row, t.value, false);
+        t.value = ok ? getVal(row) : getVal(row);
+        if (!ok) say('Type a number from ' + row.min + ' to ' + row.max + '.', true);
+        softRender();
+      } else if (row.type === 'check') { change(row, t.checked, false); render(); }
+      else if (row.type === 'select' || row.type === 'font' || row.type === 'field') { change(row, t.value, false); render(); }
+      else if (row.type === 'color' && t.classList.contains('cp-hex')) {
+        if (row.auto && t.value.trim() === '') { change(row, '', false); render(); return; }
+        if (!normHex(t.value)) { say('Colors are six hex digits like #3cc4d1.', true); t.value = getVal(row) || ''; } else { change(row, t.value, false); }
+      }
+    });
+
+    panel.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      var tb = e.target.closest ? e.target.closest('.cp-tab') : null;
+      if (tb && (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Home' || e.key === 'End')) {
+        e.preventDefault();
+        var ids = allTabs.map(function (t) { return t.id; }), i = ids.indexOf(tb.getAttribute('data-t'));
+        i = e.key === 'Home' ? 0 : e.key === 'End' ? ids.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length;
+        ps.tab = ids[i]; query = ''; qEl.value = ''; persistState(); render(); refocus('tab-' + ids[i]); return;
+      }
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type === 'number') { e.preventDefault(); e.target.blur(); }
+    });
+    var onDocKey = function (e) { if (e.key === 'Escape' && !panel.hidden && !panel.contains(doc.activeElement)) close(); };
+    doc.addEventListener('keydown', onDocKey);
+
+    /* --- open and close --- */
+    function open() {
+      if (!panel.hidden) return;
+      panel.hidden = false; gear.hidden = true; gear.setAttribute('aria-expanded', 'true');
+      applyTheme(); render(); settle();
+      try { panel.focus({ preventScroll: true }); } catch (e) { panel.focus(); }
+      if (opts.onToggle) opts.onToggle(true);
+    }
+    function close() {
+      if (panel.hidden) return;
+      panel.hidden = true; gear.hidden = false; gear.setAttribute('aria-expanded', 'false');
+      mode = 'idle'; confirm = null; query = ''; qEl.value = ''; pasteMsg = '';
+      gear.focus();
+      if (opts.onToggle) opts.onToggle(false);
+    }
+    gear.addEventListener('click', open);
+    applyTheme();
+
+    return {
+      open: open, close: close, toggle: function () { if (panel.hidden) open(); else close(); },
+      isOpen: function () { return !panel.hidden; },
+      render: function () { if (!panel.hidden) { render(); } },
+      undo: doUndo, gear: gear, panel: panel, state: ps,
+      get lastCopied() { return lastCopied; },
+      applyAppearance: function (bg, ink) { chart = { bg: bg || chart.bg, ink: ink || chart.ink }; applyTheme(); },
+      destroy: function () { doc.removeEventListener('keydown', onDocKey); if (ro) ro.disconnect(); else win.removeEventListener('resize', onResize); gear.remove(); panel.remove(); }
+    };
+  }
+
+  return {
+    version: VERSION, create: create, createStore: createStore, standard: standard, prepare: prepare,
+    coerce: coerce, serialize: serialize, defaultsOf: defaultsOf, isVisible: isVisible, visibleRows: visibleRows, searchRows: searchRows,
+    parsePaste: parsePaste, mergeList: mergeList, formatNumber: formatNumber, paletteColors: paletteColors, fontStack: fontStack,
+    FONTS: FONTS, PALETTES: PALETTES, color: { normHex: normHex, contrast: contrast, mix: mix, ensureContrast: ensureContrast, legalBg: legalBg, tokens: tokens, themeTokens: themeTokens, bestInk: bestInk, lum: lum }
+  };
+});
+
+/* ---- radar-math.js ---- */
+/* Radar - pure maths. No DOM, so node can test it: model building (pivot axes x series), scales and nice rings,
+ * polar geometry, straight and cardinal-closed outlines, label wrapping, small-multiples layout.
+ * Browser: window.RD.math. Node: module.exports. */
+(function (root, factory) {
+  var m = factory();
+  if (typeof module === 'object' && module.exports) module.exports = m;
+  else { root.RD = root.RD || {}; root.RD.math = m; }
+})(typeof window !== 'undefined' ? window : globalThis, function () {
+  'use strict';
+
+  var ELLIPSIS = String.fromCharCode(8230);
+
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
+
+  /* ----------------------------------------------------------------- model */
+
+  /* rows: [{ axis, series, value, label, tuple }]. Duplicates for one (axis, series) are averaged. */
+  function buildModel(rows, o) {
+    o = o || {};
+    var axisIdx = {}, axes = [], serIdx = {}, series = [];
+    rows.forEach(function (r) {
+      var ak = String(r.axis), sk = r.series === null || r.series === undefined || r.series === '' ? (o.singleName || 'Value') : String(r.series);
+      if (!(ak in axisIdx)) { axisIdx[ak] = axes.length; axes.push({ key: ak, label: ak, tuples: [], i: 0 }); }
+      if (!(sk in serIdx)) { serIdx[sk] = series.length; series.push({ key: sk, name: sk, sums: {}, cnt: {}, tuples: {} }); }
+      var a = axes[axisIdx[ak]], s = series[serIdx[sk]];
+      if (r.label && a.label === ak) a.label = String(r.label);
+      if (typeof r.value === 'number' && isFinite(r.value)) { s.sums[ak] = (s.sums[ak] || 0) + r.value; s.cnt[ak] = (s.cnt[ak] || 0) + 1; }
+      if (r.tuple !== undefined) { (s.tuples[ak] = s.tuples[ak] || []).push(r.tuple); a.tuples.push(r.tuple); }
+    });
+    function order(list, how, valueOf, manual) {
+      var idx = list.map(function (x, i) { return { x: x, i: i }; });
+      if (how === 'name') idx.sort(function (a, b) { return String(a.x.label || a.x.name).localeCompare(String(b.x.label || b.x.name), undefined, { numeric: true }); });
+      else if (how === 'nameDesc') idx.sort(function (a, b) { return String(b.x.label || b.x.name).localeCompare(String(a.x.label || a.x.name), undefined, { numeric: true }); });
+      else if (how === 'mean') idx.sort(function (a, b) { return valueOf(a.x) - valueOf(b.x) || a.i - b.i; });
+      else if (how === 'meanDesc') idx.sort(function (a, b) { return valueOf(b.x) - valueOf(a.x) || a.i - b.i; });
+      else if (how === 'manual' && manual && manual.length) {
+        var pos = {}; manual.forEach(function (k, i) { pos[k] = i; });
+        idx.sort(function (a, b) { var pa = a.x.key in pos ? pos[a.x.key] : 1e9 + a.i, pb = b.x.key in pos ? pos[b.x.key] : 1e9 + b.i; return pa - pb; });
+      }
+      return idx.map(function (e) { return e.x; });
+    }
+    var axMean = {};
+    axes.forEach(function (a) { var vals = []; series.forEach(function (s) { if (s.cnt[a.key]) vals.push(s.sums[a.key] / s.cnt[a.key]); }); axMean[a.key] = mean(vals); });
+    axes = order(axes, o.sortAxes, function (a) { return axMean[a.key]; }, o.axisOrder);
+    axes.forEach(function (a, i) { a.i = i; });
+    series.forEach(function (s) {
+      s.values = axes.map(function (a) { return s.cnt[a.key] ? s.sums[a.key] / s.cnt[a.key] : null; });
+      s.tupleList = []; axes.forEach(function (a) { (s.tuples[a.key] || []).forEach(function (t) { s.tupleList.push(t); }); });
+      s.mean = mean(s.values.filter(function (v) { return v !== null; }));
+    });
+    series = order(series, o.sortSeries, function (s) { return s.mean; }, o.seriesOrder);
+    return { axes: axes, series: series };
+  }
+
+  /* ---------------------------------------------------------------- scales */
+
+  function niceNum(x, round) {
+    if (!(x > 0)) return 1;
+    var e = Math.floor(Math.log(x) / Math.LN10), f = x / Math.pow(10, e), nf;
+    if (round) nf = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10; else nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+    return nf * Math.pow(10, e);
+  }
+
+  /* Domain with exactly `rings` evenly spaced rings. cfg: { minMode: auto|zero|custom, min, maxMode: auto|custom, max } */
+  function domain(lo, hi, rings, cfg) {
+    cfg = cfg || {};
+    if (!isFinite(lo) || !isFinite(hi)) { lo = 0; hi = 1; }
+    if (cfg.minMode === 'zero') lo = Math.min(0, lo);
+    var fixLo = cfg.minMode === 'custom' && isFinite(cfg.min), fixHi = cfg.maxMode === 'custom' && isFinite(cfg.max);
+    if (fixLo) lo = cfg.min;
+    if (fixHi) hi = cfg.max;
+    if (hi <= lo) hi = lo + (Math.abs(lo) > 0 ? Math.abs(lo) * 0.1 : 1);
+    var step = niceNum((hi - lo) / rings, false);
+    if (!fixLo && cfg.minMode !== 'zero') {
+      lo = Math.floor(lo / step) * step;
+      step = niceNum((hi - lo) / rings, false);
+    }
+    if (!fixHi) hi = lo + step * rings;
+    var ticks = [];
+    for (var i = 0; i <= rings; i++) ticks.push(Number((lo + (hi - lo) * i / rings).toPrecision(12)));
+    return { lo: lo, hi: hi, ticks: ticks };
+  }
+
+  /* series: the visible series. cfg: { perAxis, rings, minMode, min, maxMode, max, extra: [values] } */
+  function scales(axes, series, cfg) {
+    var per = axes.map(function (a, i) {
+      var lo = Infinity, hi = -Infinity;
+      series.forEach(function (s) { var v = s.values[i]; if (v !== null && v !== undefined) { if (v < lo) lo = v; if (v > hi) hi = v; } });
+      ((cfg.extra && cfg.extra[i]) || []).forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+      return { lo: lo, hi: hi };
+    });
+    var out = { perAxis: !!cfg.perAxis, axes: [], rings: cfg.rings };
+    if (cfg.perAxis) {
+      per.forEach(function (p) { out.axes.push(domain(p.lo, p.hi, cfg.rings, cfg)); });
+      out.ticks = null;
+    } else {
+      var lo = Infinity, hi = -Infinity;
+      per.forEach(function (p) { if (p.lo < lo) lo = p.lo; if (p.hi > hi) hi = p.hi; });
+      var d = domain(lo, hi, cfg.rings, cfg);
+      axes.forEach(function () { out.axes.push(d); });
+      out.ticks = d.ticks;
+    }
+    return out;
+  }
+  function frac(sc, i, v) { var d = sc.axes[i], t = (v - d.lo) / ((d.hi - d.lo) || 1); return t < 0 ? 0 : t > 1 ? 1 : t; }
+
+  /* --------------------------------------------------------------- geometry */
+
+  function angleOf(i, n, rotationDeg, dir) { return -Math.PI / 2 + (rotationDeg || 0) * Math.PI / 180 + (dir < 0 ? -1 : 1) * 2 * Math.PI * i / n; }
+  function pointAt(cx, cy, r, theta) { return { x: cx + r * Math.cos(theta), y: cy + r * Math.sin(theta) }; }
+  function f2(v) { return (Math.round(v * 100) / 100).toString(); }
+
+  /* Points of one series at animation progress t (0 centre, 1 full). Missing values: 'zero' pins to the centre, 'skip' drops the point. */
+  function seriesPoints(s, sc, cx, cy, R, thetas, missing, t) {
+    var pts = [];
+    s.values.forEach(function (v, i) {
+      if (v === null || v === undefined) { if (missing === 'skip') return; v = sc.axes[i].lo; }
+      var r = R * frac(sc, i, v) * (t === undefined ? 1 : t), p = pointAt(cx, cy, r, thetas[i]);
+      pts.push({ x: p.x, y: p.y, v: s.values[i], i: i });
+    });
+    return pts;
+  }
+  function polygonPath(pts) {
+    if (!pts.length) return '';
+    return 'M' + pts.map(function (p) { return f2(p.x) + ',' + f2(p.y); }).join('L') + 'Z';
+  }
+  /* d3 curveCardinalClosed with a clamp: every control point stays inside the outer circle, so the curve (inside the
+   * convex hull of its control points) can never leave the chart. smooth 1 = Catmull-Rom, 0 = straight. */
+  function cardinalClosedPath(pts, smooth, cx, cy, R) {
+    var n = pts.length;
+    if (n < 3 || !(smooth > 0)) return polygonPath(pts);
+    var k = Math.min(1, smooth) / 6;
+    function clampPt(x, y) {
+      var dx = x - cx, dy = y - cy, d = Math.sqrt(dx * dx + dy * dy);
+      return d > R ? { x: cx + dx * R / d, y: cy + dy * R / d } : { x: x, y: y };
+    }
+    var d = 'M' + f2(pts[0].x) + ',' + f2(pts[0].y);
+    for (var i = 0; i < n; i++) {
+      var p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+      var c1 = clampPt(p1.x + k * (p2.x - p0.x), p1.y + k * (p2.y - p0.y)), c2 = clampPt(p2.x - k * (p3.x - p1.x), p2.y - k * (p3.y - p1.y));
+      d += 'C' + f2(c1.x) + ',' + f2(c1.y) + ' ' + f2(c2.x) + ',' + f2(c2.y) + ' ' + f2(p2.x) + ',' + f2(p2.y);
+    }
+    return d + 'Z';
+  }
+  function polygonArea(pts) {
+    var a = 0;
+    for (var i = 0; i < pts.length; i++) { var p = pts[i], q = pts[(i + 1) % pts.length]; a += p.x * q.y - q.x * p.y; }
+    return Math.abs(a) / 2;
+  }
+  function pointInPolygon(x, y, pts) {
+    var inside = false;
+    for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      var a = pts[i], b = pts[j];
+      if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / ((b.y - a.y) || 1e-12) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+
+  /* ------------------------------------------------------------------ text */
+
+  /* Greedy word wrap. measure(text) returns pixel width. A word wider than maxW is broken by characters. */
+  function wrapText(text, maxW, measure, maxLines) {
+    var words = String(text).split(' ').filter(Boolean), lines = [], cur = '';
+    function push(w) {
+      while (measure(w) > maxW && w.length > 1) {
+        var cut = w.length - 1; while (cut > 1 && measure(w.slice(0, cut)) > maxW) cut--;
+        lines.push(w.slice(0, cut)); w = w.slice(cut);
+      }
+      return w;
+    }
+    words.forEach(function (w) {
+      var t = cur ? cur + ' ' + w : w;
+      if (measure(t) <= maxW) { cur = t; return; }
+      if (cur) lines.push(cur);
+      cur = push(w);
+    });
+    if (cur) lines.push(cur);
+    if (!lines.length) lines.push('');
+    if (maxLines && lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      var last = lines[maxLines - 1];
+      while (last.length > 1 && measure(last + ELLIPSIS) > maxW) last = last.slice(0, -1);
+      lines[maxLines - 1] = last + ELLIPSIS;
+    }
+    return lines;
+  }
+  /* One line that fits maxW: the text itself, or its longest prefix plus an ellipsis, or '' when not even one character fits. */
+  function fitLine(text, maxW, measure) {
+    text = String(text);
+    if (measure(text) <= maxW) return text;
+    var cut = text.length - 1;
+    while (cut > 0 && measure(text.slice(0, cut).replace(/\s+$/, '') + ELLIPSIS) > maxW) cut--;
+    return cut > 0 ? text.slice(0, cut).replace(/\s+$/, '') + ELLIPSIS : '';
+  }
+  function overlaps(a, b, pad) { pad = pad || 0; return a.l < b.r + pad && b.l < a.r + pad && a.t < b.b + pad && b.t < a.b + pad; }
+
+  /* ----------------------------------------------------------- multiples */
+
+  function layoutMultiples(w, h, count, cols, gap) {
+    gap = gap || 0;
+    var best = null;
+    var from = cols > 0 ? Math.min(cols, count) : 1, to = cols > 0 ? Math.min(cols, count) : count;
+    for (var c = from; c <= to; c++) {
+      var rows = Math.ceil(count / c), cw = (w - (c - 1) * gap) / c, ch = (h - (rows - 1) * gap) / rows, score = Math.min(cw, ch);
+      if (!best || score > best.score + 1e-9) best = { cols: c, rows: rows, cw: cw, ch: ch, score: score };
+    }
+    var cells = [];
+    for (var i = 0; i < count; i++) {
+      var col = i % best.cols, row = Math.floor(i / best.cols);
+      cells.push({ x: col * (best.cw + gap), y: row * (best.ch + gap), w: best.cw, h: best.ch });
+    }
+    return { cols: best.cols, rows: best.rows, cells: cells };
+  }
+
+  return { buildModel: buildModel, niceNum: niceNum, domain: domain, scales: scales, frac: frac, angleOf: angleOf, pointAt: pointAt,
+    seriesPoints: seriesPoints, polygonPath: polygonPath, cardinalClosedPath: cardinalClosedPath, polygonArea: polygonArea, pointInPolygon: pointInPolygon,
+    wrapText: wrapText, fitLine: fitLine, overlaps: overlaps, layoutMultiples: layoutMultiples, mean: mean, ELLIPSIS: ELLIPSIS };
+});
+
+/* ---- settings.js ---- */
+/* Radar - the settings schema. Chart-specific rows plus the ctab-panel standard tabs. The panel is generated from
+ * this, the renderer reads the resolved values. Keys are flat, which is the shape Copy settings produces. */
+(function (root, factory) {
+  var CP = typeof require === 'function' && typeof module === 'object' ? require('../../lib/ctab-panel/ctab-panel.js') : root.CTabPanel;
+  var s = factory(CP);
+  if (typeof module === 'object' && module.exports) module.exports = s;
+  else { root.RD = root.RD || {}; root.RD.settings = s; }
+})(typeof window !== 'undefined' ? window : globalThis, function (CP) {
+  'use strict';
+
+  var std = CP.standard({
+    fields: [
+      { key: 'fieldAxis', label: 'Axis field', help: 'The dimension that makes one spoke each. Auto uses the Axis shelf.' },
+      { key: 'fieldSeries', label: 'Series field', help: 'The dimension that makes one shape each. Auto uses the Series shelf.' },
+      { key: 'fieldValue', label: 'Value field', kind: 'numeric', help: 'The measure that sets how far out each point sits. Auto uses the Value shelf.' },
+      { key: 'fieldLabel', label: 'Axis label field', help: 'Text written at the end of each spoke instead of the axis value.' }
+    ],
+    over: { animMs: { def: 700 }, hoverMs: { def: 180 }, dimOthers: { def: 22 }, labelLines: { def: 3 } }
+  });
+
+  var TABS = [{ id: 'layout', label: 'Layout' }, { id: 'rings', label: 'Rings' }, { id: 'axes', label: 'Axes' }, { id: 'series', label: 'Series' },
+    { id: 'benchmark', label: 'Benchmark' }, { id: 'legend', label: 'Legend' }].concat(std.tabs);
+
+  var SORT_AXES = [['data', 'Data order'], ['name', 'Name, A to Z'], ['nameDesc', 'Name, Z to A'], ['mean', 'Average, low to high'], ['meanDesc', 'Average, high to low'], ['manual', 'My order (Axes tab list)']];
+  var SORT_SERIES = [['data', 'Data order'], ['name', 'Name, A to Z'], ['nameDesc', 'Name, Z to A'], ['mean', 'Average, low to high'], ['meanDesc', 'Average, high to low']];
+  var BIG = 1000000;
+
+  var ROWS = [
+    { tab: 'layout', sec: 'View', key: 'view', label: 'Show series as', type: 'chips', opts: [['overlay', 'Overlaid'], ['multiples', 'Small multiples']], def: 'overlay',
+      help: 'Overlaid draws every series on one radar. Small multiples gives each series its own radar on the same scale.' },
+    { tab: 'layout', sec: 'View', key: 'mcols', label: 'Panels per row', type: 'number', min: 0, max: 8, step: 1, def: 0, when: { key: 'view', eq: 'multiples' }, help: '0 chooses the arrangement that makes the radars largest.' },
+    { tab: 'layout', sec: 'View', key: 'mgap', label: 'Gap between panels', type: 'number', min: 0, max: 60, step: 2, unit: 'px', def: 12, when: { key: 'view', eq: 'multiples' } },
+    { tab: 'layout', sec: 'View', key: 'mtitle', label: 'Name each panel', type: 'check', def: true, when: { key: 'view', eq: 'multiples' } },
+    { tab: 'layout', sec: 'Shape', key: 'rotation', label: 'Rotate', type: 'number', min: 0, max: 345, step: 15, unit: 'deg', def: 0, help: '0 puts the first axis at the top, turning clockwise.' },
+    { tab: 'layout', sec: 'Shape', key: 'direction', label: 'Axes run', type: 'chips', opts: [['cw', 'Clockwise'], ['ccw', 'Counter-clockwise']], def: 'cw' },
+    { tab: 'layout', sec: 'Shape', key: 'sizePct', label: 'Chart size', type: 'number', min: 40, max: 100, step: 5, unit: '%', def: 100, help: 'Share of the available room the radar fills.' },
+    { tab: 'layout', sec: 'Order', key: 'sortAxes', label: 'Sort axes', type: 'select', opts: SORT_AXES, def: 'data' },
+    { tab: 'layout', sec: 'Order', key: 'sortSeries', label: 'Sort series', type: 'select', opts: SORT_SERIES, def: 'data' },
+    { tab: 'layout', sec: 'Order', key: 'missing', label: 'Missing values', type: 'chips', opts: [['zero', 'Draw at the center'], ['skip', 'Skip the point']], def: 'zero' },
+
+    { tab: 'rings', sec: 'Scale', key: 'scaleMode', label: 'Scale', type: 'chips', opts: [['shared', 'One shared scale'], ['perAxis', 'Each axis its own']], def: 'shared',
+      help: 'Shared keeps every axis comparable. Each axis its own stretches every axis from its own lowest to highest value.' },
+    { tab: 'rings', sec: 'Scale', key: 'minMode', label: 'Center value', type: 'chips', opts: [['zero', 'Zero'], ['auto', 'Lowest value'], ['custom', 'Custom']], def: 'zero' },
+    { tab: 'rings', sec: 'Scale', key: 'minCustom', label: 'Custom center', type: 'number', min: -BIG, max: BIG, step: 1, def: 0, when: { key: 'minMode', eq: 'custom' } },
+    { tab: 'rings', sec: 'Scale', key: 'maxMode', label: 'Outer ring', type: 'chips', opts: [['auto', 'Highest value, rounded up'], ['custom', 'Custom']], def: 'auto' },
+    { tab: 'rings', sec: 'Scale', key: 'maxCustom', label: 'Custom outer ring', type: 'number', min: -BIG, max: BIG, step: 1, def: 100, when: { key: 'maxMode', eq: 'custom' } },
+    { tab: 'rings', sec: 'Rings', key: 'ringCount', label: 'Number of rings', type: 'number', min: 1, max: 10, step: 1, def: 5 },
+    { tab: 'rings', sec: 'Rings', key: 'ringShape', label: 'Ring shape', type: 'chips', opts: [['polygon', 'Polygon'], ['circle', 'Circle']], def: 'polygon' },
+    { tab: 'rings', sec: 'Rings', key: 'ringStyle', label: 'Ring line', type: 'chips', opts: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']], def: 'solid' },
+    { tab: 'rings', sec: 'Rings', key: 'ringWidth', label: 'Ring width', type: 'number', min: 0.5, max: 4, step: 0.5, unit: 'px', def: 1 },
+    { tab: 'rings', sec: 'Rings', key: 'ringColor', label: 'Ring color', type: 'color', auto: true, def: '', help: 'Auto follows the background.' },
+    { tab: 'rings', sec: 'Rings', key: 'ringBands', label: 'Tint alternate rings', type: 'check', def: false },
+    { tab: 'rings', sec: 'Ring labels', key: 'ringLabels', label: 'Show ring values', type: 'check', def: true, help: 'With each axis on its own scale the rings read as a share of each axis range.' },
+    { tab: 'rings', sec: 'Ring labels', key: 'ringLabelSize', label: 'Ring value size', type: 'number', min: 14, max: 20, step: 1, unit: 'px', def: 14, when: { key: 'ringLabels', truthy: true } },
+
+    { tab: 'axes', sec: 'Spokes', key: 'axisLines', label: 'Draw the axis lines', type: 'check', def: true },
+    { tab: 'axes', sec: 'Spokes', key: 'axisLineWidth', label: 'Axis line width', type: 'number', min: 0.5, max: 4, step: 0.5, unit: 'px', def: 1, when: { key: 'axisLines', truthy: true } },
+    { tab: 'axes', sec: 'Spokes', key: 'axisColor', label: 'Axis line color', type: 'color', auto: true, def: '', when: { key: 'axisLines', truthy: true } },
+    { tab: 'axes', sec: 'Axis labels', key: 'axisLabelDist', label: 'Distance from the outer ring', type: 'number', min: 4, max: 60, step: 2, unit: 'px', def: 12 },
+    { tab: 'axes', sec: 'Axis labels', key: 'axisWrap', label: 'Wrap labels at', type: 'number', min: 60, max: 320, step: 10, unit: 'px', def: 170, help: 'Labels wrap onto the number of lines set on the Labels tab.' },
+    { tab: 'axes', sec: 'Axis labels', key: 'axisRange', label: 'Show each axis range in its label', type: 'check', def: false },
+    { tab: 'axes', sec: 'Order and names', key: 'axesList', label: 'Axes', type: 'list', source: 'axes', visible: true, def: [], help: 'Rename or hide an axis. Choose "My order" on the Layout tab to use this order.' },
+
+    { tab: 'series', sec: 'Outline', key: 'curve', label: 'Outline', type: 'chips', opts: [['straight', 'Straight'], ['smooth', 'Smoothed']], def: 'straight' },
+    { tab: 'series', sec: 'Outline', key: 'smooth', label: 'Smoothness', type: 'number', min: 0.1, max: 1, step: 0.05, def: 0.8, when: { key: 'curve', eq: 'smooth' }, help: 'Smoothed outlines never leave the outer ring.' },
+    { tab: 'series', sec: 'Outline', key: 'lineWidth', label: 'Line width', type: 'number', min: 0.5, max: 8, step: 0.5, unit: 'px', def: 2.5 },
+    { tab: 'series', sec: 'Fill', key: 'fillOn', label: 'Fill the shapes', type: 'check', def: true },
+    { tab: 'series', sec: 'Fill', key: 'fillOpacity', label: 'Fill opacity', type: 'number', min: 5, max: 100, step: 5, unit: '%', def: 22, when: { key: 'fillOn', truthy: true } },
+    { tab: 'series', sec: 'Points', key: 'dots', label: 'Mark each value with a dot', type: 'check', def: true },
+    { tab: 'series', sec: 'Points', key: 'dotSize', label: 'Dot size', type: 'number', min: 2, max: 12, step: 1, unit: 'px', def: 4, when: { key: 'dots', truthy: true } },
+    { tab: 'series', sec: 'Stacking', key: 'drawOrder', label: 'Draw order', type: 'chips', opts: [['bigfirst', 'Largest at the back'], ['data', 'Series order']], def: 'bigfirst', help: 'Largest at the back keeps small shapes visible and hoverable.' },
+
+    { tab: 'benchmark', sec: 'Benchmark', key: 'benchMode', label: 'Benchmark', type: 'chips', opts: [['none', 'None'], ['series', 'A series'], ['value', 'One value']], def: 'none',
+      help: 'A target drawn as a dashed ring: pick one of the series, or type a single value for every axis.' },
+    { tab: 'benchmark', sec: 'Benchmark', key: 'benchSeries', label: 'Series to use as the benchmark', type: 'select', dynamic: true, source: 'categories', opts: [['', 'Choose a series']], def: '', when: { key: 'benchMode', eq: 'series' } },
+    { tab: 'benchmark', sec: 'Benchmark', key: 'benchValue', label: 'Benchmark value', type: 'number', min: -BIG, max: BIG, step: 1, def: 80, when: { key: 'benchMode', eq: 'value' } },
+    { tab: 'benchmark', sec: 'Benchmark', key: 'benchLabel', label: 'Benchmark name', type: 'text', def: 'Benchmark', maxLength: 40, when: { key: 'benchMode', eq: 'value' } },
+    { tab: 'benchmark', sec: 'Look', key: 'benchDash', label: 'Line', type: 'chips', opts: [['dashed', 'Dashed'], ['dotted', 'Dotted'], ['solid', 'Solid']], def: 'dashed', when: { key: 'benchMode', ne: 'none' } },
+    { tab: 'benchmark', sec: 'Look', key: 'benchWidth', label: 'Line width', type: 'number', min: 0.5, max: 6, step: 0.5, unit: 'px', def: 2, when: { key: 'benchMode', ne: 'none' } },
+    { tab: 'benchmark', sec: 'Look', key: 'benchColor', label: 'Color', type: 'color', auto: true, def: '', when: { key: 'benchMode', ne: 'none' } },
+    { tab: 'benchmark', sec: 'Look', key: 'benchFill', label: 'Tint inside the benchmark', type: 'check', def: false, when: { key: 'benchMode', ne: 'none' } },
+
+    { tab: 'legend', sec: 'Legend', key: 'legendOn', label: 'Show the legend', type: 'check', def: true },
+    { tab: 'legend', sec: 'Legend', key: 'legendPos', label: 'Position', type: 'chips', opts: [['bottom', 'Bottom'], ['top', 'Top'], ['right', 'Right']], def: 'bottom', when: { key: 'legendOn', truthy: true } },
+    { tab: 'legend', sec: 'Legend', key: 'legendTitle', label: 'Title', type: 'text', def: '', maxLength: 60, placeholder: 'No title', when: { key: 'legendOn', truthy: true } },
+
+    { tab: 'interaction', sec: 'Marks', key: 'clickIsolate', label: 'Click a series to isolate it', type: 'check', def: true, help: 'Click again, or click the background, to bring the others back.' }
+  ];
+
+  var schema = { tabs: TABS, rows: ROWS.concat(std.rows) };
+  var prepared = CP.prepare(schema);
+  return { schema: schema, prepared: prepared, DEFAULTS: CP.defaultsOf(prepared.rows), KEYS: prepared.rows.filter(function (r) { return r.type !== 'note'; }).map(function (r) { return r.key; }) };
+});
+
+/* ---- render.js ---- */
+/* Radar - SVG renderer. Takes the pivoted model and the resolved settings, lays out one radar (or one per series),
+ * draws rings, spokes, wrapped axis labels, series shapes, dots, a dashed benchmark ring, legend and tooltip, and
+ * handles hover (eased dim of the other series), click-to-isolate and the entrance animation. */
+(function (global) {
+  'use strict';
+  var RD = global.RD = global.RD || {};
+  var M = RD.math, CP = global.CTabPanel, C = CP.color;
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function svgEl(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function htmlEl(tag, cls, parent, text) {
+    var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; if (parent) parent.appendChild(e); return e;
+  }
+
+  /* ------------------------------------------------- model + settings -> drawable */
+
+  function seriesItems(model, s) {
+    var pal = CP.paletteColors(s.palette, s.paletteReverse);
+    return model.series.map(function (x, i) { return { key: x.key, name: x.name, color: pal[i % pal.length] }; });
+  }
+  function axisItems(model) { return model.axes.map(function (a) { return { key: a.key, name: a.label, color: '' }; }); }
+
+  /* Applies the per-series and per-axis lists (rename, recolor, hide), pulls the benchmark out of the series,
+   * and keeps value arrays aligned with the visible axes. Pure, so node can test it. */
+  function prepare(model, s) {
+    var si = CP.mergeList(s.catColors, seriesItems(model, s)), byKey = {};
+    model.series.forEach(function (x) { byKey[x.key] = x; });
+    var ai = CP.mergeList(s.axesList, axisItems(model)).filter(function (a) { return !a.hidden; });
+    var axisIndex = {}; model.axes.forEach(function (a, i) { axisIndex[a.key] = i; });
+    var axisOrder = ai.map(function (a) { return axisIndex[a.key]; });
+    var axes = ai.map(function (a) { return { key: a.key, label: a.name }; });
+    var pal = CP.paletteColors(s.palette, s.paletteReverse);
+    var series = [], bench = null, want = String(s.benchSeries || '').trim().toLowerCase();
+    si.forEach(function (it, pos) {
+      if (it.hidden) return;
+      var src = byKey[it.key];
+      var o = { key: it.key, name: it.name, color: it.color || pal[pos % pal.length], values: axisOrder.map(function (i) { return src.values[i]; }),
+        tuples: src.tupleList, byAxisTuples: axisOrder.map(function (i) { return src.tuples[model.axes[i].key] || []; }) };
+      if (s.benchMode === 'series' && want && (it.key.toLowerCase() === want || it.name.toLowerCase() === want)) bench = { key: it.key, name: it.name, values: o.values, tuples: o.tuples, isSeries: true };
+      else series.push(o);
+    });
+    if (s.benchMode === 'value') bench = { key: '__bench', name: s.benchLabel || 'Benchmark', values: axes.map(function () { return s.benchValue; }), tuples: [], isSeries: false };
+    return { axes: axes, series: series, bench: bench };
+  }
+
+  function scaleOf(p, s) {
+    var extra = p.bench ? p.bench.values.map(function (v) { return [v]; }) : null;
+    return M.scales(p.axes, p.series, { perAxis: s.scaleMode === 'perAxis', rings: s.ringCount, minMode: s.minMode, min: s.minCustom, maxMode: s.maxMode, max: s.maxCustom, extra: extra });
+  }
+
+  /* ---------------------------------------------------------------- layout */
+
+  /* One radar inside a w x h cell. measure(text) -> px. Returns the centre, radius and the label boxes that fit. */
+  function layoutRadar(w, h, p, s, measure, labelTexts) {
+    var n = p.axes.length, pad = 6, fs = s.labelSize, lh = Math.round(fs * 1.28), gap = s.axisLabelDist;
+    var thetas = p.axes.map(function (a, i) { return M.angleOf(i, n, s.rotation, s.direction === 'ccw' ? -1 : 1); });
+    var wrapW = Math.max(48, Math.min(s.axisWrap, w * 0.34));
+    var boxes = labelTexts.map(function (t) {
+      var lines = M.wrapText(t, wrapW, measure, s.labelLines), bw = 0;
+      lines.forEach(function (l) { bw = Math.max(bw, measure(l)); });
+      return { lines: lines, w: Math.ceil(bw) + 2, h: lines.length * lh };
+    });
+    function place(R, cx, cy) {
+      return boxes.map(function (b, i) {
+        var c = Math.cos(thetas[i]), sn = Math.sin(thetas[i]), ax = cx + (R + gap) * c, ay = cy + (R + gap) * sn, l, t, anchor;
+        if (c > 0.25) { l = ax; anchor = 'start'; } else if (c < -0.25) { l = ax - b.w; anchor = 'end'; } else { l = ax - b.w / 2; anchor = 'middle'; }
+        if (sn > 0.25) t = ay; else if (sn < -0.25) t = ay - b.h; else t = ay - b.h / 2;
+        return { l: l, t: t, r: l + b.w, b: t + b.h, anchor: anchor, lines: b.lines, ax: anchor === 'start' ? l : anchor === 'end' ? l + b.w : l + b.w / 2 };
+      });
+    }
+    function union(R, withLabels) {
+      var cx = w / 2, cy = h / 2, bb = { l: cx - R, t: cy - R, r: cx + R, b: cy + R };
+      if (withLabels) place(R, cx, cy).forEach(function (q) { bb.l = Math.min(bb.l, q.l); bb.t = Math.min(bb.t, q.t); bb.r = Math.max(bb.r, q.r); bb.b = Math.max(bb.b, q.b); });
+      return bb;
+    }
+    function fits(R, withLabels) { var bb = union(R, withLabels); return bb.r - bb.l <= w - 2 * pad && bb.b - bb.t <= h - 2 * pad; }
+    var showLabels = s.labelsOn, minR = 28, R;
+    if (showLabels && !fits(minR, true)) showLabels = false;
+    var hi = Math.max(8, Math.min(w, h) / 2 - pad), lo = showLabels ? minR : 8;
+    for (var it = 0; it < 40; it++) { var mid = (lo + hi) / 2; if (fits(mid, showLabels)) lo = mid; else hi = mid; }
+    R = Math.max(8, lo);
+    var bb = union(R, showLabels), cx = w / 2 + ((pad + (w - 2 * pad) / 2) - (bb.l + bb.r) / 2), cy = h / 2 + ((pad + (h - 2 * pad) / 2) - (bb.t + bb.b) / 2);
+    R = R * Math.max(0.2, s.sizePct / 100);
+    var out = { top: bb.t + (cy - h / 2), cx: cx, cy: cy, R: R, thetas: thetas, labels: [], hidden: 0, labelsOff: !showLabels && s.labelsOn, lh: lh };
+    if (showLabels) {
+      var q = place(R, cx, cy), kept = [];
+      q.forEach(function (b, i) {
+        var clash = kept.some(function (k) { return M.overlaps(b, k.box, 2); });
+        if (clash) { out.hidden++; return; }
+        kept.push({ i: i, box: b });
+        out.labels.push({ i: i, box: b });
+      });
+    }
+    return out;
+  }
+
+  /* --------------------------------------------------------------- renderer */
+
+  function Renderer(host) {
+    var self = this;
+    this.host = host; this.iso = null; this.hover = null; this.lastKey = null; this.anim = 0; this.measureCache = {}; this.cvs = null;
+    host.classList.add('rd-chart'); host.innerHTML = '';
+    this.title = htmlEl('div', 'rd-title', host);
+    this.legTop = htmlEl('div', 'rd-legend rd-legend-top', host);
+    this.mid = htmlEl('div', 'rd-mid', host);
+    this.stage = htmlEl('div', 'rd-stage', this.mid);
+    this.legRight = htmlEl('div', 'rd-legend rd-legend-right', this.mid);
+    this.legBottom = htmlEl('div', 'rd-legend rd-legend-bottom', host);
+    this.note = htmlEl('div', 'rd-note', host);
+    this.tip = htmlEl('div', 'rd-tip', host); this.tip.setAttribute('role', 'tooltip');
+    this.stage.addEventListener('pointerover', function (e) { self.onOver(e); });
+    this.stage.addEventListener('pointermove', function (e) { self.onMove(e); });
+    this.stage.addEventListener('pointerleave', function () { self.setHover(null); self.hideTip(); });
+    this.stage.addEventListener('click', function (e) { self.onClick(e); });
+    this.stage.addEventListener('keydown', function (e) {
+      var g = e.target.closest && e.target.closest('.rd-s');
+      if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); self.toggleIso(g.getAttribute('data-key')); }
+    });
+    this.stage.addEventListener('focusin', function (e) { var g = e.target.closest && e.target.closest('.rd-s'); if (g) self.setHover(g.getAttribute('data-key')); });
+    this.stage.addEventListener('focusout', function () { self.setHover(null); });
+  }
+
+  Renderer.prototype.measure = function (text, size, weight, stack) {
+    if (!this.cvs) this.cvs = document.createElement('canvas').getContext('2d');
+    var f = weight + ' ' + size + 'px ' + stack;
+    if (this.cvs.font !== f) this.cvs.font = f;
+    return this.cvs.measureText(text).width;
+  };
+
+  Renderer.prototype.setHover = function (key) {
+    if (this.hover === key) return;
+    this.hover = key; this.applyFocus();
+    if (this.hooks && this.hooks.onHover) this.hooks.onHover(key);
+  };
+  Renderer.prototype.toggleIso = function (key) {
+    this.iso = this.iso === key ? null : key; this.applyFocus();
+    if (this.hooks && this.hooks.onSelect) this.hooks.onSelect(this.iso ? 'series' : 'clear', this.iso || null);
+  };
+  Renderer.prototype.applyFocus = function () {
+    var key = this.iso || (this.s && this.s.hoverOn ? this.hover : null), svg = this.svg;
+    if (svg) {
+      svg.classList.toggle('rd-focus', !!key); svg.classList.toggle('rd-iso', !!this.iso);
+      svg.querySelectorAll('.rd-s').forEach(function (g) { g.classList.toggle('is-on', g.getAttribute('data-key') === key); });
+    }
+    this.host.querySelectorAll('.rd-lg[data-key]').forEach(function (b) {
+      b.classList.toggle('is-on', b.getAttribute('data-key') === key);
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-key') === this.iso));
+    }, this);
+  };
+  Renderer.prototype.hideTip = function () { this.tip.classList.remove('on'); };
+
+  Renderer.prototype.onOver = function (e) {
+    var dot = e.target.closest && e.target.closest('.rd-dhit'), g = e.target.closest && e.target.closest('.rd-s');
+    if (!this.s) return;
+    if (g && !(this.iso && g.getAttribute('data-key') !== this.iso)) this.setHover(g.getAttribute('data-key')); else if (!g) this.setHover(null);
+    if (!this.s.tipOn) return;
+    if (dot) this.showTip(e, 'axis', +dot.getAttribute('data-ai'), g ? g.getAttribute('data-key') : null);
+    else if (g) this.showTip(e, 'series', 0, g.getAttribute('data-key'));
+    else this.hideTip();
+  };
+  Renderer.prototype.onMove = function (e) { if (this.tip.classList.contains('on')) this.placeTip(e); else this.onOver(e); };
+  Renderer.prototype.onClick = function (e) {
+    if (!this.s) return;
+    var g = e.target.closest && e.target.closest('.rd-s');
+    if (g && this.s.clickIsolate) { this.toggleIso(g.getAttribute('data-key')); return; }
+    if (g && this.hooks && this.hooks.onSelect && this.s.selectOn) { this.hooks.onSelect('series', g.getAttribute('data-key')); return; }
+    if (!g && this.iso) { this.iso = null; this.applyFocus(); if (this.hooks && this.hooks.onSelect) this.hooks.onSelect('clear', null); }
+  };
+
+  Renderer.prototype.showTip = function (e, kind, ai, skey) {
+    var p = this.p, s = this.s, tip = this.tip, rows = [], title, swatch = s.tipSwatch;
+    tip.innerHTML = '';
+    var fmt = function (v) { return v === null || v === undefined ? 'no data' : CP.formatNumber(v, s); };
+    if (kind === 'axis') {
+      title = p.axes[ai].label;
+      p.series.forEach(function (x) { rows.push({ name: x.name, color: x.color, v: x.values[ai], key: x.key }); });
+      if (p.bench) rows.push({ name: p.bench.name, color: null, v: p.bench.values[ai], key: p.bench.key, dashed: true });
+      rows.sort(function (a, b) { return (b.v === null ? -Infinity : b.v) - (a.v === null ? -Infinity : a.v); });
+    } else {
+      var x = null; p.series.forEach(function (q) { if (q.key === skey) x = q; });
+      if (!x && p.bench && p.bench.key === skey) x = p.bench;
+      if (!x) { this.hideTip(); return; }
+      title = x.name;
+      p.axes.forEach(function (a, i) { rows.push({ name: a.label, color: null, v: x.values[i], key: a.key }); });
+    }
+    htmlEl('div', 'rd-tip-h', tip, title);
+    var max = 9, self = this;
+    rows.slice(0, max).forEach(function (r) {
+      var row = htmlEl('div', 'rd-tip-r' + (r.key === skey ? ' is-on' : ''), tip);
+      if (swatch && r.color) { var sw = htmlEl('span', 'rd-tip-sw', row); sw.style.background = r.color; }
+      htmlEl('span', 'rd-tip-n', row, r.name); htmlEl('span', 'rd-tip-v', row, fmt(r.v));
+    });
+    if (rows.length > max) htmlEl('div', 'rd-tip-m', tip, '+ ' + (rows.length - max) + ' more');
+    tip.classList.add('on'); this.placeTip(e);
+  };
+  Renderer.prototype.placeTip = function (e) {
+    var tip = this.tip, hr = this.host.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, x, y;
+    if (this.s.tipFollow === 'corner') { x = 8; y = 8; }
+    else { x = e.clientX - hr.left + 14; y = e.clientY - hr.top + 14; if (x + w > hr.width - 4) x = e.clientX - hr.left - w - 14; if (y + h > hr.height - 4) y = e.clientY - hr.top - h - 14; }
+    tip.style.left = Math.max(4, Math.min(hr.width - w - 4, x)) + 'px'; tip.style.top = Math.max(4, Math.min(hr.height - h - 4, y)) + 'px';
+  };
+
+  /* ------------------------------------------------------------------ draw */
+
+  Renderer.prototype.draw = function (model, s, hooks) {
+    this.hooks = hooks || {}; this.s = s; this.model = model;
+    var host = this.host, stack = CP.fontStack(s.fontFamily), self = this;
+    var bgWs = C.normHex(model.worksheetBg) || '#ffffff', bg = s.bgMode === 'custom' ? (C.normHex(s.bgColor) || bgWs) : bgWs;
+    var ink = C.ensureContrast(C.normHex(s.labelColor) || C.bestInk(bg), [bg], 7.5), muted = C.ensureContrast(C.mix(ink, bg, 0.28), [bg], 7.2);
+    this.colors = { bg: bg, ink: ink, muted: muted };
+    host.style.background = s.bgMode === 'transparent' ? 'transparent' : bg;
+    host.style.color = ink; host.style.fontFamily = stack; host.style.padding = s.padding + 'px';
+    host.style.border = s.borderOn ? s.borderWidth + 'px solid ' + (C.normHex(s.borderColor) || muted) : '0';
+    host.style.borderRadius = s.borderOn ? s.borderRadius + 'px' : '0';
+    host.style.setProperty('--rd-dim', String(s.dimOthers / 100)); host.style.setProperty('--rd-ms', s.hoverMs + 'ms');
+    host.style.setProperty('--rd-tip-size', s.tipSize + 'px'); host.style.setProperty('--rd-tip-w', s.tipMaxW + 'px');
+    host.style.setProperty('--rd-tip-bg', C.mix(bg, ink, 0.06)); host.style.setProperty('--rd-ink', ink); host.style.setProperty('--rd-muted', muted); host.style.setProperty('--rd-bg', bg);
+
+    var p = this.p = prepare(model, s);
+    this.stage.innerHTML = ''; this.svg = null; this.hideTip();
+    ['legTop', 'legRight', 'legBottom'].forEach(function (k) { self[k].innerHTML = ''; self[k].style.display = 'none'; });
+    this.title.style.display = s.showTitle && s.titleText ? '' : 'none';
+    this.title.textContent = s.titleText || ''; this.title.style.fontSize = s.titleSize + 'px'; this.title.style.fontWeight = s.titleWeight === 'bold' ? '700' : '400';
+    this.note.style.display = 'none'; this.note.textContent = '';
+    this.mid.classList.toggle('rd-mid-right', s.legendOn && s.legendPos === 'right');
+    if (p.axes.length < 3 || !p.series.length) {
+      var em = htmlEl('div', 'rd-empty', this.stage);
+      em.textContent = !model.axes.length ? (model.emptyMessage || 'Drop a dimension on Axis and a measure on Value.') :
+        (p.axes.length < 3 ? 'A radar needs at least 3 axes. Put a dimension with 3 or more values on Axis.' : 'Every series is hidden. Show one on the Colors tab.');
+      em.style.color = ink; em.style.fontSize = Math.max(14, s.labelSize) + 'px';
+      this.svg = null; return;
+    }
+    /* Named small multiples already say which radar is which; the legend would only take room from the radars. A benchmark keeps it, as it explains the dashed ring. */
+    var legendDrawn = false;
+    if (s.legendOn && !(s.view === 'multiples' && p.series.length > 1 && s.mtitle && !p.bench)) { this.drawLegend(p, s, ink); legendDrawn = true; }
+    var sc = scaleOf(p, s), sig = model.key || '';
+    var run = (sig !== this.lastKey) && s.animOn && !(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    this.lastKey = sig;
+    for (var pass = 0; pass < 3; pass++) {
+      this.stage.innerHTML = '';
+      var rect = this.stage.getBoundingClientRect(), W = Math.max(40, Math.floor(rect.width)), H = Math.max(40, Math.floor(rect.height));
+      var info = this.drawSvg(p, s, sc, W, H, stack);
+      /* a panel whose name had to be dropped (tiny frame, settings gear in the way) must still be identifiable: bring the legend back */
+      if (info.titlesLost && !legendDrawn) { this.drawLegend(p, s, ink); legendDrawn = true; continue; }
+      var msg = info.labelsOff ? 'Axis labels are hidden: the chart is too small for ' + s.labelSize + 'px text. Enlarge it to see them.' :
+        info.hidden ? 'Showing ' + (p.axes.length - info.hidden) + ' of ' + p.axes.length + ' axis labels. Enlarge the chart or shorten the labels to see the rest.' : '';
+      if (!!msg === (this.note.style.display !== 'none') && (!msg || this.note.textContent === msg)) break;
+      this.note.textContent = msg; this.note.style.display = msg ? '' : 'none';
+    }
+    this.applyFocus();
+    if (run) this.animateIn(s); else this.svg.setAttribute('data-anim', 'done');
+  };
+
+  Renderer.prototype.drawLegend = function (p, s, ink) {
+    var self = this, box = s.legendPos === 'right' ? this.legRight : s.legendPos === 'top' ? this.legTop : this.legBottom;
+    box.style.display = ''; box.style.fontSize = Math.max(14, s.labelSize) + 'px'; box.style.color = ink;
+    if (s.legendTitle) htmlEl('span', 'rd-lg-t', box, s.legendTitle);
+    if (p.series.length > 1 || p.bench) p.series.forEach(function (x) {
+      var b = htmlEl('button', 'rd-lg', box); b.type = 'button'; b.setAttribute('data-key', x.key); b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-label', 'Isolate ' + x.name);
+      var sw = htmlEl('span', 'rd-lg-sw', b); sw.style.background = C.ensureContrast(x.color, [self.colors.bg], 3); htmlEl('span', 'rd-lg-n', b, x.name);
+      b.addEventListener('pointerenter', function () { self.setHover(x.key); }); b.addEventListener('pointerleave', function () { self.setHover(null); });
+      b.addEventListener('click', function () { self.toggleIso(x.key); });
+    });
+    if (p.bench) {
+      var bi = htmlEl('span', 'rd-lg rd-lg-bench', box), bsw = htmlEl('span', 'rd-lg-sw rd-lg-dash', bi), bc = this.benchColor(s);
+      bsw.style.borderColor = bc; htmlEl('span', 'rd-lg-n', bi, p.bench.name);
+    }
+    if (!box.childNodes.length) box.style.display = 'none';
+  };
+  Renderer.prototype.benchColor = function (s) { return C.ensureContrast(C.normHex(s.benchColor) || this.colors.ink, [this.colors.bg], 3); };
+
+  Renderer.prototype.drawSvg = function (p, s, sc, W, H, stack) {
+    var self = this, col = this.colors, svg = this.svg = svgEl('svg', { 'class': 'rd-svg', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img',
+      'aria-label': 'Radar chart of ' + p.series.length + ' series across ' + p.axes.length + ' axes' }, this.stage);
+    svg.setAttribute('data-view', s.view); svg.setAttribute('data-axes', p.axes.length); svg.setAttribute('data-series', p.series.length);
+    svg.setAttribute('data-curve', s.curve); svg.setAttribute('data-scale', s.scaleMode); svg.setAttribute('data-rings', s.ringCount);
+    svg.style.fontFamily = stack;
+    var multi = s.view === 'multiples' && p.series.length > 1, panels = [];
+    var texts = [], hiddenTotal = 0, labelsOff = false, self2 = this, titlesLost = 0;
+    this.anims = [];
+    var fsl = s.labelSize, wl = s.labelWeight === 'bold' ? '700' : '400';
+    var meas = function (t) { return self2.measure(t, fsl, wl, stack); };
+    var labelTexts = p.axes.map(function (a, i) {
+      var t = a.label;
+      if (s.axisRange) { var d = sc.axes[i]; t += ' (' + CP.formatNumber(d.lo, s) + ' to ' + CP.formatNumber(d.hi, s) + ')'; }
+      return t;
+    });
+    var gridCfg = { cells: [{ x: 0, y: 0, w: W, h: H }] };
+    if (multi) {
+      var cols = s.mcols, nS = p.series.length, tH = s.mtitle ? Math.round(Math.max(16, s.labelSize) * 1.5) : 0;
+      if (!(cols > 0)) { // pick the column count that gives the biggest radars with the most axis labels kept
+        var bestScore = -Infinity;
+        for (var c = 1; c <= nS; c++) {
+          var g0 = M.layoutMultiples(W, H, nS, c, s.mgap), c0 = g0.cells[0], l0 = layoutRadar(c0.w, c0.h - tH, p, s, meas, labelTexts);
+          var sc0 = l0.R + (l0.labelsOff ? 0 : 1000) - l0.hidden * 40 - (tH && c0.w < 80 ? 500 : 0); // cells too narrow to name are a last resort
+          if (sc0 > bestScore + 1e-9) { bestScore = sc0; cols = c; }
+        }
+      }
+      gridCfg = M.layoutMultiples(W, H, nS, cols, s.mgap);
+    }
+    var rootR = this.host.parentNode.getBoundingClientRect(), stR = this.stage.getBoundingClientRect();
+    var gear = { l: rootR.right - 52 - stR.left, b: rootR.top + 52 - stR.top }; // the settings gear floats here; titles keep clear of it
+    gridCfg.cells.forEach(function (cell, ci) { panels.push({ cell: cell, series: multi ? [p.series[ci]] : p.series, title: multi && s.mtitle ? p.series[ci].name : '' }); });
+    panels.forEach(function (pn, pi) {
+      var g = svgEl('g', { 'class': 'rd-panel', transform: 'translate(' + pn.cell.x.toFixed(2) + ',' + pn.cell.y.toFixed(2) + ')' }, svg);
+      var th = 0, tt = null;
+      if (pn.title) {
+        /* the title never leaves its cell: 16px when it fits, else 14px, else cut with an ellipsis, else dropped */
+        var tsz = Math.max(16, s.labelSize), tw0 = pn.cell.w - 6;
+        var tmeas = function (t, z) { return self2.measure(t, z, '700', stack); };
+        if (tmeas(pn.title, tsz) > tw0) tsz = 14;
+        var tx = pn.cell.w / 2, tanchor = 'middle', tmw = tmeas(pn.title, tsz);
+        if (pn.cell.y < gear.b && pn.cell.x + pn.cell.w > gear.l && pn.cell.x + tx + Math.min(tmw, tw0) / 2 > gear.l) { tx = 3; tanchor = 'start'; tw0 = Math.max(0, gear.l - pn.cell.x - 8); }
+        var ttext = M.fitLine(pn.title, tw0, function (t) { return tmeas(t, tsz); });
+        if (ttext) {
+          th = Math.round(tsz * 1.5);
+          tt = svgEl('text', { 'class': 'rd-ptitle', x: tx, y: Math.round(th * 0.7), 'text-anchor': tanchor, fill: col.ink, 'font-size': tsz, 'font-weight': '700' }, g);
+          tt.textContent = ttext;
+          tt.appendChild(svgEl('title', null)).textContent = pn.title;
+        } else titlesLost++;
+      }
+      var lay = layoutRadar(pn.cell.w, pn.cell.h - th, p, s, meas, labelTexts);
+      if (tt) tt.setAttribute('y', Math.max(Math.round(th * 0.7), Math.round(th + lay.top - 7))); // the name sits right above its radar
+      hiddenTotal = Math.max(hiddenTotal, lay.hidden); labelsOff = labelsOff || lay.labelsOff;
+      var gg = svgEl('g', { transform: 'translate(0,' + th + ')' }, g);
+      self2.drawPanel(gg, pn, lay, p, s, sc, labelTexts, wl, texts, pn.cell.x, pn.cell.y + th);
+    });
+    return { hidden: hiddenTotal, labelsOff: labelsOff, texts: texts, titlesLost: titlesLost };
+  };
+
+  Renderer.prototype.drawPanel = function (g, pn, lay, p, s, sc, labelTexts, wl, placedTexts, ox, oy) {
+    var self = this, col = this.colors, n = p.axes.length, cx = lay.cx, cy = lay.cy, R = lay.R, th = lay.thetas;
+    var ringC = C.normHex(s.ringColor) || C.mix(col.bg, col.ink, 0.28), axC = C.normHex(s.axisColor) || C.mix(col.bg, col.ink, 0.34);
+    var dash = s.ringStyle === 'dashed' ? '6 4' : s.ringStyle === 'dotted' ? '1.5 4' : null;
+    var gGrid = svgEl('g', { 'class': 'rd-grid' }, g), rings = s.ringCount, i, k;
+    function ringPath(r) {
+      if (s.ringShape === 'circle') return 'M' + (cx - r) + ',' + cy + 'a' + r + ',' + r + ' 0 1,0 ' + (2 * r) + ',0a' + r + ',' + r + ' 0 1,0 ' + (-2 * r) + ',0Z';
+      return M.polygonPath(th.map(function (t) { return M.pointAt(cx, cy, r, t); }));
+    }
+    if (s.ringBands) for (k = rings; k >= 1; k -= 1) if ((rings - k) % 2 === 0) svgEl('path', { 'class': 'rd-band', d: ringPath(R * k / rings), fill: C.mix(col.bg, col.ink, 0.06), stroke: 'none' }, gGrid);
+    for (k = 1; k <= rings; k++) {
+      var rp = svgEl('path', { 'class': 'rd-ring', d: ringPath(R * k / rings), fill: 'none', stroke: ringC, 'stroke-width': s.ringWidth }, gGrid);
+      if (dash) rp.setAttribute('stroke-dasharray', dash);
+    }
+    if (s.axisLines) th.forEach(function (t, j) {
+      var e = M.pointAt(cx, cy, R, t); svgEl('line', { 'class': 'rd-axis', x1: cx, y1: cy, x2: e.x.toFixed(2), y2: e.y.toFixed(2), stroke: axC, 'stroke-width': s.axisLineWidth }, gGrid);
+    });
+    var boxes = []; // text boxes in svg-local coordinates, for overlap tests among the optional texts
+    var gLab = svgEl('g', { 'class': 'rd-labels' }, g);
+    lay.labels.forEach(function (L) {
+      var b = L.box, t = svgEl('text', { 'class': 'rd-label', x: b.ax.toFixed(1), 'text-anchor': b.anchor, fill: col.ink, 'font-size': s.labelSize, 'font-weight': wl, 'data-axis': p.axes[L.i].key }, gLab);
+      b.lines.forEach(function (ln, li) {
+        var ts = svgEl('tspan', { x: b.ax.toFixed(1), y: (b.t + lay.lh * (li + 0.8)).toFixed(1) }, t); ts.textContent = ln;
+      });
+      boxes.push(b);
+    });
+    if (s.ringLabels && R >= 36) { // a ring value beside a radar smaller than this reads as noise
+      var gRing = svgEl('g', { 'class': 'rd-ringlabels' }, g), rs = s.ringLabelSize, t0 = th[0];
+      var tickFmt = s, allInt = !sc.ticks || sc.ticks.every(function (v) { return Math.abs(v - Math.round(v)) < 1e-9; });
+      if (allInt) { tickFmt = {}; Object.keys(s).forEach(function (kk) { tickFmt[kk] = s[kk]; }); tickFmt.numDecimals = 0; }
+      for (k = 1; k <= rings; k++) {
+        var rr = R * k / rings, pt = M.pointAt(cx, cy, rr, t0);
+        var txt = sc.perAxis ? Math.round(k / rings * 100) + '%' : CP.formatNumber(sc.ticks[k], tickFmt), tw = self.measure(txt, rs, '400', CP.fontStack(s.fontFamily));
+        var bx = { l: pt.x + 4, r: pt.x + 4 + tw + 2, t: pt.y - rs * 0.62, b: pt.y + rs * 0.62 };
+        if (bx.l < -1 || bx.r > pn.cell.w + 1 || bx.t < 0 || bx.b > pn.cell.h) continue;
+        if (boxes.some(function (o) { return M.overlaps(bx, o, 1); })) continue;
+        var tt = svgEl('text', { 'class': 'rd-ringlabel', x: (pt.x + 4).toFixed(1), y: (pt.y + rs * 0.35).toFixed(1), 'font-size': rs, fill: col.muted, stroke: col.bg, 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round' }, gRing);
+        tt.textContent = txt; boxes.push(bx);
+      }
+    }
+    // benchmark
+    var benchG = null, bench = p.bench, bPts = null, bPath = null;
+    var shapePath = function (pts) { return s.curve === 'smooth' ? M.cardinalClosedPath(pts, s.smooth, cx, cy, R) : M.polygonPath(pts); };
+    var anims = this.anims;
+    if (bench) {
+      benchG = svgEl('g', { 'class': 'rd-bench' }, g);
+      var bc = this.benchColor(s), bd = s.benchDash === 'dashed' ? '8 5' : s.benchDash === 'dotted' ? '2 5' : null;
+      bPath = svgEl('path', { 'class': 'rd-benchline', fill: s.benchFill ? bc : 'none', 'fill-opacity': s.benchFill ? 0.12 : 0, stroke: bc, 'stroke-width': s.benchWidth, 'stroke-linejoin': 'round' }, benchG);
+      if (bd) bPath.setAttribute('stroke-dasharray', bd);
+      bPath.setAttribute('aria-label', bench.name + ' benchmark');
+      anims.push(function (t) { bPath.setAttribute('d', shapePath(M.seriesPoints(bench, sc, cx, cy, R, th, s.missing, t))); });
+    }
+    var order = pn.series.slice();
+    if (s.drawOrder === 'bigfirst') {
+      var areaOf = function (x) { return M.polygonArea(M.seriesPoints(x, sc, cx, cy, R, th, s.missing, 1)); };
+      var areas = {}; order.forEach(function (x) { areas[x.key] = areaOf(x); });
+      order.sort(function (a, b) { return areas[b.key] - areas[a.key]; });
+    }
+    var gSer = svgEl('g', { 'class': 'rd-series' }, g), valueBoxes = [];
+    order.forEach(function (x) {
+      var stroke = C.ensureContrast(x.color, [col.bg], 3);
+      var sg = svgEl('g', { 'class': 'rd-s', 'data-key': x.key, tabindex: 0, role: 'img', 'aria-label': x.name + ': ' + x.values.map(function (v, i) { return p.axes[i].label + ' ' + (v === null ? 'no data' : CP.formatNumber(v, s)); }).join(', ') }, gSer);
+      var path = svgEl('path', { 'class': 'rd-shape', fill: s.fillOn ? x.color : 'transparent', 'fill-opacity': s.fillOn ? s.fillOpacity / 100 : 1, stroke: stroke, 'stroke-width': s.lineWidth, 'stroke-linejoin': 'round' }, sg);
+      var dots = [], hits = [];
+      var pts1 = M.seriesPoints(x, sc, cx, cy, R, th, s.missing, 1);
+      if (s.dots) pts1.forEach(function (pt) {
+        if (pt.v === null) return;
+        var d = svgEl('circle', { 'class': 'rd-dot', r: Math.min(s.dotSize, Math.max(2.5, R / 9)), fill: stroke, stroke: col.bg, 'stroke-width': 1.5, 'data-ai': pt.i }, sg);
+        var h = svgEl('circle', { 'class': 'rd-dhit', r: Math.max(12, s.dotSize + 7), fill: 'transparent', 'data-ai': pt.i }, sg);
+        dots.push({ d: d, h: h, pt: pt });
+      });
+      anims.push(function (t) {
+        var pts = M.seriesPoints(x, sc, cx, cy, R, th, s.missing, t);
+        path.setAttribute('d', shapePath(pts));
+        dots.forEach(function (o) { var r = R * M.frac(sc, o.pt.i, o.pt.v) * t, q = M.pointAt(cx, cy, r, th[o.pt.i]); o.d.setAttribute('cx', q.x.toFixed(2)); o.d.setAttribute('cy', q.y.toFixed(2)); o.h.setAttribute('cx', q.x.toFixed(2)); o.h.setAttribute('cy', q.y.toFixed(2)); });
+      });
+      if (s.valueLabels) {
+        var vs = s.valueLabelSize;
+        pts1.forEach(function (pt) {
+          if (pt.v === null) return;
+          var txt = CP.formatNumber(pt.v, s), tw = self.measure(txt, vs, '400', CP.fontStack(s.fontFamily)), ux = Math.cos(th[pt.i]), uy = Math.sin(th[pt.i]), off = s.dotSize + vs * 0.7;
+          var qx = pt.x + ux * off, qy = pt.y + uy * off, anchor = ux > 0.3 ? 'start' : ux < -0.3 ? 'end' : 'middle';
+          var l = anchor === 'start' ? qx : anchor === 'end' ? qx - tw : qx - tw / 2, bx = { l: l, r: l + tw, t: qy - vs * 0.62, b: qy + vs * 0.62 };
+          if (bx.l < 0 || bx.r > pn.cell.w || bx.t < 0 || bx.b > pn.cell.h) return;
+          if (boxes.some(function (o) { return M.overlaps(bx, o, 1); }) || valueBoxes.some(function (o) { return M.overlaps(bx, o, 1); })) return;
+          valueBoxes.push(bx);
+          var vt = svgEl('text', { 'class': 'rd-value', x: qx.toFixed(1), y: (qy + vs * 0.35).toFixed(1), 'text-anchor': anchor, 'font-size': vs, fill: col.ink, 'font-weight': '600', stroke: col.bg, 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round' }, sg);
+          vt.textContent = txt;
+        });
+      }
+    });
+    this.anims.forEach(function (f) { f(1); }); // final geometry first, so a stalled animation still leaves a finished chart
+  };
+
+  Renderer.prototype.animateIn = function (s) {
+    var self = this, token = ++this.anim, svg = this.svg, fns = this.anims, ms = Math.max(1, s.animMs), t0 = null;
+    var ease = s.animEase === 'linear' ? function (t) { return t; } : s.animEase === 'inout' ? function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; } : function (t) { return 1 - Math.pow(1 - t, 3); };
+    svg.setAttribute('data-anim', 'running'); svg.classList.add('rd-entering');
+    fns.forEach(function (f) { f(0); });
+    function frame(now) {
+      if (token !== self.anim || svg !== self.svg) return;
+      if (t0 === null) t0 = now;
+      var t = Math.min(1, (now - t0) / ms), e = ease(t);
+      fns.forEach(function (f) { f(e); });
+      if (t < 1) global.requestAnimationFrame(frame);
+      else { svg.setAttribute('data-anim', 'done'); svg.classList.remove('rd-entering'); }
+    }
+    global.requestAnimationFrame(frame);
+  };
+
+  RD.Renderer = Renderer; RD.prepare = prepare; RD.scaleOf = scaleOf; RD.seriesItems = seriesItems; RD.axisItems = axisItems; RD.layoutRadar = layoutRadar;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ---- radar.js ---- */
+/* Radar - entry point. Binds the Tableau worksheet to the renderer and the shared settings panel: reads the four
+ * encodings declared in radar.trex, pulls summary data through the paged reader (one reader at a time), keeps settings
+ * in tableau.extensions.settings (through ctab-panel's store), and pushes selection and hover back to Tableau.
+ *
+ * It uses only calls the C-Tableau Viz pages stand-in also provides; every call that stand-in lacks
+ * (hoverTupleAsync) is guarded.
+ */
+(function (global) {
+  'use strict';
+  var RD = global.RD, CP = global.CTabPanel, M = RD.math, SET = RD.settings;
+  var PREFIX = 'radar.';
+  var DATA_KEYS = { fieldAxis: 1, fieldSeries: 1, fieldValue: 1, fieldLabel: 1, sortAxes: 1, sortSeries: 1, axesList: 1 };
+
+  var state = { worksheet: null, renderer: null, panel: null, store: null, raw: null, model: { axes: [], series: [] }, resizeTimer: null, auto: {} };
+
+  function log() { if (global.console && console.warn) console.warn.apply(console, ['[RD]'].concat([].slice.call(arguments))); }
+
+  /* -------------------------------------------------------------------- data */
+
+  function readEncodings(ws) {
+    return ws.getVisualSpecificationAsync().then(function (spec) {
+      var map = {};
+      if (!spec || !spec.marksSpecifications) return map;
+      var idx = spec.activeMarksSpecificationIndex;
+      if (idx === undefined || idx === null || idx < 0) return map;
+      var card = spec.marksSpecifications[idx];
+      if (!card || !card.encodings) return map;
+      card.encodings.forEach(function (enc) { if (!map[enc.id]) map[enc.id] = enc.field; });
+      return map;
+    });
+  }
+  function fieldName(f) { return f ? (f.name || f.fieldName || f.fieldId || null) : null; }
+
+  function readSummary(ws) {
+    return ws.getSummaryDataReaderAsync(undefined, { ignoreSelection: true }).then(function (reader) {
+      var pages = [], chain = Promise.resolve();
+      for (var i = 0; i < reader.pageCount; i++) {
+        (function (p) { chain = chain.then(function () { return reader.getPageAsync(p).then(function (pg) { pages.push(pg); }); }); })(i);
+      }
+      return chain.then(function () {
+        var names = pages.length ? pages[0].columns.map(function (c) { return c.fieldName; }) : [], rows = [];
+        pages.forEach(function (pg) {
+          pg.data.forEach(function (r) {
+            var o = {}, fm = {};
+            for (var c = 0; c < names.length; c++) {
+              o[names[c]] = r[c] ? (r[c].value !== undefined ? r[c].value : r[c].formattedValue) : null;
+              fm[names[c]] = r[c] ? r[c].formattedValue : '';
+            }
+            o.__fmt = fm; rows.push(o);
+          });
+        });
+        var done = { rows: rows, columns: names };
+        return reader.releaseAsync().then(function () { return done; }, function () { return done; });
+      });
+    });
+  }
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+  /* Raw data plus the shelf mapping. The pivot is redone from this whenever a field or sort setting changes. */
+  function readData(ws) {
+    return Promise.all([readSummary(ws), readEncodings(ws)]).then(function (res) {
+      var data = res[0], enc = res[1], first = data.rows[0] || {};
+      var numeric = data.columns.filter(function (c) { return data.rows.some(function (r) { return isNum(r[c]); }); });
+      var auto = { fieldAxis: fieldName(enc.axis), fieldSeries: fieldName(enc.series), fieldValue: fieldName(enc.value), fieldLabel: fieldName(enc.label) };
+      var strs = data.columns.filter(function (c) { return typeof first[c] === 'string'; });
+      if (!auto.fieldAxis || data.columns.indexOf(auto.fieldAxis) < 0) auto.fieldAxis = strs[0] || data.columns[0] || null;
+      if (!auto.fieldValue || data.columns.indexOf(auto.fieldValue) < 0) auto.fieldValue = numeric.filter(function (c) { return c !== auto.fieldAxis; })[0] || null;
+      if (auto.fieldSeries && data.columns.indexOf(auto.fieldSeries) < 0) auto.fieldSeries = null;
+      if (!enc.series && !enc.axis && !enc.value) auto.fieldSeries = strs.filter(function (c) { return c !== auto.fieldAxis && c !== auto.fieldLabel; })[0] || null;
+      if (auto.fieldLabel && data.columns.indexOf(auto.fieldLabel) < 0) auto.fieldLabel = null;
+      var bg = '#ffffff';
+      try { if (ws.backgroundColor) bg = ws.backgroundColor; } catch (e) { /* not fatal */ }
+      return { raw: data, auto: auto, numeric: numeric, bg: bg, hasRows: data.rows.length > 0 };
+    });
+  }
+
+  function pick(settingKey, auto, columns) { var v = state.store.get()[settingKey]; return v && columns.indexOf(v) >= 0 ? v : auto; }
+
+  function buildModel() {
+    var d = state.raw, s = state.store.get();
+    if (!d) return { axes: [], series: [], emptyMessage: 'Loading.' };
+    var cols = d.raw.columns;
+    var fa = pick('fieldAxis', d.auto.fieldAxis, cols), fs = pick('fieldSeries', d.auto.fieldSeries, cols), fv = pick('fieldValue', d.auto.fieldValue, cols), fl = pick('fieldLabel', d.auto.fieldLabel, cols);
+    var rows = [];
+    d.raw.rows.forEach(function (r, i) {
+      var raw = r[fv]; if (raw === null || raw === undefined || raw === '') return;
+      var v = Number(raw); if (!isFinite(v)) return;
+      var a = r[fa]; if (a === null || a === undefined || a === '') a = '(blank)';
+      rows.push({ axis: String(r.__fmt[fa] || a), series: fs ? String(r.__fmt[fs] || r[fs] || '(blank)') : null, value: v, label: fl ? (r.__fmt[fl] || r[fl]) : '', tuple: i + 1 });
+    });
+    var axisOrder = (s.axesList || []).map(function (x) { return x.key; });
+    var m = M.buildModel(rows, { sortAxes: s.sortAxes, sortSeries: s.sortSeries, axisOrder: axisOrder, singleName: fv || 'Value' });
+    m.worksheetBg = d.bg; m.axisName = fa || 'Axis'; m.seriesName = fs; m.valueName = fv || 'Value'; m.hasSeries = !!fs;
+    m.emptyMessage = d.hasRows ? 'No numeric values to plot. Put a measure on Value.' : 'Drop a dimension on Axis and a measure on Value.';
+    var h = 0, str = m.axes.map(function (a) { return a.key; }).join('|') + '#' + m.series.map(function (x) { return x.key + ':' + x.values.join(','); }).join('|');
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    m.key = String(h);
+    return m;
+  }
+
+  /* ------------------------------------------------------------ Tableau out */
+
+  function pushSelection(kind, key) {
+    var ws = state.worksheet, s = state.store.get();
+    if (!ws || !s.selectOn) return;
+    var swallow = function (p) { if (p && p.catch) p.catch(function (e) { log('selection rejected', e); }); };
+    try {
+      if (kind === 'clear' || !key) { if (typeof ws.clearSelectedMarksAsync === 'function') swallow(ws.clearSelectedMarksAsync()); return; }
+      var field = state.model.seriesName;
+      if (kind === 'series' && field && typeof ws.selectMarksByValueAsync === 'function') {
+        swallow(ws.selectMarksByValueAsync([{ fieldName: field, value: [key] }], 'select-replace'));
+      }
+    } catch (e) { log('selection threw', e); }
+  }
+
+  var lastHover = null;
+  function pushHover(key) {
+    var ws = state.worksheet, s = state.store.get();
+    if (!ws || !s.hoverPush || typeof ws.hoverTupleAsync !== 'function') return;
+    var tuple = 0;
+    if (key) state.model.series.forEach(function (x) { if (x.key === key && x.tupleList.length) tuple = x.tupleList[0]; });
+    if (tuple === lastHover) return;
+    lastHover = tuple;
+    try { var p = ws.hoverTupleAsync(tuple); if (p && p.catch) p.catch(function () { /* hover is cosmetic */ }); } catch (e) { /* cosmetic */ }
+  }
+
+  /* ----------------------------------------------------------------- render */
+
+  function redraw() {
+    if (!state.renderer) return;
+    state.renderer.draw(state.model, state.store.get(), { onSelect: pushSelection, onHover: pushHover });
+    if (state.panel && state.renderer.colors) state.panel.applyAppearance(state.renderer.colors.bg, state.renderer.colors.ink);
+    if (state.panel) state.panel.render();
+  }
+  function onChange(keys) {
+    if (keys.some(function (k) { return DATA_KEYS[k]; })) state.model = buildModel();
+    redraw();
+  }
+
+  var refreshing = false, queued = false;
+  function refreshData() {
+    if (!state.worksheet) return Promise.resolve();
+    if (refreshing) { queued = true; return Promise.resolve(); }
+    refreshing = true;
+    var done = function () { refreshing = false; if (queued) { queued = false; return refreshData(); } return undefined; };
+    return readData(state.worksheet).then(function (d) { state.raw = d; state.auto = d.auto; state.model = buildModel(); redraw(); }, function (e) {
+      log('data refresh failed', e);
+      state.raw = null; state.model = { axes: [], series: [], emptyMessage: 'Could not read data from this worksheet.' };
+      redraw();
+    }).then(done, done);
+  }
+
+  function info() {
+    var d = state.raw, s = state.store.get(), m = state.model;
+    return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {},
+      lists: { axes: RD.axisItems(m), categories: RD.seriesItems(m, s) } };
+  }
+
+  function mount(ws) {
+    state.worksheet = ws;
+    state.store = CP.createStore({ rows: SET.prepared.rows, settings: global.tableau.extensions.settings, prefix: PREFIX, onChange: onChange, log: log });
+    state.store.load();
+    var root = document.getElementById('rd-root'), chart = document.getElementById('rd-chart');
+    state.renderer = new RD.Renderer(chart);
+    state.panel = CP.create(root, { title: 'Radar settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
+    /* Redraw only when the chart box really changed size. ResizeObserver also fires once on observe(); a redraw then would
+     * replace the SVG under a hover that already started and cut its fade short. */
+    var lastW = -1, lastH = -1;
+    function sizeChanged() {
+      var r = chart.getBoundingClientRect(), w = Math.round(r.width), h = Math.round(r.height);
+      if (w === lastW && h === lastH) return false;
+      lastW = w; lastH = h; return true;
+    }
+    function onSize() {
+      if (state.resizeTimer) clearTimeout(state.resizeTimer);
+      state.resizeTimer = setTimeout(function () { state.resizeTimer = null; if (sizeChanged()) redraw(); }, 60);
+    }
+    sizeChanged();
+    global.addEventListener('resize', onSize);
+    if (typeof global.ResizeObserver === 'function') new global.ResizeObserver(onSize).observe(chart);
+    if (ws.addEventListener) {
+      var T = global.tableau.TableauEventType || {};
+      [T.SummaryDataChanged, T.FilterChanged, T.ParameterChanged, T.WorksheetFormattingChanged].forEach(function (evt) {
+        if (!evt) return;
+        try { ws.addEventListener(evt, refreshData); } catch (e) { log('listener failed for', evt, e); }
+      });
+    }
+    return refreshData();
+  }
+
+  function boot() {
+    if (!global.tableau || !global.tableau.extensions) { log('Tableau Extensions API not present'); return; }
+    global.tableau.extensions.initializeAsync().then(function () {
+      var wc = global.tableau.extensions.worksheetContent;
+      if (!wc || !wc.worksheet) { log('no worksheetContent: load this as a viz extension, not a dashboard extension'); return; }
+      return mount(wc.worksheet);
+    }).catch(function (e) {
+      log('initializeAsync failed', e);
+      var chart = document.getElementById('rd-chart');
+      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'rd-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); }
+    });
+  }
+
+  RD.app = { boot: boot, mount: mount, refreshData: refreshData, redraw: redraw, state: state };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+</body>
+</html>
