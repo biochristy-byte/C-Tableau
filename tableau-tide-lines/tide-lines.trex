@@ -43,7 +43,7 @@
     </encoding>
 
     <encoding id="color">
-      <display-name resource-id="enc-color">Colour</display-name>
+      <display-name resource-id="enc-color">Color</display-name>
       <data-spec>
         <data-type>string</data-type>
       </data-spec>
@@ -52,7 +52,7 @@
       </role-spec>
       <fields max-count="1"/>
       <encoding-icon token="color"/>
-      <tooltip resource-id="tip-color">Optional. Colours each ridge by this dimension when Ridge colour is set to By field.</tooltip>
+      <tooltip resource-id="tip-color">Optional. Colors each ridge by this dimension when Ridge color is set to By field.</tooltip>
     </encoding>
 
     <encoding id="label">
@@ -80,7 +80,7 @@
       <text locale="en_US">Value</text>
     </resource>
     <resource id="enc-color">
-      <text locale="en_US">Colour</text>
+      <text locale="en_US">Color</text>
     </resource>
     <resource id="enc-label">
       <text locale="en_US">Label</text>
@@ -92,7 +92,7 @@
       <text locale="en_US">The numeric measure whose distribution is drawn. One row per observation.</text>
     </resource>
     <resource id="tip-color">
-      <text locale="en_US">Optional. Colours each ridge by this dimension.</text>
+      <text locale="en_US">Optional. Colors each ridge by this dimension.</text>
     </resource>
     <resource id="tip-label">
       <text locale="en_US">Optional. Display name written beside each ridge.</text>

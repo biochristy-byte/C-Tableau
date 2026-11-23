@@ -7,7 +7,7 @@
 | Baby ID | Row number in the source table |
 | Mother group | Mother's race as recorded in 1986 plus whether she smoked in pregnancy (6 groups) |
 | Short name | A shorter name for the group, for the Label shelf |
-| Mother smoked in pregnancy | Smoker or Non-smoker, for the Colour shelf |
+| Mother smoked in pregnancy | Smoker or Non-smoker, for the Color shelf |
 | Birth weight (g) | The baby's weight in grams. This is the Value |
 
 **Source and credit.** The `birthwt` table in the R package MASS (Venables and Ripley), distributed through the

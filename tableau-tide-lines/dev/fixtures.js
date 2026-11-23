@@ -23,7 +23,7 @@
   }
   var typical = [
     { name: 'Alder Creek', mu: 52, sd: 8 }, { name: 'Brine Point', mu: 61, sd: 6 },
-    { name: 'Coral Cove', mu: 45, sd: 11, mix: [0.4, 70, 5] }, { name: 'Dune Harbour', mu: 68, sd: 9 },
+    { name: 'Coral Cove', mu: 45, sd: 11, mix: [0.4, 70, 5] }, { name: 'Dune Harbor', mu: 68, sd: 9 },
     { name: 'Eel Reach', mu: 38, sd: 5 }, { name: 'Foam Bay', mu: 57, sd: 13 }
   ];
   var many = [];

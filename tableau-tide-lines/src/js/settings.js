@@ -17,7 +17,7 @@
     fields: [
       { key: 'fieldCategory', label: 'Category field', help: 'The dimension that gives each ridge its own row. Auto uses the Category shelf.' },
       { key: 'fieldValue', label: 'Value field', kind: 'numeric', help: 'The measure whose distribution is drawn. Auto uses the Value shelf.' },
-      { key: 'fieldColor', label: 'Colour field', help: 'Colours each ridge when Ridge colour is By field. Auto uses the Colour shelf.' },
+      { key: 'fieldColor', label: 'Color field', help: 'Colors each ridge when Ridge color is By field. Auto uses the Color shelf.' },
       { key: 'fieldLabel', label: 'Label field', help: 'Text written beside each ridge instead of the category. Auto uses the Label shelf.' }
     ],
     over: {
@@ -31,7 +31,7 @@
   var stdRows = std.rows.map(function (r) {
     if (r.key !== 'palette') return r;
     var c = {}; Object.keys(r).forEach(function (k) { c[k] = r[k]; });
-    c.key = 'catPalette'; c.label = 'Palette for By field'; c.help = 'Used when Ridge colour is By field. Data Divers is the house palette.';
+    c.key = 'catPalette'; c.label = 'Palette for By field'; c.help = 'Used when Ridge color is By field. Data Divers is the house palette.';
     return c;
   });
 
@@ -43,7 +43,7 @@
     { tab: 'density', sec: 'Kernel', key: 'kernel', label: 'Kernel', type: 'chips', opts: [['gaussian', 'Gaussian'], ['epanechnikov', 'Epanechnikov']], def: 'gaussian', help: 'Gaussian is smooth; Epanechnikov is a rounded hill with a hard edge.' },
     { tab: 'density', sec: 'Bandwidth', key: 'bandwidth', label: 'Bandwidth', type: 'number', min: 0, max: BIG, step: 0.01, def: 0, help: '0 is Auto: Silverman\'s rule, worked out for each ridge. A number uses one bandwidth for every ridge, in the Value field\'s own units.' },
     { tab: 'density', sec: 'Bandwidth', key: 'bwMult', label: 'Bandwidth adjust', type: 'number', min: 0.25, max: 4, step: 0.05, unit: 'x', def: 1, help: 'Multiplies the bandwidth, Auto or typed. Below 1 shows more bumps, above 1 smooths them away.' },
-    { tab: 'density', sec: 'Height', key: 'scale', label: 'Ridge height', type: 'chips', opts: [['shared', 'Shared scale'], ['own', 'Each its own']], def: 'shared', help: 'Shared keeps areas honest: a wide, thin ridge stays low. Each its own scales every peak to the same height.' },
+    { tab: 'density', sec: 'Height', key: 'scale', label: 'Ridge height', type: 'chips', opts: [['shared', 'Shared scale'], ['own', 'Each its own']], def: 'shared', help: 'Shared keeps areas comparable: a wide, thin ridge stays low. Each its own scales every peak to the same height.' },
     { tab: 'density', sec: 'Tails', key: 'trim', label: 'Tails', type: 'chips', opts: [['extend', 'Extend'], ['trim', 'Trim to data']], def: 'extend', help: 'Trim stops each ridge at its own smallest and largest value.' },
     { tab: 'density', sec: 'Tails', key: 'padMult', label: 'Room past the data', type: 'number', min: 0.5, max: 2, step: 0.1, unit: 'x', def: 1, help: 'How much empty axis is left beyond the smallest and largest value.' },
     { tab: 'density', sec: 'Curve', key: 'points', label: 'Curve detail', type: 'number', min: 40, max: 600, step: 20, unit: 'points', def: 240, help: 'Points along each ridge. More is smoother and slower.' },
@@ -56,7 +56,7 @@
     { tab: 'layout', sec: 'Names', key: 'labelSide', label: 'Names go on the', type: 'chips', opts: [['left', 'Left'], ['right', 'Right']], def: 'left', when: { key: 'labelsOn', truthy: true } },
     { tab: 'layout', sec: 'Names', key: 'labelMaxPct', label: 'Name column up to', type: 'number', min: 15, max: 50, step: 1, unit: '%', def: 34, help: 'Share of the chart width the names may take before they are cut short.', when: { key: 'labelsOn', truthy: true } },
     { tab: 'layout', sec: 'Names', key: 'footNote', label: 'Say when names are left out', type: 'check', def: true, help: 'If names cannot all fit at this size, fewer are shown and the footer says how many.' },
-    { tab: 'layout', sec: 'Legend', key: 'legendOn', label: 'Show the colour legend', type: 'check', def: true, help: 'Only appears when Ridge colour is By field and there is room.' },
+    { tab: 'layout', sec: 'Legend', key: 'legendOn', label: 'Show the color legend', type: 'check', def: true, help: 'Only appears when Ridge color is By field and there is room.' },
 
     { tab: 'marks', sec: 'Median', key: 'showMedian', label: 'Median tick', type: 'check', def: true },
     { tab: 'marks', sec: 'Median', key: 'medianWidth', label: 'Median tick width', type: 'number', min: 1, max: 8, step: 0.5, unit: 'px', def: 2.5, when: { key: 'showMedian', truthy: true } },
@@ -64,15 +64,15 @@
     { tab: 'marks', sec: 'Quartiles', key: 'quartileWidth', label: 'Quartile tick width', type: 'number', min: 0.5, max: 6, step: 0.5, unit: 'px', def: 1.5, when: { key: 'showQuartiles', truthy: true } },
     { tab: 'marks', sec: 'Quartiles', key: 'quartileHeight', label: 'Quartile tick height', type: 'number', min: 20, max: 100, step: 2, unit: '%', def: 62, help: 'Share of the ridge height at that value.', when: { key: 'showQuartiles', truthy: true } },
     { tab: 'marks', sec: 'Mean', key: 'showMean', label: 'Mean tick', type: 'check', def: false },
-    { tab: 'marks', sec: 'Colour of ticks', key: 'tickColor', label: 'Tick color', type: 'color', auto: true, def: '', help: 'Auto picks white or navy, whichever reads best on the ridge.' },
+    { tab: 'marks', sec: 'Color of ticks', key: 'tickColor', label: 'Tick color', type: 'color', auto: true, def: '', help: 'Auto picks white or navy, whichever reads best on the ridge.' },
     { tab: 'marks', sec: 'Observations', key: 'showRug', label: 'Mark every observation under its ridge', type: 'check', def: false, help: 'A small tick for each value, up to 400 per ridge.' },
     { tab: 'marks', sec: 'Observations', key: 'rugSize', label: 'Observation tick height', type: 'number', min: 2, max: 14, step: 1, unit: 'px', def: 6, when: { key: 'showRug', truthy: true } },
     { tab: 'marks', sec: 'Observations', key: 'rugOpacity', label: 'Observation tick strength', type: 'number', min: 5, max: 100, step: 5, unit: '%', def: 45, when: { key: 'showRug', truthy: true } },
 
-    { tab: 'gradient', sec: 'Ridge colour', key: 'colorSource', label: 'Ridge colour', type: 'chips', opts: [['tide', 'Tide gradient'], ['field', 'By field']], def: 'tide', help: 'By field uses the Colour shelf. Tide gradient follows the sort order.' },
-    { tab: 'gradient', sec: 'Ridge colour', key: 'palette', label: 'Tide palette', type: 'select', opts: [['tide', 'Tide (Data Divers)'], ['reef', 'Reef shallows'], ['dusk', 'Dusk tide'], ['single', 'One colour']], def: 'tide' },
-    { tab: 'gradient', sec: 'Ridge colour', key: 'singleColor', label: 'One colour', type: 'color', def: '#3cc4d1', when: { key: 'palette', eq: 'single' } },
-    { tab: 'gradient', sec: 'Ridge colour', key: 'tideReverse', label: 'Reverse the tide', type: 'check', def: false, help: 'Flips which end of the palette the top ridge gets.' },
+    { tab: 'gradient', sec: 'Ridge color', key: 'colorSource', label: 'Ridge color', type: 'chips', opts: [['tide', 'Tide gradient'], ['field', 'By field']], def: 'tide', help: 'By field uses the Color shelf. Tide gradient follows the sort order.' },
+    { tab: 'gradient', sec: 'Ridge color', key: 'palette', label: 'Tide palette', type: 'select', opts: [['tide', 'Tide (Data Divers)'], ['reef', 'Reef shallows'], ['dusk', 'Dusk tide'], ['single', 'One color']], def: 'tide' },
+    { tab: 'gradient', sec: 'Ridge color', key: 'singleColor', label: 'One color', type: 'color', def: '#3cc4d1', when: { key: 'palette', eq: 'single' } },
+    { tab: 'gradient', sec: 'Ridge color', key: 'tideReverse', label: 'Reverse the tide', type: 'check', def: false, help: 'Flips which end of the palette the top ridge gets.' },
     { tab: 'gradient', sec: 'Fill', key: 'fillOpacity', label: 'Fill opacity', type: 'number', min: 0.1, max: 1, step: 0.05, def: 0.9 },
     { tab: 'gradient', sec: 'Fill', key: 'gradOn', label: 'Fade each ridge from crest to base', type: 'check', def: true, help: 'Off fills each ridge with one flat color.' },
     { tab: 'gradient', sec: 'Fill', key: 'gradCrest', label: 'Crest lightening', type: 'number', min: 0, max: 100, step: 2, unit: '%', def: 38, when: { key: 'gradOn', truthy: true }, help: 'How much lighter the top of a ridge is than its base.' },

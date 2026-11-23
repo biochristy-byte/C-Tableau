@@ -1,7 +1,7 @@
-/* Tide Lines - colour maths and the Data Divers palette.
+/* Tide Lines - color maths and the Data Divers palette.
  *
  * Text must hit 7:1 against its background, in light and dark. ensureContrast
- * walks a colour toward black or white until it does, so the ridge labels and
+ * walks a color toward black or white until it does, so the ridge labels and
  * axis never depend on what the worksheet background happens to be.
  */
 (function (global) {
@@ -70,7 +70,7 @@
     return mix(stops[i], stops[i + 1], f - i);
   }
 
-  /* Colour for ridge i of n. The usable slice of the ramp depends on the background so
+  /* Color for ridge i of n. The usable slice of the ramp depends on the background so
    * foam never vanishes on white and navy never vanishes on a dark sheet. */
   function ridgeColor (name, single, i, n, bg) {
     if (name === 'single') return single;

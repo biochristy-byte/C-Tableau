@@ -230,7 +230,7 @@
     });
     if (s.axisLine) el('line', { x1: x0, x2: x1, y1: f1(lastBase + 4), y2: f1(lastBase + 4), stroke: ink, 'stroke-opacity': 0.5, 'stroke-width': 1, class: 'tl-axisline' }, gGrid);
 
-    /* colours */
+    /* colors */
     var pal8 = CP.paletteColors(s.catPalette, s.paletteReverse);
     var catColors = {}, catList = [];
     ridges.forEach(function (r) { if (r.color !== null && catColors[r.color] === undefined) { catColors[r.color] = pal8[catList.length % pal8.length]; catList.push(r.color); } });
@@ -411,7 +411,7 @@
     line('n', Number(st.n).toLocaleString('en-US'));
     line('Median', nf(st.median));
     line('IQR', nf(st.iqr) + '  (' + nf(st.q1) + ' to ' + nf(st.q3) + ')');
-    if (s.colorSource === 'field' && model.hasColor && r.color) line('Colour', r.color);
+    if (s.colorSource === 'field' && model.hasColor && r.color) line('Color', r.color);
     t.classList.add('on');
     this.tipFollow = s.tipFollow;
     if (ev) this.moveTip(ev);
