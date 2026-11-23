@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schools - development harness</title>
+  <link rel="stylesheet" href="../src/css/schools.css">
+  <style>
+    /* Harness chrome only. None of this ships in the extension. */
+    html, body { overflow:auto; height:auto; background:#e9eef2; }
+    body { font:14px/1.45 "Segoe UI", system-ui, Arial, sans-serif; color:#16222c; padding:14px; }
+    .hz { max-width:1220px; margin:0 auto; } h1 { font-size:17px; margin:0 0 4px; }
+    .bar { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; background:#fff; border:1px solid #cdd6dd; border-radius:8px; padding:10px 12px; margin:10px 0; }
+    .fld { display:flex; flex-direction:column; gap:3px; } .fld label { font-weight:600; }
+    .fld select, .fld input { height:32px; border:1px solid #aab6bf; border-radius:6px; padding:0 7px; font:inherit; }
+    button.hzb { height:32px; padding:0 12px; border:1px solid #aab6bf; border-radius:6px; background:#fff; font:inherit; cursor:pointer; }
+    #stage { position:relative; width:900px; height:560px; resize:both; overflow:hidden; border:1px solid #9aa8b2; border-radius:8px; }
+    #stage #sc-root { position:absolute; }
+    .evt { margin-top:8px; background:#fff; border:1px solid #cdd6dd; border-radius:6px; padding:7px 9px; min-height:34px; }
+  </style>
+</head>
+<body>
+<div class="hz">
+  <h1>Schools viz extension, development harness</h1>
+  <div>Runs the shipping code against a mock of the Tableau Extensions API. Drag the stage corner to test resize.</div>
+  <div class="bar">
+    <div class="fld"><label for="fx">Dataset</label><select id="fx"></select></div>
+    <div class="fld"><label for="wsbg">Worksheet background</label><input type="color" id="wsbg" value="#ffffff"></div>
+    <div class="fld"><label for="sz">Stage size</label><select id="sz">
+      <option value="900x560">900 x 560</option><option value="1600x1000">1600 x 1000</option><option value="640x420">640 x 420</option>
+      <option value="420x640">420 x 640 (tall)</option><option value="300x300">300 x 300</option></select></div>
+    <button class="hzb" id="reload" type="button">Re-read data</button>
+    <button class="hzb" id="wipe" type="button">Clear saved settings</button>
+  </div>
+  <div id="stage"><div id="sc-root"><div id="sc-chart"></div></div></div>
+  <div class="evt" id="evt">Tableau API calls appear here.</div>
+</div>
+<script src="fixtures.js"></script>
+<script src="mock-tableau.js"></script>
+<script src="../lib/d3-dispatch.min.js"></script>
+<script src="../lib/d3-quadtree.min.js"></script>
+<script src="../lib/d3-timer.min.js"></script>
+<script src="../lib/d3-force.min.js"></script>
+<script src="../lib/d3-hierarchy.min.js"></script>
+<script src="../src/js/schema.js"></script>
+<script src="../src/js/colors.js"></script>
+<script src="../src/js/layout.js"></script>
+<script src="../src/js/render.js"></script>
+<script src="../src/js/panel.js"></script>
+<script src="../src/js/app.js"></script>
+<script>
+(function () {
+  var fx = document.getElementById('fx');
+  Object.keys(window.SC_FIXTURES).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = window.SC_FIXTURES[k].label; fx.appendChild(o); });
+  fx.value = window.SC_MOCK.sheet.key;
+  fx.addEventListener('change', function () { window.SC_MOCK.setFixture(fx.value); });
+  document.getElementById('wsbg').addEventListener('input', function () { window.SC_MOCK.setBackground(this.value); });
+  document.getElementById('sz').addEventListener('change', function () { var p = this.value.split('x'), s = document.getElementById('stage'); s.style.width = p[0] + 'px'; s.style.height = p[1] + 'px'; });
+  document.getElementById('reload').addEventListener('click', function () { window.SC.app.refresh(); });
+  document.getElementById('wipe').addEventListener('click', function () { window.SC_MOCK.clearSettings(); });
+  var evt = document.getElementById('evt'), orig = window.SC_MOCK.calls.push.bind(window.SC_MOCK.calls);
+  window.SC_MOCK.calls.push = function (c) { evt.textContent = new Date().toLocaleTimeString() + '  ' + JSON.stringify(c); return orig(c); };
+})();
+</script>
+</body>
+</html>

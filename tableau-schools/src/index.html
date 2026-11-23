@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schools</title>
+  <link rel="stylesheet" href="css/schools.css">
+</head>
+<body>
+  <!-- The gear and settings panel are injected into #sc-root. -->
+  <div id="sc-root">
+    <div id="sc-chart"></div>
+  </div>
+
+  <!-- Tableau Extensions API: not redistributed here, see lib/README.md. -->
+  <script src="../lib/tableau.extensions.1.latest.min.js"></script>
+  <!-- Vendored d3 modules (ISC), licences beside them in lib/. No CDN at runtime. Order matters. -->
+  <script src="../lib/d3-dispatch.min.js"></script>
+  <script src="../lib/d3-quadtree.min.js"></script>
+  <script src="../lib/d3-timer.min.js"></script>
+  <script src="../lib/d3-force.min.js"></script>
+  <script src="../lib/d3-hierarchy.min.js"></script>
+
+  <script src="js/schema.js"></script>
+  <script src="js/colors.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/panel.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

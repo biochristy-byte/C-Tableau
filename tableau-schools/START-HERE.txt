@@ -1,0 +1,33 @@
+SCHOOLS CLUSTERED BUBBLES FOR TABLEAU - QUICK START
+====================================================
+
+Needs: Tableau Desktop 2024.2 or newer (the free edition works).
+Tableau Public: works while you author; viewers see "not supported" until Exchange approval. See README.md.
+
+0. One time only: download Tableau's Extensions API library into lib/
+   (lib/README.md has the link and a one-line command). Without it the chart is blank.
+
+1. Unzip this folder somewhere permanent, like your Desktop. Do not run it from inside the zip.
+
+2. Double-click  Start-Schools.bat
+   A black window opens and says "Schools server is running."
+   LEAVE IT OPEN the whole time you use the chart. Closing it makes the chart go blank.
+
+3. In Tableau, make a worksheet with two dimensions and a measure.
+
+4. Marks card > the mark type dropdown > Viz Extensions > Add Extension
+   > Access Local Viz Extensions > pick  schools.trex  from this folder. Click Allow.
+
+5. Drag a dimension onto Item (one circle each), another onto Cluster (the school each circle
+   swims with), and a measure onto Size. Optionally a dimension onto Colour.
+   Hover a circle to light its school. Click a circle or a school label to select in Tableau.
+   Click empty space or press Escape to clear. Click the gear for every setting.
+
+Example data: example/countries-population-life-expectancy-2021.csv
+   Item = Country, Cluster = Region, Size = SUM(Population), Colour = Income group.
+   World Bank data, CC BY 4.0. See README.md.
+
+IF THE CHART IS BLANK
+- Is the black window still open? Reopen Start-Schools.bat.
+- "Port 8771 is already in use"? The server is probably already running. Leave it.
+- Is lib/tableau.extensions.1.latest.min.js there? See step 0.
