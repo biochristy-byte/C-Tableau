@@ -20,12 +20,12 @@ const SRC = path.join(__dirname, '..', 'src', 'js');
 const sandbox = { console };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-for (const f of ['kde.js', 'layout.js', 'palettes.js', 'schema.js']) {
+for (const f of ['kde.js', 'layout.js', 'palettes.js']) {
   vm.runInContext(fs.readFileSync(path.join(SRC, f), 'utf8'), sandbox, { filename: f });
 }
-const { kde, layout, palettes, schema } = sandbox.TL;
+const { kde, layout, palettes } = sandbox.TL;
 
-const MIN_CHECKS = 60;
+const MIN_CHECKS = 120;
 let pass = 0;
 const failures = [];
 function ok(name, cond, detail) { if (cond) pass++; else failures.push(name + (detail === undefined ? '' : '\n    ' + detail)); }
@@ -166,26 +166,79 @@ for (const bg of ['#ffffff', '#081f33']) {
   ok('ridge colours are distinct on ' + bg, new Set(cols).size === 6);
 }
 
-/* -------------------------------------------------------------- settings */
-eq('"14" comes back as the number 14', schema.coerce('labelSize', '14'), 14);
-eq('label size cannot be coerced below 14', schema.coerce('labelSize', '9'), 14);
-eq('label size cannot be set below 14 by a number either', schema.coerce('labelSize', 3), 14);
-eq('"false" comes back as boolean false', schema.coerce('flip', 'false'), false);
-eq('"true" comes back as boolean true', schema.coerce('showMedian', 'true'), true);
-eq('an unknown kernel falls back to the default', schema.coerce('kernel', 'triangle'), 'gaussian');
-eq('a bad colour falls back', schema.coerce('bgColor', 'red'), '#ffffff');
-eq('a typed bandwidth of -4 becomes Auto (0)', schema.coerce('bandwidth', '-4'), 0);
-eq('overlap is clamped to its maximum', schema.coerce('overlap', '99'), 8);
-eq('garbage numbers fall back to the default', schema.coerce('overlap', 'abc'), 2);
-const resolved = schema.resolve({ kernel: 'epanechnikov', overlap: '3.5', flip: 'true' });
-eq('resolve coerces stored strings', [resolved.kernel, resolved.overlap, resolved.flip], ['epanechnikov', 3.5, true]);
-eq('resolve fills every other default', Object.keys(resolved).length, Object.keys(schema.DEFAULTS).length);
-ok('no option is a slider', schema.GROUPS.every((g) => g.options.every((o) => ['toggle', 'number', 'bandwidth', 'color', 'chips', 'select', 'text'].indexOf(o.type) >= 0)));
-ok('every font choice is sans-serif', schema.FONTS.every((f) => !/serif\b(?!.*sans)|mono|courier|georgia|times/i.test(f.value.replace(/sans-serif/gi, 'sans'))));
-ok('sort chips are data order, by median, by name', JSON.stringify(schema.BY_KEY.sort.choices.map((c) => c.value)) === JSON.stringify(['data', 'median', 'name']));
-ok('kernel chips are gaussian and epanechnikov', JSON.stringify(schema.BY_KEY.kernel.choices.map((c) => c.value)) === JSON.stringify(['gaussian', 'epanechnikov']));
-ok('the bandwidth default is Auto (0)', schema.DEFAULTS.bandwidth === 0);
-ok('visibility rules gate the custom colours', schema.visible(schema.BY_KEY.singleColor, { palette: 'single' }) && !schema.visible(schema.BY_KEY.singleColor, { palette: 'tide' }));
+/* -------------------------------------------------------------- settings (ctab-panel schema) */
+const SET = require('../src/js/settings.js');
+const CP = require('../lib/ctab-panel/ctab-panel.js');
+const rowsAll = SET.prepared.rows.filter((r) => r.type !== 'note');
+const rowOf = (k) => SET.BY_KEY[k];
+const typed = (k, raw) => CP.coerce(rowOf(k), raw);
+eq('"14" comes back as the number 14', typed('labelSize', '14'), 14);
+eq('label size cannot be coerced below 14', typed('labelSize', '9'), 14);
+eq('label size cannot be set below 14 by a number either', typed('labelSize', 3), 14);
+eq('"false" comes back as boolean false', typed('flip', 'false'), false);
+eq('"true" comes back as boolean true', typed('showMedian', 'true'), true);
+eq('an unknown kernel is refused', typed('kernel', 'triangle'), undefined);
+eq('a bad colour is refused', typed('bgColor', 'red'), undefined);
+eq('a typed bandwidth of -4 is clamped to Auto (0)', typed('bandwidth', '-4'), 0);
+eq('a bandwidth keeps two decimals (0.35 stays 0.35)', typed('bandwidth', '0.35'), 0.35);
+eq('overlap is clamped to its maximum', typed('overlap', '99'), 8);
+eq('garbage numbers are refused', typed('overlap', 'abc'), undefined);
+ok('at least 60 settings (' + rowsAll.length + ')', rowsAll.length >= 60);
+ok('at least 15 tabs: 6 chart tabs plus the nine standard ones (' + SET.schema.tabs.length + ')', SET.schema.tabs.length >= 15 && SET.schema.tabs.slice(0, 6).map((x) => x.id).join() === 'density,layout,marks,gradient,outline,axis');
+ok('the nine standard tabs are all present', ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields'].every((id) => SET.schema.tabs.some((x) => x.id === id)));
+ok('every chart tab has at least 5 settings', ['density', 'layout', 'marks', 'gradient', 'outline', 'axis'].every((id) => rowsAll.filter((r) => r.tab === id).length >= 5));
+ok('no setting is a slider (no row type is range)', rowsAll.every((r) => ['number', 'select', 'chips', 'check', 'color', 'text', 'font', 'palette', 'field', 'list'].indexOf(r.type) >= 0));
+ok('every number row has a unit-safe floor: no text size row goes below 14', rowsAll.filter((r) => /size$/i.test(r.key) && r.unit === 'px' && /label|tip|title|value/i.test(r.key)).every((r) => r.min >= 14));
+ok('the font choices are sans-serif only', CP.FONTS.every((f) => !/serif\b(?!.*sans)|mono|courier|georgia|times/i.test(f.stack.replace(/sans-serif/gi, 'sans'))));
+eq('sort chips', rowOf('sort').opts.map((o) => o.value), ['data', 'median', 'name', 'mean', 'count', 'manual']);
+eq('kernel chips are gaussian and epanechnikov', rowOf('kernel').opts.map((o) => o.value), ['gaussian', 'epanechnikov']);
+ok('the bandwidth default is Auto (0)', SET.DEFAULTS.bandwidth === 0);
+ok('"Send hover to Tableau" is still there and still defaults on', rowOf('hoverPush').type === 'check' && SET.DEFAULTS.hoverPush === true && rowOf('hoverPush').label === 'Send hover to Tableau');
+ok('visibility rules gate the one-colour picker', CP.isVisible(rowOf('singleColor'), { palette: 'single' }, {}) && !CP.isVisible(rowOf('singleColor'), { palette: 'tide' }, {}));
+/* the settings an existing workbook has saved keep their keys and their defaults */
+const OLD_DEFAULTS = { kernel: 'gaussian', bandwidth: 0, scale: 'shared', trim: 'extend', sort: 'median', flip: false, overlap: 2, labelSize: 14, showGrid: true, showAxisTitle: true,
+  showMedian: true, showQuartiles: true, fillOpacity: 0.9, lineWidth: 1.5, hoverLift: 6, colorSource: 'tide', palette: 'tide', singleColor: '#3cc4d1', bgColor: '#ffffff', hoverPush: true };
+Object.keys(OLD_DEFAULTS).forEach((k) => eq('saved key ' + k + ' is kept with its old default', SET.DEFAULTS[k], OLD_DEFAULTS[k]));
+/* old keys that moved are read as a fallback */
+const L = (o) => SET.legacy((k) => o[k]);
+eq('legacy animate=false -> animOn false', L({ animate: 'false' }), { animOn: false });
+eq('legacy bgMatch=false -> custom background', L({ bgMatch: 'false' }), { bgMode: 'custom' });
+eq('legacy bgMatch=true -> worksheet background', L({ bgMatch: 'true' }), { bgMode: 'worksheet' });
+eq('legacy inkAuto=false + inkColor -> label color', L({ inkAuto: 'false', inkColor: '#112233' }), { labelColor: '#112233' });
+eq('legacy inkAuto=true leaves label color on Auto', L({ inkAuto: 'true', inkColor: '#112233' }), {});
+eq('legacy selectEnabled=false -> selectOn false', L({ selectEnabled: 'false' }), { selectOn: false });
+eq('legacy font stack -> font id', L({ fontFamily: '"Trebuchet MS", Tahoma, sans-serif' }), { fontFamily: 'trebuchet' });
+eq('a font id already in the new form is left alone', L({ fontFamily: 'verdana' }), {});
+eq('a new key already saved wins over the old one', L({ animate: 'false', animOn: 'true' }), {});
+eq('nothing saved, nothing to migrate', L({}), {});
+/* the store takes strings back to typed values, the way Tableau hands them over */
+const fake = { v: { 'tidelines.overlap': '3.5', 'tidelines.flip': 'true', 'tidelines.kernel': 'epanechnikov', 'tidelines.catColors': '[{"key":"A","name":"Alpha","color":"#112233","hidden":true}]' },
+  get(k) { return this.v[k]; }, set(k, x) { this.v[k] = String(x); }, getAll() { return this.v; }, saveAsync() { return Promise.resolve(); } };
+const st = CP.createStore({ rows: SET.prepared.rows, settings: fake, prefix: 'tidelines.' }); st.load();
+eq('store: stored strings come back typed', [st.get().overlap, st.get().flip, st.get().kernel], [3.5, true, 'epanechnikov']);
+eq('store: a saved override list comes back as objects', st.get().catColors[0].name, 'Alpha');
+eq('store: an unset setting keeps its default', st.get().bwMult, 1);
+st.setMany(L({ animate: 'false', bgMatch: 'false' }));
+eq('store: legacy values land on the new keys and are saved as strings', [fake.v['tidelines.animOn'], fake.v['tidelines.bgMode']], ['false', 'custom']);
+
+/* ---------------------------------------------------- new density, sort and tick options */
+const g2 = [{ key: 'a', values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }, { key: 'b', values: [10, 20, 30, 40, 50] }];
+const bb1 = kde.build(g2, { kernel: 'gaussian', bandwidth: 2, scale: 'shared' }), bb2 = kde.build(g2, { kernel: 'gaussian', bandwidth: 2, bwMult: 2, scale: 'shared' });
+near('bandwidth adjust x2 doubles every ridge bandwidth', bb2.ridges[0].bw / bb1.ridges[0].bw, 2, 1e-12);
+const bp1 = kde.build(g2, { kernel: 'gaussian', bandwidth: 2 }), bp2 = kde.build(g2, { kernel: 'gaussian', bandwidth: 2, padMult: 2 });
+ok('room past the data x2 widens the axis', bp2.domain[1] - bp2.domain[0] > bp1.domain[1] - bp1.domain[0]);
+const br = kde.build(g2, { kernel: 'gaussian', bandwidth: 2, range: [0, 100] });
+eq('a custom axis range sets the domain', br.domain, [0, 100]);
+eq('a backwards custom range is ignored', kde.build(g2, { kernel: 'gaussian', bandwidth: 2, range: [100, 0] }).domain, bp1.domain);
+ok('curve detail sets the grid size', kde.build(g2, { kernel: 'gaussian', bandwidth: 2, points: 100 }).xs.length === 100);
+const rsx = bb1.ridges;
+eq('sort by average puts the larger mean first', kde.sortRidges(rsx, 'mean', false).map((r) => r.key), ['b', 'a']);
+eq('sort by count puts the larger n first (input given smaller-first)', kde.sortRidges(rsx.slice().reverse(), 'count', false).map((r) => r.key), ['a', 'b']);
+eq('my order follows the saved list', kde.sortRidges(rsx, 'manual', false, ['b', 'a']).map((r) => r.key), ['b', 'a']);
+eq('my order puts unknown keys last, in data order', kde.sortRidges(rsx, 'manual', false, ['b']).map((r) => r.key), ['b', 'a']);
+eq('my order reversed', kde.sortRidges(rsx, 'manual', true, ['a', 'b']).map((r) => r.key), ['b', 'a']);
+ok('most ticks caps the number of ticks', layout.pickTicks(kde, 0, 1000, 2000, (v) => String(v), m, 3).length <= layout.pickTicks(kde, 0, 1000, 2000, (v) => String(v), m, 10).length && layout.pickTicks(kde, 0, 1000, 2000, (v) => String(v), m, 3).length <= 5);
+ok('two-line names need more room per label', layout.labelPlan(20, 20, 14, 2).shownCount < layout.labelPlan(20, 20, 14, 1).shownCount);
 
 /* ------------------------------------------------------------ verdict */
 if (pass < MIN_CHECKS) failures.push('RAN ONLY ' + pass + ' checks, the floor is ' + MIN_CHECKS);

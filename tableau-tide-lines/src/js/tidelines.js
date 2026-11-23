@@ -1,59 +1,39 @@
 /* Tide Lines - entry point. Binds the Tableau worksheet to the renderer and the
- * settings panel: reads the four encodings declared in tidelines.trex, pulls
- * summary data through the paged reader (one reader at a time), keeps settings in
- * tableau.extensions.settings, and pushes selection and hover back to Tableau.
+ * shared settings panel (ctab-panel): reads the four encodings declared in
+ * tide-lines.trex, pulls summary data through the paged reader (one reader at a
+ * time), keeps settings in tableau.extensions.settings through the panel's store,
+ * and pushes selection and hover back to Tableau.
  *
  * It uses only calls the C-Tableau Viz pages stand-in also provides, and every
  * call that stand-in lacks (selectTuplesAsync, hoverTupleAsync) is guarded.
  */
 (function (global) {
   'use strict';
-  var TL = global.TL, schema = TL.schema;
+  var TL = global.TL, CP = global.CTabPanel, SET = TL.settings;
   var PREFIX = 'tidelines.';
+  var DATA_KEYS = { fieldCategory: 1, fieldValue: 1, fieldColor: 1, fieldLabel: 1 };
 
-  var state = { worksheet: null, renderer: null, panel: null, settings: schema.resolve({}),
-    model: { rows: [] }, saveTimer: null, resizeTimer: null };
+  var state = { worksheet: null, renderer: null, panel: null, store: null, raw: null, auto: {},
+    model: { rows: [] }, resizeTimer: null };
 
   function log () { if (global.console && console.warn) console.warn.apply(console, ['[TL]'].concat([].slice.call(arguments))); }
 
   /* ---------------------------------------------------------------- settings */
 
-  function readStored () {
-    var stored = {}, st = global.tableau.extensions.settings, all = {};
-    try { all = st.getAll() || {}; } catch (e) { log('could not read settings', e); }
-    Object.keys(schema.DEFAULTS).forEach(function (k) {
+  /* Workbooks saved before the shared panel used other keys for a few settings (see settings.js legacy()). */
+  function applyLegacy (store) {
+    var st = global.tableau.extensions.settings, all = {};
+    try { all = st.getAll() || {}; } catch (e) { all = {}; }
+    function get (k) {
       var v;
       try { v = st.get(PREFIX + k); } catch (e) { v = undefined; }
-      if (v === undefined) {   /* a host that stores under a different prefix: match on the last segment */
+      if (v === undefined || v === null) {   /* a host that stores under a different prefix: match on the last segment */
         Object.keys(all).some(function (ak) { if (ak.split('.').pop() === k) { v = all[ak]; return true; } return false; });
       }
-      if (v !== undefined && v !== null) stored[k] = v;
-    });
-    return schema.resolve(stored);
-  }
-
-  function persist (key, value) {
-    try { global.tableau.extensions.settings.set(PREFIX + key, String(value)); } catch (e) { log('could not stage setting', key, e); }
-    if (state.saveTimer) clearTimeout(state.saveTimer);
-    state.saveTimer = setTimeout(function () {   /* batch rapid stepper clicks into one workbook write */
-      state.saveTimer = null;
-      try { var p = global.tableau.extensions.settings.saveAsync(); if (p && p.catch) p.catch(function (e) { log('saveAsync rejected', e); }); } catch (e) { log('saveAsync threw', e); }
-    }, 400);
-  }
-
-  function setSetting (key, value) { state.settings[key] = schema.coerce(key, value); persist(key, state.settings[key]); redraw(); }
-  function resetSettings () {
-    state.settings = schema.resolve({});
-    Object.keys(schema.DEFAULTS).forEach(function (k) { persist(k, state.settings[k]); });
-    redraw();
-  }
-  function replaceAll (obj) {
-    Object.keys(schema.DEFAULTS).forEach(function (k) {
-      var v = obj[k];
-      if (v === undefined && obj[PREFIX + k] !== undefined) v = obj[PREFIX + k];
-      if (v !== undefined) { state.settings[k] = schema.coerce(k, v); persist(k, state.settings[k]); }
-    });
-    redraw();
+      return v;
+    }
+    var old = SET.legacy(get);
+    if (Object.keys(old).length) store.setMany(old);
   }
 
   /* -------------------------------------------------------------------- data */
@@ -98,40 +78,55 @@
 
   function isNum (v) { return typeof v === 'number' && isFinite(v); }
 
-  function buildModel (ws) {
+  /* Raw rows plus the shelf mapping. The model is rebuilt from this when a Fields-tab setting changes. */
+  function readData (ws) {
     return Promise.all([readSummary(ws), readEncodings(ws)]).then(function (res) {
       var data = res[0], enc = res[1];
       var cat = fieldName(enc.category), val = fieldName(enc.value), col = fieldName(enc.color), lab = fieldName(enc.label);
       var firstRow = data.rows[0];
       if (!cat || data.columns.indexOf(cat) < 0) cat = data.columns.filter(function (c) { return firstRow && typeof firstRow[c] === 'string'; })[0] || data.columns[0];
       if (!val || data.columns.indexOf(val) < 0) val = data.columns.filter(function (c) { return firstRow && isNum(firstRow[c]) && c !== cat; })[0] || data.columns[1];
-      var rows = [];
-      data.rows.forEach(function (r, i) {
-        var raw = r[val];
-        if (raw === null || raw === undefined || raw === '') return;
-        var v = Number(raw);
-        if (!isFinite(v)) return;
-        rows.push({
-          cat: r[cat] === null || r[cat] === undefined || r[cat] === '' ? '(blank)' : String(r.__fmt[cat] || r[cat]),
-          value: v,
-          colorKey: col ? (r.__fmt[col] || r[col]) : null,
-          labelField: lab ? (r.__fmt[lab] || r[lab]) : null,
-          tupleId: i + 1,
-          rawCat: r[cat]
-        });
-      });
+      if (col && data.columns.indexOf(col) < 0) col = null;
+      if (lab && data.columns.indexOf(lab) < 0) lab = null;
+      var numeric = data.columns.filter(function (c) { return data.rows.some(function (r) { return isNum(r[c]); }); });
       var bg = '#ffffff';
       try { if (ws.backgroundColor) bg = ws.backgroundColor; } catch (e) { /* not fatal */ }
-      return { rows: rows, catName: cat || 'Category', valueName: val || 'Value', worksheetBg: bg, hasColor: !!col, hasLabel: !!lab,
-        emptyMessage: data.rows.length ? 'No numeric values to plot. Put one observation per row on the Value shelf.' : 'Drop a dimension on Category and a measure on Value.' };
+      return { raw: data, auto: { fieldCategory: cat || null, fieldValue: val || null, fieldColor: col, fieldLabel: lab }, numeric: numeric, bg: bg, hasRows: data.rows.length > 0 };
     });
+  }
+
+  function pick (key, auto, columns) { var v = state.store.get()[key]; return v && columns.indexOf(v) >= 0 ? v : auto; }
+
+  function buildModel () {
+    var d = state.raw;
+    if (!d) return { rows: [], emptyMessage: 'Loading.' };
+    var cols = d.raw.columns;
+    var cat = pick('fieldCategory', d.auto.fieldCategory, cols), val = pick('fieldValue', d.auto.fieldValue, cols);
+    var col = pick('fieldColor', d.auto.fieldColor, cols), lab = pick('fieldLabel', d.auto.fieldLabel, cols);
+    var rows = [];
+    d.raw.rows.forEach(function (r, i) {
+      var raw = r[val];
+      if (raw === null || raw === undefined || raw === '') return;
+      var v = Number(raw);
+      if (!isFinite(v)) return;
+      rows.push({
+        cat: r[cat] === null || r[cat] === undefined || r[cat] === '' ? '(blank)' : String(r.__fmt[cat] || r[cat]),
+        value: v,
+        colorKey: col ? (r.__fmt[col] || r[col]) : null,
+        labelField: lab ? (r.__fmt[lab] || r[lab]) : null,
+        tupleId: i + 1,
+        rawCat: r[cat]
+      });
+    });
+    return { rows: rows, catName: cat || 'Category', valueName: val || 'Value', worksheetBg: d.bg, hasColor: !!col, hasLabel: !!lab,
+      emptyMessage: d.hasRows ? 'No numeric values to plot. Put one observation per row on the Value shelf.' : 'Drop a dimension on Category and a measure on Value.' };
   }
 
   /* ------------------------------------------------------------ Tableau out */
 
   function pushSelection (ridges) {
     var ws = state.worksheet;
-    if (!ws || !state.settings.selectEnabled) return;
+    if (!ws || !state.store.get().selectOn) return;
     var swallow = function (p) { if (p && p.catch) p.catch(function (e) { log('selection rejected', e); }); };
     try {
       if (!ridges.length) { if (typeof ws.clearSelectedMarksAsync === 'function') swallow(ws.clearSelectedMarksAsync()); return; }
@@ -146,8 +141,8 @@
 
   var lastHover = null;
   function pushHover (ridge) {
-    var ws = state.worksheet;
-    if (!ws || !state.settings.hoverPush || typeof ws.hoverTupleAsync !== 'function') return;
+    var ws = state.worksheet, s = state.store.get();
+    if (!ws || !s.hoverPush || !s.hoverOn || typeof ws.hoverTupleAsync !== 'function') return;
     var id = ridge && ridge.tuples.length ? ridge.tuples[0] : 0;
     if (id === lastHover) return;
     lastHover = id;
@@ -158,8 +153,12 @@
 
   function redraw () {
     if (!state.renderer) return;
-    state.renderer.draw(state.model, state.settings, { onSelect: pushSelection, onHover: pushHover });
-    if (state.panel) state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink);
+    state.renderer.draw(state.model, state.store.get(), { onSelect: pushSelection, onHover: pushHover });
+    if (state.panel) { state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink); state.panel.render(); }
+  }
+  function onChange (keys) {
+    if (keys.some(function (k) { return DATA_KEYS[k]; })) state.model = buildModel();
+    redraw();
   }
 
   /* Reads are serialized: one open reader per worksheet, and a slow earlier read must never
@@ -170,22 +169,28 @@
     if (refreshing) { queued = true; return Promise.resolve(); }
     refreshing = true;
     var done = function () { refreshing = false; if (queued) { queued = false; return refreshData(); } return undefined; };
-    return buildModel(state.worksheet).then(function (m) { state.model = m; redraw(); }, function (e) {
+    return readData(state.worksheet).then(function (d) { state.raw = d; state.auto = d.auto; state.model = buildModel(); redraw(); }, function (e) {
       log('data refresh failed', e);
+      state.raw = null;
       state.model = { rows: [], emptyMessage: 'Could not read data from this worksheet.' };
       redraw();
     }).then(done, done);
   }
 
+  function info () {
+    var d = state.raw;
+    return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {},
+      lists: { categories: state.renderer ? state.renderer.items : [] }, autoBw: state.renderer ? state.renderer.autoBw : 0 };
+  }
+
   function mount (ws) {
     state.worksheet = ws;
-    state.settings = readStored();
+    state.store = CP.createStore({ rows: SET.prepared.rows, settings: global.tableau.extensions.settings, prefix: PREFIX, onChange: onChange, log: log });
+    state.store.load();
+    applyLegacy(state.store);
     var root = document.getElementById('tl-root'), chart = document.getElementById('tl-chart');
     state.renderer = new TL.Renderer(chart);
-    state.panel = new TL.Panel(root, {
-      get: function () { return state.settings; }, set: setSetting, reset: resetSettings, replaceAll: replaceAll,
-      ctx: function () { return { autoBw: state.renderer.autoBw }; }
-    });
+    state.panel = CP.create(root, { title: 'Tide Lines settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
     state.panel.applyAppearance('#ffffff', '#0b1f2e');
     global.addEventListener('resize', function () {
       if (state.resizeTimer) clearTimeout(state.resizeTimer);

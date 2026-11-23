@@ -16,16 +16,19 @@ strings and restored, Copy settings / Paste settings.
 Exit 1 and a RED line on any failure. It also goes RED if it examined fewer cases than
 MIN_CASES or fewer checks than MIN_CHECKS, so an empty run cannot read as green.
 """
-import csv, functools, http.server, json, math, pathlib, re, socketserver, sys, threading
+import csv, functools, http.server, json, math, pathlib, re, socketserver, sys, threading, types
 
 from playwright.sync_api import sync_playwright
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import panel_checks
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PLAN_SIZES, PLAN_THEMES = ("300x300", "900x520", "1600x1000"), ("light", "dark")
 PLAN_EXTRA = 4   # many x2 themes at 300x300, many at 900x520, typical dark
 PLAN_EDGE = 4    # tiny, constant, long, empty
-MIN_CASES = len(PLAN_SIZES) * len(PLAN_THEMES) + PLAN_EXTRA + 1 + PLAN_EDGE   # + the behaviour case
-MIN_CHECKS = 180
+MIN_CASES = len(PLAN_SIZES) * len(PLAN_THEMES) + PLAN_EXTRA + 1 + PLAN_EDGE + 3   # + behaviour, panel gate, flip, legacy
+MIN_CHECKS = 320
 shots = None
 if "--shots" in sys.argv:
     shots = pathlib.Path(sys.argv[sys.argv.index("--shots") + 1]); shots.mkdir(parents=True, exist_ok=True)
@@ -103,15 +106,18 @@ def contrast(a, b):
     return (max(la, lb) + .05) / (min(la, lb) + .05)
 
 
-def open_case(b, port, fixture, size, theme, errs):
+def open_case(b, port, fixture, size, theme, errs, settings=None, fast=False):
     w, h = [int(x) for x in size.split("x")]
     pg = b.new_page(viewport={"width": w + 60, "height": h + 260}, device_scale_factor=1)
     pg.on("console", lambda m: errs.append(m.text) if m.type in ("error", "warning") else None)
     pg.on("pageerror", lambda e: errs.append("pageerror " + str(e)))
     pg.on("dialog", lambda d: (errs.append("browser dialog: " + d.message), d.dismiss()))
+    if settings:
+        snap = {(k if "." in k else "tidelines." + k): (json.dumps(v) if isinstance(v, (list, dict)) else str(v).lower() if isinstance(v, bool) else str(v)) for k, v in settings.items()}
+        pg.add_init_script("localStorage.setItem('tl-mock-settings', %s)" % json.dumps(json.dumps(snap)))
     pg.goto("http://127.0.0.1:%d/dev/dev.html?fixture=%s&size=%s&theme=%s" % (port, fixture, size, theme))
     pg.wait_for_function("window.TL_READY && document.querySelector('.tl-svg, .tl-empty')", timeout=8000)
-    pg.wait_for_timeout(1500)  # entrance (760 ms + stagger) settles
+    pg.wait_for_timeout(150 if fast else 1500)  # entrance (760 ms + stagger) settles
     return pg
 
 
@@ -157,6 +163,11 @@ def static_case(b, port, fixture, size, theme, expect_n, expect_note):
         pg.locator("#stage").screenshot(path=str(shots / ("tide-lines-%s-%s.png" % (size, theme))))
     pg.close()
     return None
+
+
+def ptab(pg, tid):
+    pg.click(".cp-tab[data-t='%s']" % tid)
+    pg.wait_for_function("document.querySelector(\".cp-tab[data-t='%s']\").getAttribute('aria-selected') === 'true'" % tid)
 
 
 def lift_samples(pg, selector):
@@ -231,95 +242,105 @@ def behaviour(b, port):
     check(name + ": selected ridge is marked", pg.evaluate("document.querySelectorAll('.tl-ridge.is-sel').length") == 1)
     pg.mouse.click(hx, hy)
     check(name + ": clicking it again clears the selection", pg.evaluate("TL_MOCK.worksheet.calls.filter(c => c[0] === 'clearSelectedMarksAsync').length") == 1)
-    # ---- the panel ----
-    pg.click(".tl-gear")
-    pg.wait_for_selector(".tl-panel", state="visible")
-    check(name + ": panel opens", True)
+    # ---- a few chart behaviours driven from the shared panel ----
+    pg.click(".cp-gear")
+    pg.wait_for_selector(".cp-panel:not([hidden])")
+    check(name + ": panel opens from the gear", True)
     check(name + ": NO sliders in the panel", pg.evaluate("document.querySelectorAll('input[type=range]').length") == 0)
-    check(name + ": no browser dialogs", not [e for e in errs if "dialog" in e], str(errs))
-    for g in ("Density", "Layout", "Marks", "Colour"):
-        pass
-    small = pg.evaluate("[...document.querySelectorAll('.tl-panel *')].filter(e => e.childNodes.length && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 14).map(e => e.textContent.trim().slice(0, 30))")
-    check(name + ": panel text >= 14px", not small, str(small[:4]))
-    pbg = rgb(pg.evaluate("getComputedStyle(document.querySelector('.tl-panel')).backgroundColor"))
-    pfg = rgb(pg.evaluate("getComputedStyle(document.querySelector('.tl-panel')).color"))
-    check(name + ": panel text >= 7:1", contrast(pbg, pfg) >= 7)
-    kinds = pg.evaluate("[...document.querySelectorAll('.tl-panel .tl-opt label')].map(l => l.textContent)")
-    for want in ("Kernel", "Bandwidth", "Overlap", "Sort ridges", "Median tick", "Quartile ticks", "Ridge colour", "Tide palette"):
-        check(name + ": panel has " + want, want in kinds, str(kinds))
     check(name + ": kernel chip starts on Gaussian", pg.evaluate("document.querySelector('.tl-svg').dataset.kernel") == "gaussian")
     before = pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')")
-    pg.click(".tl-chip[data-value='epanechnikov']")
-    pg.wait_for_timeout(250)
-    check(name + ": Epanechnikov chip redraws with that kernel", pg.evaluate("document.querySelector('.tl-svg').dataset.kernel") == "epanechnikov")
+    ptab(pg, "density")
+    pg.click(".cp-chip[data-k=kernel][data-v=epanechnikov]")
+    pg.wait_for_function("document.querySelector('.tl-svg').dataset.kernel === 'epanechnikov'", timeout=2000)
+    check(name + ": Epanechnikov chip redraws with that kernel", True)
     check(name + ": the ridge shape changed", pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')") != before)
-    # settings saved as strings
     saved = pg.evaluate("TL_MOCK.settings.getAll()")
     check(name + ": setting staged as the string 'epanechnikov' under tidelines.kernel", saved.get("tidelines.kernel") == "epanechnikov", str(saved))
-    pg.wait_for_timeout(700)
+    pg.wait_for_function("TL_MOCK.settings.saveCount >= 1", timeout=3000)
     check(name + ": settings saved through saveAsync", pg.evaluate("TL_MOCK.settings.saveCount") >= 1)
-    # sort chips
-    pg.click(".tl-chip[data-value='name']"); pg.wait_for_timeout(250)
+    ptab(pg, "layout")
+    pg.click(".cp-chip[data-k=sort][data-v=name]"); pg.wait_for_timeout(250)
     names = pg.evaluate("[...document.querySelectorAll('.tl-label')].map(e => e.textContent)")
     check(name + ": sort by name puts the names in alphabetical order", names == sorted(names, key=str.lower), str(names))
-    pg.click(".tl-chip[data-value='data']"); pg.wait_for_timeout(250)
+    pg.click(".cp-chip[data-k=sort][data-v=data]"); pg.wait_for_timeout(250)
     names_data = pg.evaluate("[...document.querySelectorAll('.tl-label')].map(e => e.textContent)")
     check(name + ": sort by data order differs from alphabetical", names_data != names, str(names_data))
-    pg.click(".tl-chip[data-value='median']"); pg.wait_for_timeout(250)
+    pg.click(".cp-chip[data-k=sort][data-v=median]"); pg.wait_for_timeout(250)
     meds = pg.evaluate("[...document.querySelectorAll('.tl-ridge')].map(e => e.dataset.key)")
     ms = [STATS[k]["median"] for k in meds]
     check(name + ": sort by median runs high to low from the top", ms == sorted(ms, reverse=True), str(ms))
-    # bandwidth stepper: Auto default, typed value, back to Auto
-    bw_in = pg.locator(".tl-opt:has(label:text-is('Bandwidth')) input")
-    check(name + ": bandwidth starts empty (Auto) and says what Auto is", bw_in.input_value() == "" and bw_in.get_attribute("placeholder").startswith("Auto "), bw_in.get_attribute("placeholder"))
+    pg.click(".cp-chip[data-k=sort][data-v=count]"); pg.wait_for_timeout(250)
+    cn = [STATS[k]["n"] for k in pg.evaluate("[...document.querySelectorAll('.tl-ridge')].map(e => e.dataset.key)")]
+    check(name + ": sort by count runs large to small from the top", cn == sorted(cn, reverse=True), str(cn))
+    pg.click(".cp-chip[data-k=sort][data-v=median]")
+    ptab(pg, "density")
     d_auto = pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')")
-    bw_in.fill("90"); bw_in.press("Enter"); bw_in.blur(); pg.wait_for_timeout(250)
-    d_90 = pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')")
-    check(name + ": a typed bandwidth changes the density", d_90 != d_auto)
-    pg.locator(".tl-opt:has(label:text-is('Bandwidth')) .tl-step").nth(1).click(); pg.wait_for_timeout(250)
-    check(name + ": the + button steps the bandwidth up", float(pg.locator(".tl-opt:has(label:text-is('Bandwidth')) input").input_value()) > 90)
-    pg.locator(".tl-opt:has(label:text-is('Bandwidth')) .tl-chip").click(); pg.wait_for_timeout(250)
-    check(name + ": Auto button returns to Silverman", pg.locator(".tl-opt:has(label:text-is('Bandwidth')) input").input_value() == "" and pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')") != d_90)
-    # overlap stepper
-    ov = pg.locator(".tl-opt:has(label:text-is('Overlap')) input")
+    bw_in = pg.locator("input[data-k=bandwidth]")
+    check(name + ": bandwidth starts at 0 (Auto)", bw_in.input_value() in ("0", ""), bw_in.input_value())
+    bw_in.fill("90"); bw_in.press("Enter"); pg.wait_for_timeout(250)
+    check(name + ": a typed bandwidth changes the density", pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')") != d_auto and pg.evaluate("TL.app.state.store.get().bandwidth") == 90)
+    bw_in.fill("0"); bw_in.press("Enter"); pg.wait_for_timeout(250)
+    check(name + ": 0 returns to Silverman Auto", pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')") == d_auto)
+    ptab(pg, "layout")
     d_o1 = pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')")
-    ov.fill("3.5"); ov.press("Enter"); ov.blur(); pg.wait_for_timeout(250)
+    ov = pg.locator("input[data-k=overlap]")
+    ov.fill("3.5"); ov.press("Enter"); pg.wait_for_timeout(250)
     check(name + ": overlap stepper redraws", pg.evaluate("document.querySelector('path.tl-fill').getAttribute('d')") != d_o1)
     check(name + ": overlap saved as a string", pg.evaluate("TL_MOCK.settings.getAll()['tidelines.overlap']") == "3.5")
-    # median / quartile toggles
+    ptab(pg, "marks")
     n_ticks = pg.evaluate("[document.querySelectorAll('.tl-med').length, document.querySelectorAll('.tl-q').length]")
     check(name + ": 6 medians and 12 quartile ticks drawn", n_ticks == [6, 12], str(n_ticks))
-    pg.click(".tl-opt:has(label:text-is('Median tick')) .tl-switch"); pg.wait_for_timeout(250)
+    pg.uncheck("input[data-k=showMedian]"); pg.wait_for_timeout(250)
     check(name + ": median toggle removes the median ticks", pg.evaluate("document.querySelectorAll('.tl-med').length") == 0)
-    pg.click(".tl-opt:has(label:text-is('Median tick')) .tl-switch")
-    # copy settings
-    pg.click("text=Copy settings"); pg.wait_for_timeout(200)
-    copied = pg.evaluate("TL.app.state.panel.lastCopied")
-    obj = json.loads(copied)
+    pg.check("input[data-k=showMedian]")
+    pg.check("input[data-k=showMean]"); pg.wait_for_timeout(250)
+    check(name + ": the mean tick draws a dashed tick on every ridge", pg.evaluate("document.querySelectorAll('.tl-mean').length") == 6)
+    pg.uncheck("input[data-k=showMean]")
+    pg.click("[data-a=copy]"); pg.wait_for_timeout(200)
+    obj = json.loads(pg.evaluate("TL.app.state.panel.lastCopied"))
     check(name + ": Copy settings produces JSON with the chosen kernel and overlap", obj.get("kernel") == "epanechnikov" and obj.get("overlap") == 3.5, str(obj)[:120])
-    check(name + ": the copied JSON holds every setting", len(obj) >= 20, str(len(obj)))
+    check(name + ": the copied JSON holds every setting", len(obj) >= 60, str(len(obj)))
     pg.close()
 
-    # ---- settings survive a reload (same origin localStorage) and Paste settings applies ----
+    # ---- settings survive a reload (same origin localStorage) ----
     ctx = b.new_context(viewport={"width": 960, "height": 780})
     pg = ctx.new_page()
     errs2 = []
     pg.on("console", lambda m: errs2.append(m.text) if m.type in ("error", "warning") else None)
     url = "http://127.0.0.1:%d/dev/dev.html?fixture=birth&size=900x520&theme=light" % port
     pg.goto(url); pg.wait_for_function("window.TL_READY && document.querySelector('.tl-svg')"); pg.wait_for_timeout(500)
-    pg.click(".tl-gear"); pg.click(".tl-chip[data-value='epanechnikov']"); pg.wait_for_timeout(800)
+    pg.click(".cp-gear"); ptab(pg, "density"); pg.click(".cp-chip[data-k=kernel][data-v=epanechnikov]"); pg.wait_for_timeout(900)
     pg.goto(url); pg.wait_for_function("window.TL_READY && document.querySelector('.tl-svg')"); pg.wait_for_timeout(500)
     check(name + ": reload restores the saved kernel from string settings", pg.evaluate("document.querySelector('.tl-svg').dataset.kernel") == "epanechnikov")
-    pg.click(".tl-gear"); pg.click("text=Paste settings")
-    pg.fill(".tl-paste textarea", json.dumps({"kernel": "gaussian", "overlap": "4", "sort": "name", "flip": "true"}))
-    pg.click(".tl-paste >> text=Apply"); pg.wait_for_timeout(300)
-    st = pg.evaluate("TL.app.state.settings")
-    check(name + ": Paste settings coerces strings (overlap 4, flip true)", st["overlap"] == 4 and st["flip"] is True and st["kernel"] == "gaussian" and st["sort"] == "name", str(st)[:160])
-    pg.click("text=Reset to defaults"); pg.wait_for_timeout(300)
-    check(name + ": Reset to defaults restores them", pg.evaluate("TL.app.state.settings.overlap") == 2 and pg.evaluate("document.querySelector('.tl-svg').dataset.kernel") == "gaussian")
+    pg.click(".cp-gear"); pg.click("[data-a=resetall]"); pg.click("[data-a=confirmyes]"); pg.wait_for_timeout(300)
+    check(name + ": Reset all restores the defaults", pg.evaluate("TL.app.state.store.get().overlap") == 2 and pg.evaluate("document.querySelector('.tl-svg').dataset.kernel") == "gaussian")
     check(name + ": 0 console errors across the settings flow", not errs2, str(errs2[:3]))
     ctx.close()
     check(name + ": 0 console errors in the interaction flow", not errs, str(errs[:3]))
+
+
+def legacy_case(b, port):
+    """A workbook saved before the shared panel: old keys must still set the look."""
+    errs = []
+    old = {"tidelines.animate": "false", "tidelines.bgMatch": "false", "tidelines.bgColor": "#081f33", "tidelines.inkAuto": "false", "tidelines.inkColor": "#ffd166",
+           "tidelines.selectEnabled": "false", "tidelines.fontFamily": '"Trebuchet MS", Tahoma, sans-serif', "tidelines.kernel": "epanechnikov", "tidelines.overlap": "3"}
+    pg = open_case(b, port, "birth", "900x520", "light", errs, old, fast=True)
+    cases.append("legacy workbook")
+    s = pg.evaluate("TL.app.state.store.get()")
+    check("legacy: animate=false became animOn false (no entrance)", s["animOn"] is False and pg.evaluate("document.querySelector('.tl-svg').dataset.anim") == "off")
+    check("legacy: bgMatch=false + bgColor became a custom navy background", s["bgMode"] == "custom" and pg.evaluate("getComputedStyle(document.querySelector('#tl-chart')).backgroundColor") == "rgb(8, 31, 51)")
+    check("legacy: inkAuto=false + inkColor became the label color and text is 7:1", s["labelColor"] == "#ffd166" and pg.evaluate("getComputedStyle(document.querySelector('.tl-label')).fill") == "rgb(255, 209, 102)")
+    check("legacy: the Trebuchet font stack became the Trebuchet font id", s["fontFamily"] == "trebuchet" and "Trebuchet" in pg.evaluate("document.querySelector('.tl-svg').style.fontFamily"))
+    check("legacy: selectEnabled=false turned click-to-select off", s["selectOn"] is False)
+    h = pg.evaluate("(() => { const r = [...document.querySelectorAll('path.tl-hit')].pop().getBoundingClientRect(); return [(r.left + r.right) / 2, r.bottom - 4]; })()")
+    pg.mouse.click(h[0], h[1]); pg.wait_for_timeout(150)
+    check("legacy: a click selects nothing", pg.evaluate("document.querySelectorAll('.tl-ridge.is-sel').length") == 0 and not pg.evaluate("TL_MOCK.worksheet.calls.filter(c => c[0] === 'selectMarksByValueAsync').length"))
+    check("legacy: same-name keys still apply (kernel, overlap)", s["kernel"] == "epanechnikov" and s["overlap"] == 3 and pg.evaluate("document.querySelector('.tl-svg').dataset.kernel") == "epanechnikov")
+    pg.wait_for_function("TL_MOCK.settings.saveCount >= 1", timeout=3000)
+    saved = pg.evaluate("TL_MOCK.settings.getAll()")
+    check("legacy: the migrated values are saved under the new keys", saved.get("tidelines.animOn") == "false" and saved.get("tidelines.bgMode") == "custom" and saved.get("tidelines.fontFamily") == "trebuchet", str({k: saved.get(k) for k in ("tidelines.animOn", "tidelines.bgMode", "tidelines.fontFamily")}))
+    check("legacy: 0 console errors", not errs, str(errs[:3]))
+    pg.close()
 
 
 def edge_cases(b, port):
@@ -362,6 +383,10 @@ def main():
         static_case(b, port, "many", "900x520", "light", 60, True)
         static_case(b, port, "typical", "900x520", "dark", 6, False)
         behaviour(b, port)
+        H = types.SimpleNamespace(check=check, open_case=open_case, contrast=contrast, cases=cases)
+        panel_checks.panel_gate(b, port, H)
+        panel_checks.flip_all(b, port, H)
+        legacy_case(b, port)
         edge_cases(b, port)
         b.close()
     srv.shutdown()
@@ -379,4 +404,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:   # a crash is a failure with a RED line, never a silent traceback
+        print("RED  gate crashed: %s: %s" % (type(e).__name__, str(e).splitlines()[0][:200] if str(e) else ""))
+        sys.exit(1)

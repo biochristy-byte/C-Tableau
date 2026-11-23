@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tide Lines</title>
+  <link rel="stylesheet" href="../lib/ctab-panel/ctab-panel.css">
   <link rel="stylesheet" href="css/tidelines.css">
 </head>
 <body>
@@ -14,12 +15,14 @@
   <!-- Tableau Extensions API: Tableau's own file, vendored in lib/ (see lib/README.md). -->
   <script src="../lib/tableau.extensions.1.latest.min.js"></script>
 
+  <!-- The shared settings panel, vendored byte-for-byte from shared/ctab-panel (a sync gate checks it). -->
+  <script src="../lib/ctab-panel/ctab-panel.js"></script>
+
   <script src="js/kde.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/palettes.js"></script>
-  <script src="js/schema.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/render.js"></script>
-  <script src="js/settings-panel.js"></script>
   <script src="js/tidelines.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   "overlap": 2.4,
   "palette": "tide",
   "colorSource": "tide",
-  "bgMatch": false,
+  "bgMode": "custom",
   "bgColor": "#081f33",
   "showMedian": true,
   "showQuartiles": true

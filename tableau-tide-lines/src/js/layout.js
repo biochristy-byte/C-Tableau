@@ -22,9 +22,9 @@
 
   /* Which ridge labels to draw. A label needs a line of 1.25 x font size to itself.
    * Returns { stride, shown: [bool per ridge], shownCount, total, note }. */
-  function labelPlan (n, rowStep, fontPx) {
+  function labelPlan (n, rowStep, fontPx, lines) {
     var font = Math.max(MIN_FONT, fontPx || MIN_FONT);
-    var need = font * 1.25;
+    var need = font * 1.25 * Math.max(1, lines || 1);
     var stride = rowStep >= need ? 1 : Math.max(1, Math.ceil(need / Math.max(rowStep, 0.0001)));
     var shown = [], count = 0;
     for (var i = 0; i < n; i++) {
@@ -51,8 +51,8 @@
   }
 
   /* Choose x tick values so adjacent labels never touch (gap >= 10px). */
-  function pickTicks (kde, lo, hi, plotW, fmt, measure) {
-    for (var want = 10; want >= 2; want--) {
+  function pickTicks (kde, lo, hi, plotW, fmt, measure, most) {
+    for (var want = Math.max(2, most || 10); want >= 2; want--) {
       var t = kde.niceTicks(lo, hi, want);
       var ok = true, lastEnd = -1e9;
       for (var i = 0; i < t.length; i++) {

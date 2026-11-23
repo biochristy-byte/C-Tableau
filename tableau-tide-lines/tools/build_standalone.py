@@ -17,7 +17,8 @@ import argparse, csv, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HUB_STANDIN = r"C:/Users/bioch/projects/viz-extensions-hub/hosted/public/_vz/standin.js"
-SCRIPTS = ["kde.js", "layout.js", "palettes.js", "schema.js", "render.js", "settings-panel.js", "tidelines.js"]
+SCRIPTS = ["kde.js", "layout.js", "palettes.js", "settings.js", "render.js", "tidelines.js"]
+PANEL = os.path.join(ROOT, "lib", "ctab-panel")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--data", required=True)
@@ -72,8 +73,8 @@ data = json.dumps({"columns": cols, "numeric": numeric, "rows": rows}, separator
 data_url = "data:application/json;base64," + base64.b64encode(data.encode("utf-8")).decode("ascii")
 cfg = {"dataUrl": data_url, "encodings": enc, "settings": settings, "prefix": "", "title": a.title, "home": "/"}
 
-css = read(os.path.join(ROOT, "src", "css", "tidelines.css"))
-js = "\n".join("/* ---- %s ---- */\n%s" % (s, read(os.path.join(ROOT, "src", "js", s))) for s in SCRIPTS)
+css = read(os.path.join(PANEL, "ctab-panel.css")) + "\n" + read(os.path.join(ROOT, "src", "css", "tidelines.css"))
+js = "/* ---- ctab-panel.js ---- */\n" + read(os.path.join(PANEL, "ctab-panel.js")) + "\n" + "\n".join("/* ---- %s ---- */\n%s" % (s, read(os.path.join(ROOT, "src", "js", s))) for s in SCRIPTS)
 standin = read(a.standin)
 if "__CTAB_VIZ" not in standin or "worksheetContent" not in standin:
     sys.exit("RED: %s does not look like the C-Tableau stand-in" % a.standin)

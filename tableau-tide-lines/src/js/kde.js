@@ -71,7 +71,7 @@
 
   /* Group definitions in, drawable ridges out.
    * groups: [{ key, values: number[] }]
-   * opts:   { kernel, bandwidth (0 = auto), scale ('shared'|'own'), trim (bool), points (grid size) }
+   * opts:   { kernel, bandwidth (0 = auto), bwMult (x), padMult (x), range ([lo, hi] or null), scale ('shared'|'own'), trim (bool), points (grid size) }
    * Result: { xs, domain, ridges: [{ key, n, stats, bw, ys (0..1), xs (own grid when trimmed) }], autoBw } */
   function build (groups, opts) {
     var kind = opts.kernel === 'epanechnikov' ? 'epanechnikov' : 'gaussian';
@@ -90,11 +90,12 @@
 
     var maxReach = 0;
     infos.forEach(function (i) {
-      i.bw = opts.bandwidth > 0 ? opts.bandwidth : (i.auto > 0 ? i.auto : autoBw);
+      i.bw = (opts.bandwidth > 0 ? opts.bandwidth : (i.auto > 0 ? i.auto : autoBw)) * (opts.bwMult > 0 ? opts.bwMult : 1);
       maxReach = Math.max(maxReach, reach(kind, i.bw));
     });
-    var pad = kind === 'epanechnikov' ? maxReach : Math.min(maxReach, 3 * maxReach / GAUSS_CUT);
+    var pad = (kind === 'epanechnikov' ? maxReach : Math.min(maxReach, 3 * maxReach / GAUSS_CUT)) * (opts.padMult > 0 ? opts.padMult : 1);
     var lo = pooled.n ? pooled.min - pad : 0, hi = pooled.n ? pooled.max + pad : 1;
+    if (opts.range && isFinite(opts.range[0]) && isFinite(opts.range[1]) && opts.range[1] > opts.range[0]) { lo = opts.range[0]; hi = opts.range[1]; }
     if (!(hi > lo)) { lo -= 1; hi += 1; }
     var xs = new Array(points);
     for (var p = 0; p < points; p++) xs[p] = lo + (hi - lo) * p / (points - 1);
@@ -122,9 +123,17 @@
 
   /* Order ridges. mode: 'data' | 'median' | 'name'. flip reverses the result.
    * 'median' puts the highest median on top by default. */
-  function sortRidges (ridges, mode, flip) {
+  function sortRidges (ridges, mode, flip, order) {
     var idx = ridges.map(function (r, i) { return { r: r, i: i }; });
-    if (mode === 'median') {
+    if (mode === 'manual' && order && order.length) {
+      var pos = {}; order.forEach(function (k, n) { pos[k] = n; });
+      var at = function (r) { return pos[r.key] === undefined ? 1e9 : pos[r.key]; };
+      idx.sort(function (a, b) { return (at(a.r) - at(b.r)) || (a.i - b.i); });
+    } else if (mode === 'mean') {
+      idx.sort(function (a, b) { return (b.r.stats.mean - a.r.stats.mean) || (a.i - b.i); });
+    } else if (mode === 'count') {
+      idx.sort(function (a, b) { return (b.r.n - a.r.n) || (a.i - b.i); });
+    } else if (mode === 'median') {
       idx.sort(function (a, b) { return (b.r.stats.median - a.r.stats.median) || (a.i - b.i); });
     } else if (mode === 'name') {
       idx.sort(function (a, b) {

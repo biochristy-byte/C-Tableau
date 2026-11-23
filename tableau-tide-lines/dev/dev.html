@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tide Lines development harness</title>
+  <link rel="stylesheet" href="../lib/ctab-panel/ctab-panel.css">
   <link rel="stylesheet" href="../src/css/tidelines.css">
   <style>
     /* Harness chrome only. None of it ships inside the extension. */
@@ -36,12 +37,12 @@
 
 <script src="fixtures.js"></script>
 <script src="mock-tableau.js"></script>
+<script src="../lib/ctab-panel/ctab-panel.js"></script>
 <script src="../src/js/kde.js"></script>
 <script src="../src/js/layout.js"></script>
 <script src="../src/js/palettes.js"></script>
-<script src="../src/js/schema.js"></script>
+<script src="../src/js/settings.js"></script>
 <script src="../src/js/render.js"></script>
-<script src="../src/js/settings-panel.js"></script>
 <script>
   /* Parse a small CSV (quoted fields allowed) into the mock's fixture shape. */
   window.TL_parseCsv = function (text) {

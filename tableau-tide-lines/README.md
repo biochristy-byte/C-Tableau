@@ -2,7 +2,7 @@
 
 A ridgeline (joy plot) extension I built for Tableau. It adds Tide Lines as a mark type on the Marks card: one
 smoothed density ridge per category, stacked and overlapping on a shared scale, filled with an ocean-tide
-gradient. Every choice is adjustable from a settings panel that opens from a gear inside the viz. It is free, it
+gradient. Every choice is adjustable from a floating settings panel that opens from a gear inside the viz. It is free, it
 is MIT licensed, and it runs in the free edition of Tableau Desktop.
 
 ![Tide Lines on 189 real birth weights](preview/tide-lines-thumbnail.png)
@@ -19,8 +19,8 @@ is MIT licensed, and it runs in the free edition of Tableau Desktop.
 - **Overlap is a typed stepper**: how many ridge spacings tall a peak is (default 2).
 - **Ocean-tide fill** from the Data Divers palette (deep navy, teal, foam), with two more palettes and a one-colour
   option. Or colour ridges by a field on the Colour shelf.
-- **Median tick and quartile ticks**, each switchable.
-- **Sort chips**: data order, by median, by name. A reverse switch flips any of them.
+- **Median, quartile and mean ticks**, each switchable, with their own widths, heights and colour; an optional mark for every observation.
+- **Sort chips**: data order, median, name, average, count, or your own order from the Colors tab list. A reverse switch flips any of them.
 - **Hover lifts a ridge** with an eased move while the others dim, and a tooltip shows n, median and IQR.
   Click selects the ridge's marks in Tableau; Ctrl or Shift click adds.
 - **Labels sit on the left at 14px or larger.** If the ridges are too tight for every label, fewer labels are
@@ -32,6 +32,38 @@ is MIT licensed, and it runs in the free edition of Tableau Desktop.
   browser dialogs.
 - Sans-serif only, 14px minimum, text at 7:1 contrast against the background (it picks dark or light text from the
   worksheet background), works from 300 by 300 up to 1600 by 1000, no horizontal scroll.
+
+## Settings
+
+![The settings panel open over Tide Lines](preview/tide-lines-panel-1280x800.png)
+
+The gear in the corner opens a floating panel (the shared `ctab-panel` library, vendored in `lib/ctab-panel/`). Drag it
+by its title bar; it stays inside the chart. Minimize it to the title bar, close it, or press Escape. A search box
+filters every tab. **Copy settings** puts all 98 settings on the clipboard as flat JSON and **Paste settings** applies
+JSON (validated, nothing changes on a bad paste); both work with the C-Tableau Viz pages flow. Reset this tab, Reset all
+and Undo are in the panel. Numbers are typed steppers, never sliders, and no browser dialogs open.
+
+| Tab | Settings | What is in it |
+|---|---|---|
+| Density | 7 | Kernel, Bandwidth, Bandwidth adjust, Ridge height, Tails, Room past the data, Curve detail |
+| Layout | 9 | Sort ridges, Reverse order, Overlap, Draw a line under each ridge, Baseline strength, Names go on the, Name column up to, Say when names are left out, Show the colour legend |
+| Marks | 10 | Median tick, Median tick width, Quartile ticks, Quartile tick width, Quartile tick height, Mean tick, Tick color, Mark every observation under its ridge, Observation tick height, Observation tick strength |
+| Gradient | 8 | Ridge colour, Tide palette, One colour, Reverse the tide, Fill opacity, Fade each ridge from crest to base, Crest lightening, Fade out at the base |
+| Outline | 7 | Outline width, Outline color, Custom outline color, Line style, Outline strength, Corners, Outline width on hover or select |
+| Axis | 10 | Most ticks, Draw the axis line, Vertical grid, Grid strength, Grid line, Axis title, Axis title text, Axis range, Axis starts at, Axis ends at |
+| Colors | 3 | Palette for By field, Reverse the palette order, Colors and names |
+| Labels | 7 | Show labels, Label size, Label weight, Label color, Wrap onto up to, Show value labels, Value label size |
+| Number format | 6 | Least decimal places, Thousands separator, Short form (1.2K, 3.4M), Multiply by, Prefix, Suffix |
+| Tooltip | 5 | Show tooltips, Tooltip text size, Color swatch beside each name, Placement, Maximum width |
+| Fonts | 5 | Font, Show a title, Title text, Title size, Title weight |
+| Background | 7 | Background, Background color, Padding, Draw a border, Border color, Border width, Corner radius |
+| Animation | 4 | Animate the chart, Duration, Easing, Hover fade |
+| Interaction | 6 | Hover lift, Dim unselected ridges to, Click selects marks in Tableau, Highlight on hover, Dim the others to, Send hover to Tableau |
+| Fields | 4 | Category field, Value field, Colour field, Label field |
+
+Old workbooks keep their look: the keys `animate`, `bgMatch`, `inkAuto`, `inkColor` and `selectEnabled`, and a font saved
+as a CSS stack, are read as fallbacks for `animOn`, `bgMode`, `labelColor`, `selectOn` and `fontFamily`.
+Every other saved key is unchanged. **Send hover to Tableau** is still on the Interaction tab and still defaults on.
 
 ## What else you need
 
@@ -70,7 +102,7 @@ Label.
 | "Showing 8 of 60 labels" | The ridges are closer together than a 14px label needs. Make the viz taller, reduce Overlap, or filter. Labels are never made smaller than 14px. |
 | One ridge is a lone hill while the others are spread out | That category has one row, or every value is the same. Silverman's rule has no spread to work with, so it borrows the typical bandwidth of the other ridges. |
 | Blank in a PDF or PowerPoint export | Tableau draws all viz extensions blank in those exports. |
-| Two tooltips | Tableau's own tooltip shows because Send hover to Tableau is on. Turn it off in the Tableau group of the panel, or clear the Marks card Tooltip. |
+| Two tooltips | Tableau's own tooltip shows because Send hover to Tableau is on. Turn it off on the Interaction tab of the panel (Send hover to Tableau), or clear the Marks card Tooltip. |
 | Text is lower contrast on a grey sheet | On a mid-grey background 7:1 is mathematically out of reach (black reaches about 4.7:1), so it uses the best of black or white. |
 
 ## Try it without Tableau
@@ -85,9 +117,11 @@ writes one self-contained page. `python tools/make_thumbnail.py OUT.png` capture
 ## Tests
 
 ```
-node test/run.js              # 102 unit checks: density, Silverman, quantiles, sorting, layout, label fitting, contrast, settings
-python test/mock_render.py    # browser: 15 cases at 3 sizes in light and dark, hover, selection, panel, settings round trip
-python test/standin_test.py   # the hub's real stand-in file drives it, four settings shapes, plus the standalone page
+node test/run.js              # 153 unit checks: density, Silverman, quantiles, sorting, layout, label fitting, contrast, the settings schema, old-key fallbacks
+python test/mock_render.py    # browser: 18 cases, 324 checks: 3 sizes in light and dark, hover, selection, the panel (drag, minimize, close, Escape, Copy and Paste, 14px, 7:1), every one of the 98 settings flipped once and the output compared, an old workbook
+python test/standin_test.py   # the hub's real stand-in file drives it (10 pages, 97 checks), five settings shapes, plus the standalone page
+python test/sabotage.py       # breaks 13 things one at a time, shows each gate go RED, restores byte-exact, ends GREEN
+python ../shared/ctab-panel/sync_check.py   # lib/ctab-panel is a byte-exact copy of the shared library
 ```
 
 Every gate prints what it examined and goes RED if it examined too little. Each was shown to fail by breaking its
@@ -111,9 +145,9 @@ src/index.html             the page Tableau loads
 src/js/kde.js              density, Silverman, quantiles, sorting, ticks (pure)
 src/js/layout.js           rows, label fitting, tick picking (pure)
 src/js/palettes.js         colour maths, the Data Divers tide ramps, 7:1 contrast
-src/js/schema.js           every setting, its default and its control
+src/js/settings.js         every setting, its default and its control (a ctab-panel schema), plus the old-key fallbacks
 src/js/render.js           the SVG ridgeline, hover, selection, tooltip
-src/js/settings-panel.js   the gear and panel
+lib/ctab-panel/           the shared floating settings panel (byte-exact copy of shared/ctab-panel)
 src/js/tidelines.js        the Tableau adapter
 dev/                       mock Tableau API and harness
 example/                   birth-weight.csv and dark-settings.json, credited in example/README.md

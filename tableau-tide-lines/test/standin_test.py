@@ -23,7 +23,7 @@ STANDIN = pathlib.Path(r"C:/Users/bioch/projects/viz-extensions-hub/hosted/publi
 MIN_PAGES = 7
 pages = []
 
-SCRIPTS = ["kde.js", "layout.js", "palettes.js", "schema.js", "render.js", "settings-panel.js", "tidelines.js"]
+SCRIPTS = ["kde.js", "layout.js", "palettes.js", "settings.js", "render.js", "tidelines.js"]
 
 
 def dataset():
@@ -38,8 +38,8 @@ ENC = [{"id": "category", "field": "Mother group"}, {"id": "value", "field": "Bi
 
 
 def shell(cfg, solo_root=True):
-    tags = "\n".join('<script src="/src/js/%s"></script>' % s for s in SCRIPTS)
-    return """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="/src/css/tidelines.css">
+    tags = '<script src="/lib/ctab-panel/ctab-panel.js"></script>\n' + "\n".join('<script src="/src/js/%s"></script>' % s for s in SCRIPTS)
+    return """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="/lib/ctab-panel/ctab-panel.css"><link rel="stylesheet" href="/src/css/tidelines.css">
 <style>#root{position:absolute;inset:0}</style></head><body>
 <div id="root"><div id="tl-root"><div id="tl-chart"></div></div></div>
 <script>window.__CTAB_VIZ = %s;</script>
@@ -110,15 +110,15 @@ def main():
         M.check("stand-in lacks selectTuplesAsync and hoverTupleAsync (known, guarded in our code)", set(missing) >= {"selectTuplesAsync", "hoverTupleAsync"}, str(missing))
         M.check("every call Tide Lines makes unguarded exists on the stand-in", all(pg.evaluate("typeof tableau.extensions.worksheetContent.worksheet.%s" % m) == "function" for m in ("getSummaryDataReaderAsync", "getVisualSpecificationAsync", "addEventListener", "selectMarksByValueAsync", "clearSelectedMarksAsync")) and pg.evaluate("typeof tableau.extensions.settings.get") == "function")
         # the panel works and the JSON it copies is what the stand-in reads back
-        pg.click(".tl-gear"); pg.click(".tl-chip[data-value='gaussian']"); pg.wait_for_timeout(250)
-        pg.click("text=Copy settings"); pg.wait_for_timeout(150)
+        pg.click(".cp-gear"); pg.click(".cp-tab[data-t='density']"); pg.click(".cp-chip[data-k=kernel][data-v=gaussian]"); pg.wait_for_timeout(250)
+        pg.click("[data-a=copy]"); pg.wait_for_timeout(150)
         out = json.loads(pg.evaluate("TL.app.state.panel.lastCopied"))
         M.check("panel works on a viz page and Copy settings sees the visitor's change", out["kernel"] == "gaussian" and out["overlap"] == 3, str(out)[:100])
         pg.close()
         # the copied JSON, fed back, reproduces the chart
         pg, errs = load(ctx, port, "round trip", {"encodings": ENC, "settings": out, "prefix": "", "title": "t"})
         verify(pg, errs, "round-trip", "gaussian", sort_name=True)
-        M.check("round trip: every copied setting survives the stand-in", pg.evaluate("TL.app.state.settings.overlap") == 3 and pg.evaluate("TL.app.state.settings.sort") == "name")
+        M.check("round trip: every copied setting survives the stand-in", pg.evaluate("TL.app.state.store.get().overlap") == 3 and pg.evaluate("TL.app.state.store.get().sort") == "name" and len(out) >= 60)
         pg.close()
         flat = {"tidelines.kernel": "epanechnikov", "tidelines.sort": "name", "tidelines.overlap": "3"}
         pg, errs = load(ctx, port, "flat prefix tidelines.", {"encodings": ENC, "settings": flat, "prefix": "", "title": "t"})
@@ -127,6 +127,11 @@ def main():
         other = {"viz7.kernel": "epanechnikov", "viz7.sort": "name"}
         pg, errs = load(ctx, port, "flat other prefix", {"encodings": ENC, "settings": other, "prefix": "", "title": "t"})
         verify(pg, errs, "flat/other-prefix", "epanechnikov", sort_name=True)
+        pg.close()
+        legacy = {"animate": False, "bgMatch": False, "bgColor": "#081f33", "kernel": "epanechnikov", "sort": "name"}
+        pg, errs = load(ctx, port, "an old saved workbook (animate, bgMatch)", {"encodings": ENC, "settings": legacy, "prefix": "", "title": "t"})
+        verify(pg, errs, "legacy keys", "epanechnikov", sort_name=True)
+        M.check("an old workbook's animate/bgMatch keys still set the look on a viz page", pg.evaluate("TL.app.state.store.get().animOn") is False and pg.evaluate("getComputedStyle(document.querySelector('#tl-chart')).backgroundColor") == "rgb(8, 31, 51)")
         pg.close()
         pg, errs = load(ctx, port, "no settings", {"encodings": ENC, "settings": {}, "prefix": "", "title": "t"})
         verify(pg, errs, "no-settings", "gaussian")
