@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sketchbook - development harness</title>
+  <link rel="stylesheet" href="../src/css/panel.css">
+  <link rel="stylesheet" href="../src/css/sketchbook.css">
+</head>
+<body>
+  <!-- Runs the shipping extension code against dev/mock-tableau.js. Open with
+       ?fx=life|bars|long|negative|one|empty  &series=0  &label=0  &bg=081f33  &still=1
+       &settings={"chartType":"line"}. The page IS the viz: resize the window to test sizes. -->
+  <!-- #root is the hook the C-Tableau Viz pages shell uses to make room for its Exit pill. -->
+  <div id="root"><div id="sb-root" class="sb-root xp-root"></div></div>
+  <script src="fixtures.js"></script>
+  <script src="mock-tableau.js"></script>
+  <script src="../lib/rough.js"></script>
+  <script src="../src/js/core.js"></script>
+  <script src="../src/js/schema.js"></script>
+  <script src="../src/js/engine.js"></script>
+  <script src="../src/js/render.js"></script>
+  <script src="../src/js/panel.js"></script>
+  <script src="../src/js/sketchbook.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sketchbook on the Viz pages stand-in</title>
+  <link rel="stylesheet" href="../src/css/panel.css">
+  <link rel="stylesheet" href="../src/css/sketchbook.css">
+</head>
+<body>
+  <!-- Test page for the C-Tableau Viz pages flow: the hub's standin.js replaces Tableau's library.
+       test/standin_test.py passes window.__CTAB_VIZ as ?cfg=<json>. -->
+  <div id="root"><div id="sb-root" class="sb-root xp-root"></div></div>
+  <script>window.__CTAB_VIZ = JSON.parse(new URLSearchParams(location.search).get('cfg') || '{}');</script>
+  <script src="/_vz/standin.js"></script>
+  <script src="../lib/rough.js"></script>
+  <script src="../src/js/core.js"></script>
+  <script src="../src/js/schema.js"></script>
+  <script src="../src/js/engine.js"></script>
+  <script src="../src/js/render.js"></script>
+  <script src="../src/js/panel.js"></script>
+  <script src="../src/js/sketchbook.js"></script>
+</body>
+</html>
