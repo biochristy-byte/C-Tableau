@@ -50,6 +50,11 @@ throws('row without key throws', () => P.prepare({ tabs: ['t'], rows: [{ tab: 't
 throws('schema without tabs throws', () => P.prepare({ rows: [] }), /needs tabs/);
 const R = {}; sch.rows.forEach(r => { R[r.key] = r; });
 
+const DYN = P.prepare({ tabs: ['t'], rows: [{ tab: 't', key: 'dyn', label: 'Series', type: 'select', dynamic: true, source: 'categories', opts: [['', 'None']] }] }).rows[0];
+eq('dynamic select: a value from the data is accepted', P.coerce(DYN, 'Global'), 'Global');
+eq('dynamic select: the static empty option is accepted', P.coerce(DYN, ''), '');
+eq('dynamic select: a number is invalid', P.coerce(DYN, 5), undefined);
+eq('a static select still refuses unknown values', P.coerce({ type: 'select', opts: [{ value: 'a', label: 'A' }] }, 'zz'), undefined);
 /* --------------------------------------------------------------- coerce */
 eq('number: string from Tableau settings', P.coerce(R.n, '7.5'), 7.5);
 eq('number: clamps high', P.coerce(R.n, 99), 10);

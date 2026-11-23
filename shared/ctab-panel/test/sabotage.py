@@ -42,6 +42,7 @@ S = [
     ("UNIT: accent loses its contrast guarantee", JS, "var accent = ensureContrast(accentHint || '#0a54a0', [bg, surface], 7.2);", "var accent = accentHint || '#0a54a0';", NODE),
     ("UNIT: store saves on every change", JS, "saveTimer = setTimeout(flush, wait); }", "flush(); }", NODE),
     ("UNIT: mergeList keeps duplicate saved keys", JS, "if (!it || used[s.key]) return;", "if (!it) return;", NODE),
+    ("UNIT: dynamic select refuses values from the data", JS, "if (row.dynamic && typeof v === 'string') return v.slice(0, 300);", "", NODE),
     ("UNIT: thousands separator dropped", JS, "if (sep) parts[0] =", "if (false) parts[0] =", NODE),
 ]
 

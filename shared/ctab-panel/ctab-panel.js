@@ -199,6 +199,7 @@
         return Number(n.toFixed(Math.min(d, 6)));
       }
       case 'select': case 'chips': {
+        if (row.dynamic && typeof v === 'string') return v.slice(0, 300);
         var s = String(v);
         for (var i = 0; i < row.opts.length; i++) if (row.opts[i].value === s) return s;
         return undefined;
@@ -607,7 +608,13 @@
           (row.unit ? '<span class="cp-unit">' + esc(row.unit) + '</span>' : '') + '</div>';
       }
       if (t === 'select') {
-        return lab + '<select id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '">' + row.opts.map(function (o) { return '<option value="' + esc(o.value) + '"' + (o.value === String(v) ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('') + '</select>';
+        var sopts = row.opts;
+        if (row.dynamic) {
+          sopts = row.opts.slice();
+          ((inf.lists && inf.lists[row.source]) || []).forEach(function (it) { sopts.push({ value: it.key, label: it.name || it.key }); });
+          if (v && !sopts.some(function (o) { return o.value === String(v); })) sopts.push({ value: String(v), label: String(v) + ' (not in the data)' });
+        }
+        return lab + '<select id="' + id + '" data-k="' + row.key + '" data-f="' + row.key + '">' + sopts.map(function (o) { return '<option value="' + esc(o.value) + '"' + (o.value === String(v) ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('') + '</select>';
       }
       if (t === 'chips') {
         return '<div class="cp-lab" id="' + id + '-l">' + esc(row.label) + '</div><div class="cp-chips" role="group" aria-labelledby="' + id + '-l">' + row.opts.map(function (o) {
