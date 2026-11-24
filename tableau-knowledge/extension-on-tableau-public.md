@@ -308,3 +308,5 @@ thumbnail" above).
 | Page text vanished for a dark-mode viewer | Browser Auto Dark Mode darkened the background, not the SVG text | `color-scheme` meta tag and CSS on the page |
 | Viewers stuck on slow Pages playback | Pages speed cannot be set or saved | Animate in the hosted page instead |
 | Frame test said a letterboxed page overflowed | It measured the SVG box, not the drawing | Measure with `getScreenCTM()` |
+| A claude.ai Artifact URL shows blank or refused in a Web Page object | claude.ai sends `frame-ancestors 'self'`, so only claude.ai itself may frame it | Host the same HTML on your own site (or a viz page) and put that URL in the object |
+| A full-screen scroll-snap story does not snap | `overflow-x: hidden` on `body` makes body a scroll container, which silently kills `scroll-snap-type` on `html` | Use `overflow-x: clip` on `body` (it clips without creating a scroll container) |
