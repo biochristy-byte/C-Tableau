@@ -83,10 +83,13 @@
 .cp-panel.cp-sheet { left: 0; top: 0; width: 100%; height: 100%; border-radius: 0; border: 0; transform: none !important; box-shadow: none; }
 .cp-panel.cp-sheet .cp-head { cursor: default; }
 .cp-panel.cp-sheet .cp-grip { display: none; }
-.cp-panel.cp-sheet .cp-main { overflow-y: auto; }
+.cp-panel.cp-sheet .cp-main { overflow: hidden; }
 .cp-panel.cp-sheet .cp-main > * { flex: none; }
-.cp-panel.cp-sheet .cp-body { flex: none; overflow: visible; }
-.cp-panel.cp-sheet .cp-tabs { flex-wrap: nowrap; overflow-x: auto; }
+.cp-panel.cp-sheet .cp-tabs { flex-wrap: wrap; max-height: 38%; overflow-y: auto; overscroll-behavior: contain; }
+.cp-panel.cp-sheet .cp-body { flex: 1 1 auto; min-height: 60px; overflow-y: auto; }
+.cp-panel.cp-sheet .cp-foot { max-height: 40%; overflow-y: auto; }
+.cp-panel.cp-sheet .cp-tab, .cp-panel.cp-sheet .cp-btn, .cp-panel.cp-sheet .cp-ib, .cp-panel.cp-sheet .cp-chip { min-height: 44px; }
+.cp-panel.cp-sheet .cp-ib { min-width: 44px; }
 .cp-panel.cp-sheet .cp-tab { flex: none; }
 .cp-panel.cp-sheet .cp-row { grid-template-columns: minmax(0, 1fr); }
 .cp-panel.cp-sheet .cp-full, .cp-panel.cp-sheet .cp-help, .cp-panel.cp-sheet .cp-pals { grid-column: 1; }

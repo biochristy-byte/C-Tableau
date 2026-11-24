@@ -5,7 +5,7 @@
   python test/panel_test.py --shots DIR     # also write a few screenshots
 
 Groups: open drag touch minimize persist close escape search conditional reset undo copypaste keyboard
-        floor contrast norange sheet live list color
+        floor contrast norange sheet sheet390 live list color
 Each group reports how many checks it ran; a group that ran none is RED (a gate must say what it examined),
 and so is a full run under MIN_CHECKS. Timing waits poll with generous timeouts, never a fixed sleep as proof.
 """
@@ -14,9 +14,9 @@ import argparse, functools, http.server, json, math, pathlib, re, socketserver, 
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MIN_CHECKS = 215
+MIN_CHECKS = 230
 ALL = ["open", "drag", "touch", "minimize", "persist", "close", "escape", "search", "conditional", "reset", "undo", "copypaste",
-       "keyboard", "floor", "contrast", "norange", "sheet", "live", "list", "color"]
+       "keyboard", "floor", "contrast", "norange", "sheet", "sheet390", "live", "list", "color"]
 fails, counts, cur = [], {}, [None]
 
 
@@ -639,6 +639,44 @@ def g_sheet(c):
     r = pg.evaluate(RECT, ".cp-panel")
     check("1600x1000: floating, 400px wide, inside the frame, top right", r["w"] <= 401 and inside(r, pg.evaluate(RECT, "#frame")) and r["r"] > 1500)
     pg.ctx.close()
+
+
+def g_sheet390(c):
+    """At 390 wide every tab is reachable inside the tab row and the footer sits fully inside the panel and the viewport."""
+    examined = 0
+    for (w, h) in ((390, 700), (390, 844), (390, 560)):
+        pg = c.page(w=w, h=h)
+        open_panel(pg)
+        pg.wait_for_function("document.querySelector('.cp-panel.cp-sheet') && document.fonts.status === 'loaded'", timeout=15000)
+        pg.wait_for_timeout(250)  # settle, then measure
+        vw, vh = pg.evaluate("[innerWidth, innerHeight]")
+        pr = pg.evaluate(RECT, ".cp-panel"); fr = pg.evaluate(RECT, ".cp-foot")
+        check("%dx%d: footer rect is fully inside the panel and the viewport" % (w, h),
+              fr["t"] >= pr["t"] - 1 and fr["b"] <= pr["b"] + 1 and fr["l"] >= -1 and fr["r"] <= vw + 1 and fr["b"] <= vh + 1 and fr["h"] > 20, (fr, pr, vw, vh))
+        bad = pg.evaluate("""() => {
+          const row = document.querySelector('.cp-tabs'), rr = row.getBoundingClientRect(), bad = [];
+          const tabs = [...row.querySelectorAll('.cp-tab')];
+          tabs.forEach(t => {
+            const tr = t.getBoundingClientRect();
+            const x0 = tr.left - rr.left + row.scrollLeft, y0 = tr.top - rr.top + row.scrollTop;
+            const inExtentX = x0 >= -1 && x0 + tr.width <= row.scrollWidth + 1;
+            const inExtentY = y0 >= -1 && y0 + tr.height <= row.scrollHeight + 1;
+            t.scrollIntoView({block: 'nearest', inline: 'nearest'});
+            const r = t.getBoundingClientRect(), q = row.getBoundingClientRect();
+            const shown = r.left >= q.left - 1 && r.right <= q.right + 1 && r.top >= q.top - 1 && r.bottom <= q.bottom + 1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1;
+            if (!inExtentX || !inExtentY || !shown) bad.push(t.dataset.t);
+            if (r.height < 43.5) bad.push(t.dataset.t + ' height ' + r.height);
+          });
+          return { n: tabs.length, bad };
+        }""")
+        n = bad["n"]; examined += n
+        check("%dx%d: every tab is reachable in the tab row and 44px tall (%d tabs examined)" % (w, h, n), n >= 6 and not bad["bad"], bad)
+        check("%dx%d: the page and the panel never scroll sideways" % (w, h), pg.evaluate("document.documentElement.scrollWidth <= innerWidth + 1 && (() => { const p = document.querySelector('.cp-panel'), r = document.querySelector('.cp-tabs'); return p.scrollWidth <= p.clientWidth + 1 && r.scrollWidth <= r.clientWidth + 1; })()"))
+        last = pg.evaluate("[...document.querySelectorAll('.cp-tab')].pop().dataset.t")
+        tab(pg, last)
+        check("%dx%d: the last tab can be opened by a click" % (w, h), pg.evaluate("document.querySelector('.cp-tab[aria-selected=true]').dataset.t") == last)
+        pg.ctx.close()
+    check("390 wide: %d tab buttons examined in all (floor 18)" % examined, examined >= 18, examined)
 
 
 def g_live(c):
