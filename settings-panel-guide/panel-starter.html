@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Settings panel starter</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fff; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #2b2f36; }
+  #app { height: 100%; display: flex; flex-direction: column; }
+  #title { flex: 0 0 auto; padding: 14px 52px 6px 20px; font-size: 18px; font-weight: 700; }
+  #chart { flex: 1 1 auto; min-height: 0; width: 100%; display: block; }
+
+  /* The gear: fixed in the corner, always reachable. */
+  #gear { position: fixed; top: 8px; right: 8px; z-index: 900; width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.12); background: rgba(255,255,255,0.9); cursor: pointer; padding: 0;
+    font-size: 17px; line-height: 1; color: #555; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+  #gear:hover { color: #000; background: #fff; }
+
+  /* The panel floats over the chart. No dimming overlay, so the chart stays visible. */
+  #panel { position: fixed; top: 8px; right: 8px; z-index: 1001; display: none; flex-direction: column;
+    width: 400px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); box-sizing: border-box;
+    background: #f7f8fa; border: 1px solid #d9dce1; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    padding: 0 18px 14px; font-size: 13px; }
+  #panel-head { display: flex; align-items: center; gap: 8px; margin: 0 -18px 8px; padding: 12px 14px 10px 18px;
+    cursor: grab; user-select: none; touch-action: none; border-bottom: 1px solid #e3e6eb;
+    border-radius: 8px 8px 0 0; background: #eef1f5; }
+  #panel-head.dragging { cursor: grabbing; }
+  #panel-head h2 { font-size: 16px; font-weight: 700; margin: 0; flex: 1 1 auto; }
+  #panel-head .grip { color: #9aa2ad; font-size: 15px; letter-spacing: -2px; line-height: 1; }
+  .head-btn, .mini-btn, .tab { font-family: inherit; font-size: 13px; cursor: pointer; border: 1px solid #cfd3da;
+    background: #fff; color: #4b5260; }
+  .head-btn { padding: 3px 8px; border-radius: 5px; }
+  .mini-btn { padding: 4px 10px; border-radius: 5px; }
+  .mini-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  #tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; flex: 0 0 auto; }
+  .tab { padding: 5px 9px; border-radius: 14px; }
+  .tab.active { background: #2f7ed8; border-color: #2f7ed8; color: #fff; }
+  /* Only the panes scroll. The title bar and the buttons never leave the view. */
+  #panes { overflow-y: auto; overflow-x: hidden; flex: 1 1 auto; min-height: 0; padding-right: 4px; }
+  .pane { display: none; }
+  .pane.active { display: block; }
+  .acc-head { display: none; }
+
+  /* Pinned: a full-height strip on the right. The chart moves over, so nothing is covered. */
+  #panel.pinned { top: 0; right: 0; bottom: 0; left: auto; width: 360px; max-height: none; border-radius: 0;
+    border-width: 0 0 0 1px; box-shadow: -4px 0 16px rgba(0,0,0,0.12); }
+  #panel.pinned #panel-head { cursor: default; border-radius: 0; }
+  #panel.pinned .grip { visibility: hidden; }
+  body.panel-pinned #app { margin-right: 360px; }
+  body.panel-pinned #gear { right: 368px; }
+
+  /* Accordion: the same panes, stacked, each under a header that opens and closes it. */
+  #panel.accordion #tabs { display: none; }
+  #panel.accordion .pane { display: block; border-bottom: 1px solid #e3e6eb; }
+  #panel.accordion .acc-head { display: flex; width: 100%; box-sizing: border-box; align-items: center; justify-content: space-between;
+    font: inherit; font-weight: 700; color: #2b2f36; padding: 11px 2px; border: 0; background: transparent;
+    cursor: pointer; text-align: left; }
+  #panel.accordion .acc-head:hover { color: #2f7ed8; }
+  .acc-head .chev { font-size: 18px; line-height: 1; color: #6b7280; transition: transform 0.15s; }
+  .pane.open .acc-head .chev { transform: rotate(90deg); }
+  #panel.accordion .pane-body { display: none; padding-bottom: 10px; }
+  #panel.accordion .pane.open .pane-body { display: block; }
+  #panel button:focus-visible, #panel input:focus-visible, #panel select:focus-visible, #gear:focus-visible {
+    outline: 2px solid #2f7ed8; outline-offset: 2px; }
+  .head-btn:disabled { opacity: 0.45; cursor: default; }
+  .section { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #2f7ed8; text-transform: uppercase; margin: 14px 0 6px; }
+  /* Every row is the same three columns: label, control, value. */
+  .row { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 8px; margin: 7px 0; }
+  .row label.name { color: #555; }
+  .row.off { opacity: 0.45; }
+  #panel select, #panel input[type="text"], #panel input[type="number"], #panel textarea {
+    width: 100%; box-sizing: border-box; font: inherit; padding: 5px 6px; border: 1px solid #cfd3da; border-radius: 4px; background: #fff; }
+  #panel input[type="range"] { width: 100%; }
+  #panel input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid #cfd3da; border-radius: 3px; background: #fff; cursor: pointer; }
+  #panel input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2f7ed8; }
+  .slider-val { color: #6b7280; min-width: 48px; text-align: right; }
+  .check { display: flex; align-items: center; gap: 8px; }
+  .hint { color: #6b7280; margin: 4px 0 8px; line-height: 1.45; }
+  .item-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .item-row span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #set-text, #diag-text { display: none; height: 110px; margin-top: 8px; font-family: Consolas, 'Courier New', monospace; resize: vertical; }
+  #diag-text { height: 180px; }
+  #reset-note { display: none; flex: 0 0 auto; margin-top: 10px; padding: 7px 10px; background: #fff6e5;
+    border: 1px solid #f0d9a8; border-radius: 5px; color: #7a5b1e; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; flex: 0 0 auto; }
+  .btn { font: inherit; padding: 8px 18px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+  #btn-cancel { background: #e6e8eb; color: #333; }
+  #btn-apply { background: #2f7ed8; color: #fff; }
+  /* Reset sits apart from Cancel and Apply so it is not mistaken for the main action. */
+  #btn-reset { background: transparent; color: #b4232a; border-color: #e2c3c5; margin-right: auto; padding: 8px 12px; }
+</style>
+</head>
+<body>
+<button id="gear" title="Settings" aria-label="Settings">&#9881;</button>
+
+<div id="app">
+  <div id="title"></div>
+  <svg id="chart"></svg>
+</div>
+
+<!-- To add a setting: a row here, a default in DEFAULTS, a line in CONTROLS.
+     Ids are prefix-name: sel- chk- rng- inp- col- num-. A slider's value label is lbl-<same name>.
+     To add a group: a button in #tabs and a pane in #panes with the same name. The accordion
+     headers are built from the tab buttons, so there is nothing else to write. -->
+<div id="panel">
+  <div id="panel-head" title="Drag to move. Double-click to dock.">
+    <span class="grip">&#8942;&#8942;</span>
+    <h2>Settings</h2>
+    <button class="head-btn" id="btn-pin">Pin to side</button>
+    <button class="head-btn" id="btn-dock" title="Return the panel to the corner">Dock</button>
+  </div>
+  <div id="tabs">
+    <button class="tab active" data-tab="layout">Layout</button>
+    <button class="tab" data-tab="title">Title</button>
+    <button class="tab" data-tab="colors">Colors</button>
+    <button class="tab" data-tab="tools">Tools</button>
+  </div>
+  <div id="panes">
+    <div class="pane active" data-pane="layout">
+      <div class="row"><label class="name">Bars</label>
+        <select id="sel-fit">
+          <option value="fit">Fit the view</option>
+          <option value="fixed">Fixed width</option>
+        </select><span></span></div>
+      <div class="row" id="row-barwidth"><label class="name">Bar width</label>
+        <input type="range" id="rng-barwidth" min="8" max="90" step="1" />
+        <span class="slider-val" id="lbl-barwidth"></span></div>
+      <div class="row"><label class="name">Gap</label>
+        <input type="range" id="rng-gap" min="0" max="40" step="1" />
+        <span class="slider-val" id="lbl-gap"></span></div>
+      <div class="row"><label class="name">Labels</label>
+        <div class="check"><input type="checkbox" id="chk-labels" /><span>Show the value on each bar</span></div><span></span></div>
+      <div class="row" id="row-decimals"><label class="name">Decimals</label>
+        <input type="number" id="num-decimals" min="0" max="3" step="1" /><span></span></div>
+    </div>
+    <div class="pane" data-pane="title">
+      <div class="row"><label class="name">Title</label>
+        <input type="text" id="inp-title" /><span></span></div>
+      <div class="hint">Use {top} for the largest category and {n} for how many there are. The title rewrites itself when the data changes.</div>
+    </div>
+    <div class="pane" data-pane="colors">
+      <div class="row"><label class="name">Bar color</label>
+        <div class="check"><input type="color" id="col-bar" /></div><span></span></div>
+      <div class="section">One color per category</div>
+      <div id="name-color-list"></div>
+      <div class="mini-btns"><button class="mini-btn" id="btn-names-reset">Reset these</button></div>
+    </div>
+    <div class="pane" data-pane="tools">
+      <div class="section">Copy formatting</div>
+      <div class="hint">Copy the look of this chart, open the same chart on another sheet, and paste. Formatting leaves out
+        anything tied to this sheet's data, such as per-category colors. A pasted look previews at once and is saved when you click Apply.</div>
+      <div class="mini-btns">
+        <button class="mini-btn" id="btn-set-copy">Copy formatting</button>
+        <button class="mini-btn" id="btn-set-copyall">Copy everything</button>
+        <button class="mini-btn" id="btn-set-paste">Paste</button>
+      </div>
+      <textarea id="set-text" placeholder="Paste a copied block here, then click Load"></textarea>
+      <div class="mini-btns" id="set-load-row" style="display:none">
+        <button class="mini-btn" id="btn-set-last">Use the last copy on this machine</button>
+        <button class="mini-btn" id="btn-set-load">Load</button>
+      </div>
+      <div class="hint" id="set-msg"></div>
+      <div class="section">Diagnostics</div>
+      <div class="hint">If something looks wrong, copy this text and send it to whoever maintains the chart. It lists the data
+        the chart received, what it worked out, recent errors and the settings.</div>
+      <div class="mini-btns">
+        <button class="mini-btn" id="btn-diag">Show diagnostics</button>
+        <button class="mini-btn" id="btn-diag-copy">Copy</button>
+      </div>
+      <textarea id="diag-text" readonly></textarea>
+    </div>
+  </div>
+  <div id="reset-note">Defaults restored. Click Apply to save, or Cancel to keep your current settings.</div>
+  <div class="actions">
+    <button class="btn" id="btn-reset" title="Restore every setting to its default">Reset to defaults</button>
+    <button class="btn" id="btn-cancel">Cancel</button>
+    <button class="btn" id="btn-apply">Apply</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const NAME = 'Panel starter';
+  const VERSION = '1.1.0';
+  const SLUG = 'panel-starter'; // prefix for anything kept in localStorage
+
+  // 1. Every setting has a default. The default's type is the setting's type.
+  const DEFAULTS = {
+    fit: 'fit',
+    barWidth: 36,
+    gap: 10,
+    labels: true,
+    decimals: 0,
+    title: '{top} leads {n} categories',
+    barColor: '#1170aa',
+    nameColors: {}, // per-item settings are keyed by name, never by position
+  };
+
+  // 2. One line per plain control: [element id, settings key, kind, slider label].
+  const CONTROLS = [
+    ['sel-fit', 'fit', 'select'],
+    ['rng-barwidth', 'barWidth', 'range', (v) => v + ' px'],
+    ['rng-gap', 'gap', 'range', (v) => v + ' px'],
+    ['chk-labels', 'labels', 'check'],
+    ['num-decimals', 'decimals', 'number'],
+    ['inp-title', 'title', 'text'],
+    ['col-bar', 'barColor', 'color'],
+  ];
+
+  // Settings tied to one sheet's data. "Copy formatting" leaves these out, so
+  // pasting a look onto another sheet keeps that sheet's own.
+  const DATA_BOUND = ['nameColors'];
+
+  // 3. Where settings are kept. Swap these two functions for your host.
+  const store = {
+    load() { try { return window.localStorage.getItem(SLUG + ':settings'); } catch (e) { return null; } },
+    save(text) { try { window.localStorage.setItem(SLUG + ':settings', text); } catch (e) { /* read-only */ } },
+  };
+
+  // Stands in for the data your host hands you.
+  const DATA = [
+    { name: 'North', value: 42.5 }, { name: 'South', value: 31.25 }, { name: 'East', value: 55.75 },
+    { name: 'West', value: 23 }, { name: 'Central', value: 37.5 },
+  ];
+
+  let S = clone(DEFAULTS); // applied and saved
+  let draft = null;        // a copy of S while the panel is open, otherwise null
+  let previewTimer = null;
+  // How this person likes the panel: where it floats, whether it is pinned to
+  // the side, which accordion sections are open. Per machine, never saved with S.
+  const ui = { pos: null, pinned: false, open: ['layout'] };
+  // For Diagnostics: the last few draws and anything that went wrong.
+  const trace = [];
+  const errors = [];
+
+  function $(id) { return document.getElementById(id); }
+  function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+  function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+
+  // The settings in force for drawing. This one line is the live preview.
+  function cfgNow() { return draft || S; }
+
+  // ------------------------------------------------------------ the chart ---
+
+  // Pure: everything it needs comes in as arguments. It never reads S or draft,
+  // so the panel can call it with the draft to build its own lists.
+  function buildModel(data, cfg) {
+    const top = data.reduce((a, b) => (b.value > a.value ? b : a), data[0]);
+    return {
+      n: data.length,
+      top: top ? top.name : '',
+      max: Math.max.apply(null, data.map((d) => d.value).concat([0])),
+      bars: data.map((d) => ({ name: d.name, value: d.value, color: cfg.nameColors[d.name] || cfg.barColor })),
+    };
+  }
+
+  function draw() {
+    const cfg = cfgNow();
+    const model = buildModel(DATA, cfg);
+    $('title').textContent = cfg.title.replace(/\{top\}/g, model.top).replace(/\{n\}/g, model.n);
+    const svg = $('chart');
+    const box = svg.getBoundingClientRect();
+    const W = box.width, H = box.height;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const add = (name, attrs, text) => {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+      Object.keys(attrs).forEach((k) => el.setAttribute(k, attrs[k]));
+      if (text != null) el.textContent = text;
+      svg.appendChild(el);
+    };
+    trace.push({ at: new Date().toISOString(), width: Math.round(W), height: Math.round(H), bars: model.n, preview: !!draft });
+    if (trace.length > 12) trace.shift();
+    const pad = 20, base = H - 28;
+    const slot = cfg.fit === 'fixed' ? cfg.barWidth + cfg.gap : (W - pad * 2) / Math.max(1, model.n);
+    const bw = cfg.fit === 'fixed' ? cfg.barWidth : Math.max(2, slot - cfg.gap);
+    // Check a saved value where it is used. A saved or pasted number can be anything.
+    const dec = clamp(Math.round(cfg.decimals) || 0, 0, 3);
+    model.bars.forEach((b, i) => {
+      const h = model.max ? (b.value / model.max) * Math.max(0, base - 34) : 0;
+      const x = pad + i * slot + (slot - bw) / 2;
+      add('rect', { x, y: base - h, width: bw, height: h, rx: 3, fill: b.color });
+      add('text', { x: x + bw / 2, y: base + 18, 'text-anchor': 'middle', 'font-size': 13, fill: '#444' }, b.name);
+      if (cfg.labels) {
+        add('text', { x: x + bw / 2, y: base - h - 6, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 600, fill: '#222' }, b.value.toFixed(dec));
+      }
+    });
+  }
+
+  // ------------------------------------------------------------- settings ---
+
+  // Turn any saved or pasted object into complete, correctly typed settings.
+  // Merged over DEFAULTS, so something saved before a setting existed still
+  // loads. Each value is brought back to the type of its default, and keys
+  // that are not settings are dropped.
+  function withDefaults(obj) {
+    const out = clone(DEFAULTS);
+    if (!obj || typeof obj !== 'object') return out;
+    Object.keys(DEFAULTS).forEach((k) => {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) return;
+      const d = DEFAULTS[k], v = obj[k];
+      if (typeof d === 'number') { const n = Number(v); out[k] = (v === '' || v == null || !isFinite(n)) ? d : n; }
+      else if (typeof d === 'boolean') out[k] = typeof v === 'boolean' ? v : (v === 'true' ? true : (v === 'false' ? false : d));
+      else if (typeof d === 'string') out[k] = v == null ? d : String(v);
+      else if (d && typeof d === 'object' && !Array.isArray(d)) out[k] = Object.assign(clone(d), v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+      else out[k] = v;
+    });
+    return out;
+  }
+
+  // All settings are ONE JSON string under ONE key.
+  function loadSettings() {
+    const raw = store.load();
+    if (!raw) return;
+    try { S = withDefaults(JSON.parse(raw)); } catch (e) { S = clone(DEFAULTS); }
+  }
+  function saveSettings() { store.save(JSON.stringify(S)); }
+
+  // Panel preferences belong to the machine, not to the saved settings.
+  function loadUi() {
+    try {
+      const p = JSON.parse(window.localStorage.getItem(SLUG + ':panel'));
+      if (!p || typeof p !== 'object') return;
+      if (p.pos && isFinite(p.pos.left) && isFinite(p.pos.top)) ui.pos = { left: p.pos.left, top: p.pos.top };
+      ui.pinned = p.pinned === true;
+      if (Array.isArray(p.open)) ui.open = p.open.filter((x) => typeof x === 'string');
+    } catch (e) {}
+  }
+  function saveUi() {
+    try { window.localStorage.setItem(SLUG + ':panel', JSON.stringify(ui)); } catch (e) {}
+  }
+
+  function recordError(where, err) {
+    errors.push({ at: new Date().toISOString(), where, message: String((err && err.message) || err) });
+    if (errors.length > 20) errors.shift();
+  }
+
+  // ---------------------------------------------------------------- panel ---
+
+  function wirePanel() {
+    $('gear').addEventListener('click', () => { if ($('panel').style.display === 'flex') closePanel(); else openPanel(); });
+    $('btn-cancel').addEventListener('click', closePanel);
+    $('btn-apply').addEventListener('click', applyPanel);
+    $('btn-reset').addEventListener('click', resetDraft);
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && $('panel').style.display === 'flex') closePanel(); });
+    document.querySelectorAll('#tabs .tab').forEach((tab) => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
+
+    // Every control edits the draft and previews at once. Nothing is saved
+    // until Apply, and Cancel puts the applied settings back.
+    CONTROLS.forEach(([id, key, kind, fmt]) => {
+      const el = $(id);
+      if (!el) { recordError('panel', 'CONTROLS names a missing element: ' + id); return; }
+      const evt = (kind === 'select' || kind === 'check') ? 'change' : 'input';
+      el.addEventListener(evt, () => {
+        if (!draft) return;
+        if (kind === 'check') draft[key] = el.checked;
+        else if (kind === 'range' || kind === 'number') {
+          const n = Number(el.value);
+          if (el.value === '' || !isFinite(n)) return; // a number box is empty for a moment while typing
+          draft[key] = n;
+          if (kind === 'range') $('lbl-' + id.slice(4)).textContent = fmt(n);
+        } else draft[key] = el.value;
+        updateDependentRows();
+        schedulePreview();
+      });
+    });
+
+    $('btn-names-reset').addEventListener('click', () => {
+      if (!draft) return;
+      draft.nameColors = {};
+      buildNameColorList();
+      schedulePreview();
+    });
+
+    // Copy a look out, or paste one in. A pasted look goes into the draft.
+    $('btn-set-copy').addEventListener('click', () => copyBlock(false, $('btn-set-copy'), 'Copy formatting'));
+    $('btn-set-copyall').addEventListener('click', () => copyBlock(true, $('btn-set-copyall'), 'Copy everything'));
+    $('btn-set-paste').addEventListener('click', () => {
+      const ta = $('set-text');
+      ta.value = '';
+      ta.style.display = 'block';
+      $('set-load-row').style.display = 'flex';
+      $('btn-set-last').style.display = lastCopy() ? '' : 'none';
+      $('set-msg').textContent = '';
+      ta.focus();
+    });
+    $('btn-set-last').addEventListener('click', () => loadBlock(lastCopy()));
+    $('btn-set-load').addEventListener('click', () => {
+      let obj = null;
+      try { obj = JSON.parse($('set-text').value); } catch (e) { obj = null; }
+      loadBlock(obj);
+    });
+
+    $('btn-diag').addEventListener('click', () => {
+      const ta = $('diag-text');
+      ta.value = diagnosticsText();
+      ta.style.display = 'block';
+    });
+    $('btn-diag-copy').addEventListener('click', () => {
+      const ta = $('diag-text');
+      ta.value = diagnosticsText();
+      ta.style.display = 'block';
+      copyText(ta, $('btn-diag-copy'), 'Copy');
+    });
+  }
+
+  // A copied look is a small labeled block, so a paste can tell what it is.
+  // It goes to the clipboard as text AND into localStorage, because another
+  // sheet running this same chart can read localStorage even when the host
+  // blocks the clipboard.
+  function copyBlock(everything, btn, label) {
+    const settings = clone(draft || S);
+    if (!everything) DATA_BOUND.forEach((k) => { delete settings[k]; });
+    const block = { chart: SLUG, kind: everything ? 'everything' : 'formatting', copied: new Date().toISOString(), settings };
+    const text = JSON.stringify(block, null, 2);
+    try { window.localStorage.setItem(SLUG + ':copied', text); } catch (e) {}
+    const ta = $('set-text');
+    ta.value = text;
+    ta.style.display = 'block';
+    $('set-load-row').style.display = 'none';
+    $('set-msg').textContent = everything ? 'Everything, including what is tied to the data on this sheet.' : 'Formatting only.';
+    copyText(ta, btn, label);
+  }
+
+  function lastCopy() {
+    try { return JSON.parse(window.localStorage.getItem(SLUG + ':copied')); } catch (e) { return null; }
+  }
+
+  // Accepts a copied block, or a bare settings object. Pasted keys go over the
+  // draft, so anything the block leaves out keeps this sheet's own value.
+  function loadBlock(obj) {
+    if (!draft) return;
+    const say = (msg) => { $('set-msg').textContent = msg; };
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { say('That is not a copied settings block.'); return; }
+    if (obj.chart && obj.chart !== SLUG) { say('That was copied from a different chart (' + obj.chart + ').'); return; }
+    const incoming = obj.settings && typeof obj.settings === 'object' ? obj.settings : obj;
+    draft = withDefaults(Object.assign({}, draft, incoming));
+    populatePanel();
+    say('Loaded. Click Apply to save.');
+    schedulePreview();
+  }
+
+  // Everything someone needs to explain a wrong picture from a distance.
+  function diagnosticsText() {
+    let model = null;
+    try { model = buildModel(DATA, S); } catch (e) { recordError('diagnostics', e); }
+    return JSON.stringify({
+      chart: NAME + ' ' + VERSION,
+      time: new Date().toISOString(),
+      view: { width: window.innerWidth, height: window.innerHeight, pixelRatio: window.devicePixelRatio },
+      browser: navigator.userAgent,
+      panel: { pinned: ui.pinned, position: ui.pos, openSections: ui.open },
+      data: { rows: DATA.length, fields: DATA.length ? Object.keys(DATA[0]) : [], sample: DATA.slice(0, 4) },
+      model: model ? { n: model.n, top: model.top, max: model.max } : null,
+      lastDraws: trace.slice(-6),
+      errors: errors.slice(-10),
+      settings: S,
+      unsavedDraft: draft,
+    }, null, 2);
+  }
+
+  // Copying can be blocked inside an embedded frame, so try three ways and
+  // say on the button what happened.
+  function copyText(ta, btn, label) {
+    ta.focus();
+    ta.select();
+    const say = (msg) => { btn.textContent = msg; setTimeout(() => { btn.textContent = label; }, 4000); };
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    if (ok) { say('Copied'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(() => say('Copied'), () => say('Right-click the text, Copy'));
+    } else say('Right-click the text, Copy');
+  }
+
+  // Drag the panel by its title bar. Dock returns it to the corner.
+  function wireDrag() {
+    const panel = $('panel');
+    const head = $('panel-head');
+    let drag = null;
+    head.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0 || ev.target.closest('button') || panel.classList.contains('pinned')) return;
+      const r = panel.getBoundingClientRect();
+      drag = { dx: ev.clientX - r.left, dy: ev.clientY - r.top };
+      try { head.setPointerCapture(ev.pointerId); } catch (e) {}
+      head.classList.add('dragging');
+      ev.preventDefault();
+    });
+    head.addEventListener('pointermove', (ev) => { if (drag) placePanel(ev.clientX - drag.dx, ev.clientY - drag.dy); });
+    const end = () => {
+      if (!drag) return;
+      drag = null;
+      head.classList.remove('dragging');
+      saveUi();
+    };
+    head.addEventListener('pointerup', end);
+    head.addEventListener('pointercancel', end);
+    head.addEventListener('dblclick', (ev) => { if (!ev.target.closest('button') && !panel.classList.contains('pinned')) dockPanel(true); });
+    $('btn-dock').addEventListener('click', () => dockPanel(true));
+    $('btn-pin').addEventListener('click', () => { ui.pinned = !ui.pinned; saveUi(); applyPanelMode(); });
+    window.addEventListener('resize', () => { if (panel.style.display === 'flex') applyPanelMode(); else draw(); });
+  }
+
+  // Keep the whole panel in view, and at least its title bar when the view
+  // is smaller than the panel. A panel dragged out of reach is a dead end.
+  function placePanel(left, top) {
+    const p = $('panel');
+    const w = p.offsetWidth || 400;
+    const h = p.offsetHeight || 300;
+    left = clamp(left, Math.min(0, window.innerWidth - w), Math.max(0, window.innerWidth - w));
+    top = clamp(top, 0, Math.max(0, window.innerHeight - Math.min(h, window.innerHeight - 8)));
+    p.style.left = Math.round(left) + 'px';
+    p.style.top = Math.round(top) + 'px';
+    p.style.right = 'auto';
+    ui.pos = { left: Math.round(left), top: Math.round(top) };
+  }
+
+  function dockPanel(forget) {
+    const p = $('panel');
+    p.style.left = 'auto';
+    p.style.right = '8px';
+    p.style.top = '8px';
+    if (forget) { ui.pos = null; saveUi(); }
+  }
+
+  // Floating or pinned. Pinned makes the panel a strip down the right side,
+  // moves the chart over so nothing is covered, and shows the groups as an
+  // accordion. A view too small to share falls back to floating, and the
+  // preference is kept for when there is room again.
+  // A short view has no room for a strip either: it would be all title bar and buttons.
+  function canPin() { return window.innerWidth >= 720 && window.innerHeight >= 420; }
+  function applyPanelMode() {
+    const p = $('panel');
+    const open = p.style.display === 'flex';
+    const pinned = ui.pinned && canPin();
+    p.classList.toggle('pinned', pinned);
+    p.classList.toggle('accordion', pinned);
+    document.body.classList.toggle('panel-pinned', pinned && open);
+    $('btn-pin').textContent = pinned ? 'Float' : 'Pin to side';
+    $('btn-pin').disabled = !canPin();
+    $('btn-pin').title = !canPin() ? 'The view is too small to pin the panel'
+      : (pinned ? 'Let the panel float so it can be dragged' : 'Keep the panel down the right side, beside the chart');
+    $('btn-dock').style.display = pinned ? 'none' : '';
+    $('panel-head').title = pinned ? '' : 'Drag to move. Double-click to dock.';
+    if (pinned) { p.style.left = ''; p.style.top = ''; p.style.right = ''; }
+    else if (open) { if (ui.pos) placePanel(ui.pos.left, ui.pos.top); else dockPanel(false); }
+    draw(); // the chart's width may have changed
+  }
+
+  // Give every pane a header built from its tab, and wrap its rows in a body.
+  // Tabs show one pane at a time. The accordion shows every header and opens
+  // as many as the person likes.
+  function wireAccordion() {
+    document.querySelectorAll('#panes .pane').forEach((pane) => {
+      const name = pane.dataset.pane;
+      const tab = document.querySelector('#tabs .tab[data-tab="' + name + '"]');
+      const body = document.createElement('div');
+      body.className = 'pane-body';
+      while (pane.firstChild) body.appendChild(pane.firstChild);
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'acc-head';
+      const label = document.createElement('span');
+      label.textContent = tab ? tab.textContent : name;
+      const chev = document.createElement('span');
+      chev.className = 'chev';
+      chev.textContent = '\u203A';
+      head.appendChild(label);
+      head.appendChild(chev);
+      head.addEventListener('click', () => {
+        const i = ui.open.indexOf(name);
+        if (i === -1) ui.open.push(name); else ui.open.splice(i, 1);
+        saveUi();
+        reflectAccordion();
+      });
+      pane.appendChild(head);
+      pane.appendChild(body);
+    });
+    reflectAccordion();
+  }
+  function reflectAccordion() {
+    document.querySelectorAll('#panes .pane').forEach((pane) => {
+      const open = ui.open.indexOf(pane.dataset.pane) !== -1;
+      pane.classList.toggle('open', open);
+      pane.querySelector('.acc-head').setAttribute('aria-expanded', String(open));
+    });
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('#tabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('#panes .pane').forEach((p) => p.classList.toggle('active', p.dataset.pane === name));
+  }
+
+  function openPanel() {
+    draft = clone(S);
+    $('reset-note').style.display = 'none';
+    ['set-text', 'set-load-row', 'diag-text'].forEach((id) => { $(id).style.display = 'none'; });
+    $('set-msg').textContent = '';
+    populatePanel();
+    $('panel').style.display = 'flex';
+    applyPanelMode();
+  }
+
+  // Fill every control from the draft. Runs on open, on Reset and after a paste.
+  function populatePanel() {
+    CONTROLS.forEach(([id, key, kind, fmt]) => {
+      const el = $(id);
+      if (!el) return;
+      if (kind === 'check') el.checked = !!draft[key];
+      else el.value = draft[key];
+      if (kind === 'range') $('lbl-' + id.slice(4)).textContent = fmt(draft[key]);
+    });
+    buildNameColorList();
+    updateDependentRows();
+  }
+
+  // Rows that only apply to some choices are grayed out, not hidden, so the
+  // panel does not jump around.
+  function updateDependentRows() {
+    if (!draft) return;
+    const off = (rowId, ctlId, isOff) => { $(rowId).classList.toggle('off', isOff); $(ctlId).disabled = isOff; };
+    off('row-barwidth', 'rng-barwidth', draft.fit !== 'fixed');
+    off('row-decimals', 'num-decimals', !draft.labels);
+  }
+
+  // A list built from the data: one row per category, stored by name.
+  function buildNameColorList() {
+    const list = $('name-color-list');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    const model = buildModel(DATA, draft);
+    if (!model.bars.length) {
+      const h = document.createElement('div');
+      h.className = 'hint';
+      h.textContent = 'Categories appear here once there is data.';
+      list.appendChild(h);
+      return;
+    }
+    model.bars.forEach((b) => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      const col = document.createElement('input');
+      col.type = 'color';
+      col.value = b.color;
+      col.addEventListener('input', () => { draft.nameColors[b.name] = col.value; schedulePreview(); });
+      const lab = document.createElement('span');
+      lab.textContent = b.name;
+      row.appendChild(col);
+      row.appendChild(lab);
+      list.appendChild(row);
+    });
+  }
+
+  // Reset changes the DRAFT only, so Cancel still backs out of it.
+  function resetDraft() {
+    draft = clone(DEFAULTS);
+    populatePanel();
+    $('reset-note').style.display = 'block';
+    schedulePreview();
+  }
+
+  function closePanel() {
+    draft = null;
+    $('panel').style.display = 'none';
+    applyPanelMode(); // gives the chart its width back and redraws with the applied settings
+  }
+
+  function applyPanel() {
+    if (draft) { S = clone(draft); saveSettings(); }
+    draft = null;
+    $('panel').style.display = 'none';
+    applyPanelMode();
+  }
+
+  // One redraw per burst of edits. 40 ms feels instant and keeps a slider smooth.
+  function schedulePreview() {
+    if (previewTimer) clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => { previewTimer = null; draw(); }, 40);
+  }
+
+  // ---------------------------------------------------------------- start ---
+
+  // Anything that escapes a try and catch still reaches Diagnostics.
+  window.addEventListener('error', (ev) => recordError('window', ev.error || ev.message));
+  window.addEventListener('unhandledrejection', (ev) => recordError('promise', ev.reason));
+
+  // A panel problem must cost the panel, never the chart.
+  try {
+    loadSettings();
+    loadUi();
+    wirePanel();
+    wireAccordion();
+    wireDrag();
+  } catch (e) { recordError('startup', e); }
+  draw();
+})();
+</script>
+</body>
+</html>
