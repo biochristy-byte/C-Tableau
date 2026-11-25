@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.datadivers.dashext.settingspanel" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>A floating gear panel for any dashboard: every parameter, every worksheet filter, mark highlighting and named presets, with search, reset to the workbook defaults and light or dark themes. No network calls.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <!-- 1.12 matches the C-Tableau viz extensions. Calls added after 1.12 (moveAndResizeDashboardObjectsAsync,
+         applyRelativeDateFilterAsync) are feature-checked in src/js and skipped when missing. -->
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8777/src/index.html</url>
+    </source-location>
+    <icon/>
+    <context-menu>
+      <configure-context-menu-item/>
+    </context-menu>
+  </dashboard-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Settings Panel</text>
+    </resource>
+  </resources>
+</manifest>

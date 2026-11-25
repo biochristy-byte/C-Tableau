@@ -1,0 +1,12 @@
+{
+  "name": "tableau-settings-panel-dashboard-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Tableau dashboard extension: a floating gear panel for every parameter, filter, highlight and named preset on a dashboard.",
+  "scripts": {
+    "test": "node test/run.js && python test/browser_test.py",
+    "sabotage": "python test/sabotage.py",
+    "previews": "python tools/make_previews.py"
+  },
+  "license": "MIT"
+}
