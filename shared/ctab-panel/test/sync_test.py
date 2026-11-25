@@ -23,6 +23,7 @@ def vend(root, ext, js=True, css=True):
     d.mkdir(parents=True)
     if js: shutil.copyfile(HERE / "ctab-panel.js", d / "ctab-panel.js")
     if css: shutil.copyfile(HERE / "ctab-panel.css", d / "ctab-panel.css")
+    shutil.copytree(HERE / "fonts", d / "fonts")
     return d
 
 
@@ -51,6 +52,18 @@ check("an extra file in lib/ctab-panel is RED", code == 1 and "unexpected file s
 code, out = run(t)
 check("clean again: GREEN", code == 0 and "GREEN" in out, out)
 check("examined count is reported", "examined 2 of 3" in out, out)
+fp = d / "fonts" / "poppins-700.woff2"; good = fp.read_bytes(); fp.write_bytes(good[:-1] + b"x")
+code, out = run(t)
+check("a changed bundled font is RED", code == 1 and "fonts/poppins-700.woff2 differs" in out, out)
+fp.write_bytes(good); (d / "fonts" / "LICENSE-Inter-OFL.txt").unlink()
+code, out = run(t)
+check("a missing font license is RED", code == 1 and "fonts/LICENSE-Inter-OFL.txt missing" in out, out)
+shutil.copyfile(HERE / "fonts" / "LICENSE-Inter-OFL.txt", d / "fonts" / "LICENSE-Inter-OFL.txt"); (d / "fonts" / "extra.woff2").write_bytes(b"x")
+code, out = run(t)
+check("a stray file in fonts/ is RED", code == 1 and "unexpected file fonts/extra.woff2" in out, out)
+(d / "fonts" / "extra.woff2").unlink()
+code, out = run(t)
+check("clean again with fonts: GREEN", code == 0 and "GREEN  2 copies" in out, out)
 shutil.rmtree(t)
 if n[0] < 8: fails.append("ran only %d checks" % n[0])
 if fails:

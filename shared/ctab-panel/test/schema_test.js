@@ -8,7 +8,7 @@
 const path = require('path');
 const P = require(path.join(__dirname, '..', 'ctab-panel.js'));
 
-const MIN_CHECKS = 120;
+const MIN_CHECKS = 170;
 let pass = 0; const fails = [];
 function ok(name, cond, detail) { if (cond) pass++; else fails.push(name + (detail === undefined ? '' : '\n    ' + detail)); }
 function eq(name, a, e) { ok(name, JSON.stringify(a) === JSON.stringify(e), 'expected ' + JSON.stringify(e) + ' got ' + JSON.stringify(a)); }
@@ -124,7 +124,7 @@ ok('search by section name', keys('S').indexOf('n') >= 0);
 ok('search needs every word', keys('count mode').length === 0);
 eq('search for nothing returns nothing', keys('   '), []);
 eq('search with no match returns nothing', keys('zzzz'), []);
-ok('search skips rows whose when is false', keys('dependent', { on: false, sel: 'x', ch: 'q' }).length === 0);
+ok('search still finds a grayed-out row (its when is false)', keys('dependent', { on: false, sel: 'x', ch: 'q' }).length === 2);
 ok('search finds a conditional row once it is visible', keys('dependent two', { on: true, sel: 'y', ch: 'q' }).indexOf('dep2') >= 0);
 
 /* ----------------------------------------------------------------- paste */
@@ -257,8 +257,25 @@ function fakeSettings(init) {
   ok('store reset() restores everything', st.get().ch === 'q' && st.get().on === true && st.get().lst.length === 0);
   fs.failSave(true); st.set('n', 9); st.flush(); await new Promise(r => setTimeout(r, 10));
   ok('store survives a rejected saveAsync (viewer mode)', st.get().n === 9);
-  const ps = st.panelState; ps.set({ x: 12, y: 30, min: true }); eq('panel state round-trips through settings', ps.get(), { x: 12, y: 30, min: true });
-  ok('panel state with no stored value is an empty object', P.createStore({ schema: base, settings: fakeSettings() }).panelState.get().x === undefined);
+  ok('save status: a rejected saveAsync reports failed', st.saveState() === 'failed', st.saveState());
+  let heard = []; st.onSave(x => heard.push(x)); fs.failSave(false); st.set('n', 3); st.flush(); await new Promise(r => setTimeout(r, 10));
+  ok('save status: listeners hear pending then saved', heard.indexOf('pending') >= 0 && heard[heard.length - 1] === 'saved' && st.saveState() === 'saved', JSON.stringify(heard));
+  ok('save status: a store with no workbook says none', P.createStore({ schema: base }).saveState() === 'none');
+  const ps = st.panelState, saves0 = fs.saves, keys0 = Object.keys(fs.m).length;
+  ps.set({ x: 12, y: 30, min: true }); eq('panel state round-trips per machine', ps.get(), { x: 12, y: 30, min: true });
+  ok('panel state is never written to the workbook settings', fs.m['rd._panel'] === undefined && Object.keys(fs.m).length === keys0);
+  await new Promise(r => setTimeout(r, 60));
+  ok('panel state never schedules a saveAsync', fs.saves === saves0, fs.saves + ' vs ' + saves0);
+  ok('panel state key is per extension prefix', ps.key === 'ctab:rd.panel');
+  ok('panel state with no stored value is an empty object', P.createStore({ schema: base, settings: fakeSettings(), prefix: 'zz.' }).panelState.get().x === undefined);
+  const lfs = fakeSettings({ 'hy._panel': JSON.stringify({ theme: 'dark', x: 5, y: 6 }) });
+  const hps = P.createStore({ schema: base, settings: lfs, prefix: 'hy.' }).panelState, h1 = hps.get();
+  ok('HYDRATE: a 1.0.0 workbook panel state is carried over on first load', h1.theme === 'dark' && h1.x === 5 && h1.y === 6, JSON.stringify(h1));
+  ok('HYDRATE: the workbook copy is kept, never deleted', lfs.m['hy._panel'] !== undefined);
+  lfs.m['hy._panel'] = JSON.stringify({ theme: 'light' });
+  ok('HYDRATE: once only; after that the machine copy wins', hps.get().theme === 'dark');
+  ok('HYDRATE: a corrupt workbook copy gives an empty state, no throw', JSON.stringify(P.createStore({ schema: base, settings: fakeSettings({ 'bad._panel': '{oops' }), prefix: 'bad.' }).panelState.get()) === '{}');
+  st.set('n', 9);
   const snap = st.snapshot(); snap.n = 1; ok('snapshot is a copy', st.get().n === 9);
   const noSt = P.createStore({ schema: base }); noSt.set('n', 3); ok('a store with no settings object still works in memory', noSt.get().n === 3);
 
@@ -268,10 +285,10 @@ function fakeSettings(init) {
   ok('standard: nine standard tabs', std.tabs.length === 9 && ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields'].every(id => std.tabs.some(t => t.id === id)));
   ok('standard: at least 40 rows on their own', std.rows.length >= 40, String(std.rows.length));
   ok('standard validates as a schema', full.rows.length === std.rows.length);
-  ok('standard: no range-like type anywhere', std.rows.every(r => ['number', 'select', 'chips', 'check', 'color', 'text', 'font', 'list', 'palette', 'field', 'note'].indexOf(r.type) >= 0));
+  ok('standard: no range-like type anywhere', std.rows.every(r => ['number', 'select', 'chips', 'check', 'color', 'text', 'font', 'list', 'palette', 'field', 'note', 'preview', 'action'].indexOf(r.type) >= 0));
   ok('standard: every tab has a row', std.tabs.every(t => std.rows.some(r => r.tab === t.id)));
   ok('standard: no number can go below 14px for text sizes', std.rows.filter(r => /Size$/.test(r.key) && r.unit === 'px').every(r => r.min >= 14), 'keys ' + std.rows.filter(r => /Size$/.test(r.key)).map(r => r.key + ':' + r.min));
-  ok('standard: every default coerces to itself', full.rows.every(r => r.type === 'note' || JSON.stringify(P.coerce(r, r.def)) === JSON.stringify(r.def)), full.rows.filter(r => r.type !== 'note' && JSON.stringify(P.coerce(r, r.def)) !== JSON.stringify(r.def)).map(r => r.key).join());
+  ok('standard: every default coerces to itself', full.rows.every(r => ['note', 'preview', 'action'].indexOf(r.type) >= 0 || JSON.stringify(P.coerce(r, r.def)) === JSON.stringify(r.def)), full.rows.filter(r => ['note', 'preview', 'action'].indexOf(r.type) < 0 && JSON.stringify(P.coerce(r, r.def)) !== JSON.stringify(r.def)).map(r => r.key).join());
   ok('standard: the default palette is Data Divers', std.rows.filter(r => r.key === 'palette')[0].def === 'datadivers');
   ok('standard: fields rows come from opts', std.rows.filter(r => r.tab === 'fields').length === 2 && std.rows[std.rows.length - 1].kind === 'numeric');
   ok('standard: conditional rows exist', std.rows.some(r => r.when));
@@ -281,6 +298,55 @@ function fakeSettings(init) {
   ok('standard: over changes a default', over.rows.filter(r => r.key === 'animMs')[0].def === 900);
   const sd = P.defaultsOf(full.rows);
   ok('standard: label size default meets the 14px floor', sd.labelSize >= 14 && sd.tipSize >= 14 && sd.valueLabelSize >= 14);
+
+  /* ---- 1.1.0 features ---- */
+  const S2 = P.standard({ fields: [{ key: 'fieldAxis', label: 'Axis' }] }), S2p = P.prepare({ tabs: S2.tabs, rows: S2.rows }), SR = {}; S2p.rows.forEach(r => { SR[r.key] = r; });
+  const sd2 = P.defaultsOf(S2p.rows);
+  const fmt = P.copyBlock(S2p.rows, sd2, 'formatting', { prefix: 'demo.', name: 'Demo settings' });
+  ok('copy formatting: a labeled block', fmt.ctab === 1 && fmt.chart === 'demo.' && fmt.name === 'Demo settings' && fmt.kind === 'formatting' && !isNaN(Date.parse(fmt.copied)));
+  ok('copy formatting: leaves out field picks and per-item lists', !('fieldAxis' in fmt.settings) && !('catColors' in fmt.settings) && 'palette' in fmt.settings && 'labelSize' in fmt.settings);
+  const all2 = P.copyBlock(S2p.rows, sd2, 'everything', { prefix: 'demo.' });
+  ok('copy everything: keeps field picks and lists', 'fieldAxis' in all2.settings && 'catColors' in all2.settings && all2.kind === 'everything');
+  ok('copy: preview and action rows hold no value', !('numPreview' in all2.settings) && !('setupMeeting' in all2.settings));
+  const extra = S2p.rows.concat([P.prepare({ tabs: ['x'], rows: [{ tab: 'x', key: 'ringCount', label: 'Rings', type: 'number', min: 1, max: 9, step: 1, def: 3 }] }).rows[0]]);
+  const foreign = JSON.stringify({ ctab: 1, chart: 'radar.', name: 'Radar settings', kind: 'everything', copied: '2026-11-24T21:00:00Z', settings: { labelSize: 20, palette: 'okabe', ringCount: 7, fieldAxis: 'Region', spokes: 5 } });
+  const pf = P.parsePaste(extra, foreign, 'demo.');
+  ok('paste from another chart: applies only the shared standard looks', pf.ok && pf.values.labelSize === 20 && pf.values.palette === 'okabe' && !('ringCount' in pf.values) && !('fieldAxis' in pf.values), JSON.stringify(pf.values));
+  ok('paste from another chart: says where it came from and what it skipped', /^From Radar settings \(everything, copied \d\d\/\d\d\/2026/.test(pf.message) && /applied 2 shared settings/.test(pf.message) && /Skipped 3 only that chart has/.test(pf.message), pf.message);
+  const same2 = P.parsePaste(extra, JSON.stringify({ ctab: 1, chart: 'demo.', name: 'Demo', kind: 'everything', settings: { ringCount: 7, fieldAxis: 'Region' } }), 'demo.');
+  ok('paste from the same chart: applies its own keys and field picks', same2.ok && same2.values.ringCount === 7 && same2.values.fieldAxis === 'Region', same2.message);
+  ok('paste: a bare flat object still works', P.parsePaste(extra, '{"labelSize": 16}', 'demo.').message === 'Applied 1 setting.');
+  ok('isData: field and list rows are data-tied, a number is not', P.isData(SR.fieldAxis) && P.isData(SR.catColors) && !P.isData(SR.labelSize));
+  ok('isTextSize: label, value, tooltip and title sizes; not padding or border width', ['labelSize', 'valueLabelSize', 'tipSize', 'titleSize'].every(k => P.isTextSize(SR[k])) && !P.isTextSize(SR.padding) && !P.isTextSize(SR.borderWidth));
+  ok('standard rows are marked std', S2p.rows.every(r => r.std === true));
+  eq('offReason: truthy', P.offReason(SR.labelSize, S2p.rows, { labelsOn: false }), 'Turn on "Show labels" to use this.');
+  eq('offReason: eq on chips', P.offReason(SR.bgColor, S2p.rows, { bgMode: 'worksheet' }), 'Set "Background" to "Custom" to use this.');
+  ok('offReason: offHelp wins', P.offReason({ offHelp: 'Pick a field first.', when: () => false }, [], {}) === 'Pick a field first.');
+  const offs = P.shownRows(S2p.rows, Object.assign({}, sd2, { labelsOn: false }), {});
+  ok('shownRows: a row whose condition fails is still shown (grayed out)', offs.some(r => r.key === 'labelSize'));
+  ok('shownRows: hideWhenOff rows are left out when off', !P.shownRows([{ key: 'h', hideWhenOff: true, when: { key: 'z', truthy: true } }], {}, {}).length);
+  eq('fillTitle: tokens', P.fillTitle('Top {top} of {n} ({total})', { top: 'Alpha', n: 6, total: '1,250' }), 'Top Alpha of 6 (1,250)');
+  eq('fillTitle: unknown tokens stay as typed', P.fillTitle('{x} and {n}', { n: 2 }), '{x} and 2');
+  const tfs = fakeSettings(); const tst = P.createStore({ schema: { tabs: S2.tabs, rows: S2.rows }, settings: tfs, prefix: 't.' });
+  ok('text size 100%: renderers get the stored object itself', tst.get() === tst.raw());
+  tst.set('textScale', '1.3');
+  ok('text size 130%: every chart text size scales, the stored value does not', tst.get().labelSize === 18 && tst.get().titleSize === 23 && tst.raw().labelSize === 14 && tst.get().padding === 12, tst.get().labelSize + ' ' + tst.get().titleSize);
+  tst.setTokens(() => ({ n: 9, top: 'Beta' })); tst.set('titleText', 'Top {top} of {n}');
+  ok('title placeholders fill from the extension tokens', tst.get().titleText === 'Top Beta of 9' && tst.raw().titleText === 'Top {top} of {n}', tst.get().titleText);
+  const DARK = '#101a26';
+  ok('dark palettes: every color of every palette reaches 3:1 on the house dark background', P.PALETTES.every(p => P.paletteColors(p.id, false, DARK).every(c => C.contrast(c, DARK) >= 3)));
+  ok('dark palettes: on white the palette is unchanged', JSON.stringify(P.paletteColors('datadivers', false, '#ffffff')) === JSON.stringify(P.PALETTES[0].colors));
+  ok('dark palettes: the dark variant really differs where it must', P.paletteColors('datadivers', false, DARK)[1] !== '#12527a' && C.contrast('#12527a', DARK) < 3);
+  ok('fonts: Poppins is offered and has a sans-serif stack', P.fontStack('poppins').indexOf('Poppins') === 0 && /sans-serif$/.test(P.fontStack('poppins')));
+  ok('options: thousands chips show their result', SR.numThousands.opts.map(o => o.label).join('|') === '1,234,567|1 234 567|1234567');
+  ok('options: weight chips are drawn in their own weight', SR.labelWeight.opts[1].style === 'font-weight:700');
+  ok('options: the number preview line shows the format', SR.numPreview.text(Object.assign({}, sd2, { numDecimals: 2 })) === 'Shows as 12,345.60 and -0.50');
+  ok('options: a style with markup is refused', P.prepare({ tabs: ['t'], rows: [{ tab: 't', key: 'c', type: 'chips', opts: [['a', 'A', 'x"><script']] }] }).rows[0].opts[0].style === undefined);
+  const act = SR.setupMeeting.apply(sd2, {});
+  ok('one-click setup: an action row returns values', act.textScale === '1.3' && act.labelWeight === 'bold' && SR.setupMeeting.type === 'action');
+  ok('text size chips never go below 14px', SR.textScale.opts.every(o => parseFloat(o.style.split(':')[1]) >= 14));
+  P.noteError('test', 'boom', 'here');
+  ok('errors: noteError keeps a bounded list', P.errors().slice(-1)[0].message === 'boom');
 
   console.log('examined ' + (pass + fails.length) + ' checks');
   if (pass + fails.length < MIN_CHECKS) fails.push('ran only ' + (pass + fails.length) + ' checks, floor ' + MIN_CHECKS);

@@ -19,11 +19,15 @@
   var q = new URLSearchParams(location.search), P = window.CTabPanel;
   var W = +(q.get('w') || 900), H = +(q.get('h') || 600), persist = q.get('persist') === '1', KEY = 'ctab-demo-settings';
   var frame = document.getElementById('frame'); frame.style.width = W + 'px'; frame.style.height = H + 'px';
+  /* nols=1: localStorage throws (a sandboxed frame). legacy=1: a 1.0.0 workbook that saved the panel state in settings. */
+  if (q.get('nols') === '1') { try { Object.defineProperty(window, 'localStorage', { get: function () { throw new Error('blocked'); } }); } catch (e) {} }
   var m = {}; if (persist) { try { m = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { m = {}; } }
+  if (q.get('legacy') === '1' && !m['demo._panel']) m['demo._panel'] = JSON.stringify({ theme: 'dark', x: 30, y: 40, min: false, tab: 'rings' });
+  var nosave = q.get('nosave') === '1';
   var fake = { m: m, saves: 0,
     get: function (k) { return m[k]; }, getAll: function () { return Object.assign({}, m); },
     set: function (k, v) { m[k] = String(v); if (persist) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) {} } },
-    saveAsync: function () { fake.saves++; return Promise.resolve(); } };
+    saveAsync: function () { fake.saves++; return nosave ? Promise.reject(new Error('viewing mode')) : Promise.resolve(); } };
   var std = P.standard({ fields: [{ key: 'fieldAxis', label: 'Axis field' }, { key: 'fieldValue', label: 'Value field', kind: 'numeric' }] });
   var tabs = [{ id: 'layout', label: 'Layout' }, { id: 'rings', label: 'Rings' }].concat(std.tabs);
   var rows = [
@@ -39,23 +43,28 @@
     { tab: 'rings', sec: 'Rings', key: 'ringColor', label: 'Ring color', type: 'color', def: '#8fa7b8' }
   ].concat(std.rows);
   var schema = { tabs: tabs, rows: rows };
-  var renders = 0, chart = document.getElementById('chart');
+  var renders = 0, chart = document.getElementById('chart'), layouts = [];
   var store = P.createStore({ schema: schema, settings: fake, prefix: 'demo.', debounce: 60, onChange: draw });
   store.load();
   function draw() {
     renders++; var s = store.get();
-    chart.textContent = JSON.stringify({ mode: s.mode, cols: s.cols, ringCount: s.ringCount, showB: s.showB, bName: s.bName, angle: s.angle, axes: P.mergeList(s.axes, info().lists.axes).filter(function (a) { return !a.hidden; }).map(function (a) { return a.key + ':' + a.name; }), palette: s.palette, fmt: P.formatNumber(1234.5, s) }, null, 1);
+    chart.textContent = JSON.stringify({ mode: s.mode, cols: s.cols, ringCount: s.ringCount, showB: s.showB, bName: s.bName, angle: s.angle, title: s.titleText, labelSize: s.labelSize, axes: P.mergeList(s.axes, info().lists.axes).filter(function (a) { return !a.hidden; }).map(function (a) { return a.key + ':' + a.name; }), palette: s.palette, fmt: P.formatNumber(1234.5, s) }, null, 1);
     chart.setAttribute('data-renders', renders);
   }
   var info = function () {
     return { columns: ['Region', 'Metric', 'Value'], numericColumns: ['Value'], auto: { fieldAxis: 'Metric', fieldValue: 'Value' },
       lists: { axes: [{ key: 'Alpha', name: 'Alpha', color: '#3cc4d1' }, { key: 'Beta', name: 'Beta', color: '#f26b5b' }, { key: 'Gamma', name: 'Gamma', color: '#f5b83d' }],
-        categories: [{ key: 'North', name: 'North', color: '#3cc4d1' }, { key: 'South', name: 'South', color: '#12527a' }] } };
+        categories: [{ key: 'North', name: 'North', color: '#3cc4d1' }, { key: 'South', name: 'South', color: '#12527a' }] },
+      tokens: { top: 'Alpha', total: '1,250' },
+      data: { rows: 6, fields: [{ name: 'Region', type: 'string' }, { name: 'Metric', type: 'string' }, { name: 'Value', type: 'float' }],
+        sample: [1, 2, 3, 4, 5, 6].map(function (i) { return { Region: { value: 'R' + i, formatted: 'Region ' + i }, Value: { value: i * 100, formatted: (i * 100).toFixed(1) } }; }) } };
   };
-  var panel = P.create(frame, { title: 'Demo settings', schema: schema, store: store, info: info, state: store.panelState, prefix: 'demo.' });
+  var panel = P.create(frame, { title: 'Demo settings', schema: schema, store: store, info: info, state: store.panelState, prefix: 'demo.', version: 'demo',
+    onLayout: function (l) { layouts.push(l); } });
+  if (q.get('blank') === '1') { var bl = document.createElement('div'); bl.id = 'blank'; bl.textContent = 'Add a field to the shelf to draw the chart.'; chart.parentNode.insertBefore(bl, chart); P.diagButton(bl, { panel: panel }); }
   if (q.get('open') === '1') panel.open();
   draw();
-  window.demo = { P: P, store: store, panel: panel, fake: fake, frame: frame, renders: function () { return renders; } };
+  window.demo = { P: P, store: store, panel: panel, fake: fake, frame: frame, layouts: layouts, renders: function () { return renders; } };
 })();
 </script>
 </body>

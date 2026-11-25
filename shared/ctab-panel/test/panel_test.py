@@ -6,6 +6,7 @@
 
 Groups: open drag touch minimize persist close escape search conditional reset undo copypaste keyboard
         floor contrast norange sheet sheet390 live list color
+        1.1.0: diag machine pin dock revert savestatus copyfmt fonts textsize titles options darkpal action frames
 Each group reports how many checks it ran; a group that ran none is RED (a gate must say what it examined),
 and so is a full run under MIN_CHECKS. Timing waits poll with generous timeouts, never a fixed sleep as proof.
 """
@@ -14,10 +15,12 @@ import argparse, functools, http.server, json, math, pathlib, re, socketserver, 
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MIN_CHECKS = 230
+MIN_CHECKS = 340
 ALL = ["open", "drag", "touch", "minimize", "persist", "close", "escape", "search", "conditional", "reset", "undo", "copypaste",
-       "keyboard", "floor", "contrast", "norange", "sheet", "sheet390", "live", "list", "color"]
+       "keyboard", "floor", "contrast", "norange", "sheet", "sheet390", "live", "list", "color",
+       "diag", "machine", "pin", "dock", "revert", "savestatus", "copyfmt", "fonts", "textsize", "titles", "options", "darkpal", "action", "frames"]
 fails, counts, cur = [], {}, [None]
+OFFSEEN = [0]
 
 
 def check(name, cond, detail=""):
@@ -59,6 +62,8 @@ AUDIT = """() => {
     if (m.length >= 3 && (m.length < 4 || m[3] === 1)) return m.slice(0, 3); } return [255, 255, 255]; };
   const out = [];
   const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+  const alpha = (el, col) => { let a = col.length >= 4 ? col[3] : 1; for (let e = el; e; e = e.parentElement) a *= parseFloat(getComputedStyle(e).opacity); return a; };
+  const blend = (el, col, bg) => { const a = alpha(el, col); return [0, 1, 2].map(i => col[i] * a + bg[i] * (1 - a)); };
   panel.querySelectorAll('*').forEach(el => {
     if (!vis(el)) return;
     const tag = el.tagName; let txt = '';
@@ -67,8 +72,8 @@ AUDIT = """() => {
     else if (tag === 'SELECT') { txt = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : ''; }
     else { for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) txt += n.textContent.trim() + ' '; }
     if (!txt.trim()) return;
-    const cs = getComputedStyle(el);
-    out.push({ tag, text: txt.trim().slice(0, 40), size: parseFloat(cs.fontSize), fg: parse(cs.color).slice(0, 3), bg: bgOf(el) });
+    const cs = getComputedStyle(el), bg = bgOf(el), fc = parse(cs.webkitTextFillColor && cs.webkitTextFillColor !== cs.color ? cs.webkitTextFillColor : cs.color);
+    out.push({ tag, text: txt.trim().slice(0, 40), size: parseFloat(cs.fontSize), fg: blend(el, fc, bg), bg: bg, off: !!el.closest('.cp-off') });
   });
   return { texts: out, ranges: document.querySelectorAll('input[type=range]').length, tabs: [...panel.querySelectorAll('.cp-tab')].map(t => t.dataset.t) };
 }"""
@@ -248,7 +253,10 @@ def g_persist(c):
     tab(pg, "rings")
     pg.click("[data-a=min]")
     pos = pg.evaluate("[demo.panel.state.x, demo.panel.state.y]")
-    pg.wait_for_function("JSON.parse(localStorage.getItem('ctab-demo-settings') || '{}')['demo._panel']", timeout=5000)
+    pg.wait_for_function("localStorage.getItem('ctab:demo.panel')", timeout=5000)
+    pg.wait_for_timeout(400)  # well past the 60 ms save debounce
+    check("dragging, switching tabs and minimizing never save the workbook", pg.evaluate("demo.fake.saves") == 0 and pg.evaluate("demo.fake.get('demo._panel')") is None,
+          (pg.evaluate("demo.fake.saves"), pg.evaluate("demo.fake.get('demo._panel')")))
     pg.reload(); pg.wait_for_function("window.demo")
     open_panel(pg)
     pos2 = pg.evaluate("[demo.panel.state.x, demo.panel.state.y]")
@@ -256,8 +264,8 @@ def g_persist(c):
     check("minimized state is remembered", pg.evaluate("document.querySelector('.cp-panel').classList.contains('cp-min')"))
     pg.click("[data-a=min]")
     check("last tab is remembered", pg.get_attribute(".cp-tab[data-t='rings']", "aria-selected") == "true")
-    saved = pg.evaluate("JSON.parse(demo.fake.get('demo._panel'))")
-    check("stored under the _panel setting as JSON with x, y, min", all(k in saved for k in ("x", "y", "min", "tab")), saved)
+    saved = pg.evaluate("JSON.parse(localStorage.getItem('ctab:demo.panel'))")
+    check("kept per machine in localStorage (ctab:demo.panel) with x, y, min, tab, docked", all(k in saved for k in ("x", "y", "min", "tab", "docked")) and saved["docked"] is False, saved)
     pg.ctx.close()
 
 
@@ -313,7 +321,8 @@ def g_search(c):
     pg.fill(".cp-q", "zzzzqq")
     check("no match shows a message", "No setting matches" in pg.inner_text(".cp-empty"))
     pg.fill(".cp-q", "columns")
-    check("a conditional row stays hidden from search while its condition is false", len(pg.query_selector_all(".cp-row")) == 0)
+    found = pg.evaluate("[...document.querySelectorAll('.cp-row')].map(r => r.dataset.row + (r.classList.contains('cp-off') ? '!' : ''))")
+    check("search finds a grayed-out row and shows it grayed out", found == ["cols!"], found)
     pg.fill(".cp-q", "")
     tab(pg, "layout")
     pg.click(".cp-chip[data-v=multi]")
@@ -333,23 +342,38 @@ def g_search(c):
 def g_conditional(c):
     pg = c.page()
     open_panel(pg)
-    check("a conditional row is absent when its condition is false", pg.query_selector(".cp-row[data-row=cols]") is None and pg.query_selector(".cp-row[data-row=bName]") is None)
+    st = lambda k: pg.evaluate("""(k) => { const r = document.querySelector('.cp-row[data-row="' + k + '"]'); if (!r) return null;
+      const cs = [...r.querySelectorAll('input,button,select,textarea')];
+      return { off: r.classList.contains('cp-off'), aria: r.getAttribute('aria-disabled'), dis: cs.length > 0 && cs.every(e => e.disabled), n: cs.length,
+               why: (r.querySelector('.cp-offwhy') || {}).textContent || '', lock: !!r.querySelector('.cp-lock'), op: getComputedStyle(r).opacity }; }""", k)
+    a, b = st("cols"), st("bName")
+    check("a row whose condition is false is shown grayed out, not removed", a is not None and a["off"] and b is not None and b["off"], (a, b))
+    check("its controls are disabled and the row says aria-disabled", a["dis"] and a["n"] >= 3 and a["aria"] == "true", a)
+    check("it says in words what turns it on", 'Set "Show as" to "Small multiples" to use this.' in a["why"] and 'Turn on "Show the benchmark" to use this.' in b["why"], (a["why"], b["why"]))
+    check("grayed by a lock and outline, never by opacity", a["lock"] and a["op"] == "1", a)
+    y0 = pg.evaluate(RECT, ".cp-row[data-row=angle]")["t"]
     pg.click(".cp-chip[data-v=multi]")
-    check("chip choice reveals the Columns row", pg.query_selector(".cp-row[data-row=cols]") is not None)
+    a2 = st("cols")
+    check("chip choice turns the Columns row on", a2 and not a2["off"] and not a2["dis"] and a2["aria"] is None, a2)
+    y1 = pg.evaluate(RECT, ".cp-row[data-row=angle]")["t"]; hon = pg.evaluate(RECT, ".cp-row[data-row=cols]")["h"]
+    check("rows below move less than the 1.0.0 jump (the whole row appearing)", abs(y1 - y0) < 0.75 * hon, (y0, y1, hon))
     check("the help text sits under the row", "Only for small multiples" in pg.inner_text(".cp-row[data-row=cols]"))
     pg.wait_for_function("document.querySelector('#chart').textContent.indexOf('\"mode\": \"multi\"') >= 0", timeout=5000)
     check("chart saw the mode", True)
     pg.check("input[data-k=showB]")
-    check("a checkbox reveals the Benchmark name row", pg.query_selector(".cp-row[data-row=bName]") is not None)
+    check("a checkbox turns the Benchmark name row on", not st("bName")["off"])
     check("focus stays on the checkbox after the rows change", pg.evaluate("document.activeElement.getAttribute('data-k')") == "showB")
     pg.uncheck("input[data-k=showB]")
-    check("unchecking hides it again", pg.query_selector(".cp-row[data-row=bName]") is None)
+    check("unchecking grays it out again", st("bName")["off"])
     pg.click(".cp-chip[data-v=overlay]")
-    check("switching back hides Columns", pg.query_selector(".cp-row[data-row=cols]") is None)
+    check("switching back grays Columns out", st("cols")["off"])
     pg.check("input[data-k=showB]")
     pg.fill("input[data-k=bName]", "Goal")
     check("typing in a conditional text row keeps focus while the chart updates", pg.evaluate("document.activeElement.getAttribute('data-k')") == "bName")
     pg.wait_for_function("document.querySelector('#chart').textContent.indexOf('Goal') >= 0", timeout=5000)
+    pg.uncheck("input[data-k=showB]")
+    check("a grayed-out row cannot be changed", pg.evaluate("document.querySelector('input[data-k=bName]').disabled") and val(pg, "bName") == "Goal")
+    check("0 console errors", not pg.errs, pg.errs[:3])
     pg.ctx.close()
 
 
@@ -419,14 +443,14 @@ def g_copypaste(c):
     pg = c.page(perms=True)
     open_panel(pg)
     pg.click("[data-a=inc][data-k=angle]")
-    pg.click("[data-a=copy]")
+    pg.click("[data-a=copy][data-kind=everything]")
     pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0", timeout=5000)
     txt = pg.evaluate("demo.panel.lastCopied")
-    obj = json.loads(txt)
-    n = pg.evaluate("demo.store.rows.filter(r => r.type !== 'note').length")
-    check("Copy settings makes valid JSON holding every setting", len(obj) == n and n >= 50, (len(obj), n))
+    obj = json.loads(txt)["settings"]
+    n = pg.evaluate("demo.store.rows.filter(r => ['note', 'preview', 'action', 'diag'].indexOf(r.type) < 0).length")
+    check("Copy everything makes valid JSON holding every setting", len(obj) == n and n >= 50, (len(obj), n))
     check("the copied JSON carries the changed value", obj["angle"] == 105)
-    check("status says how many were copied", ("Copied %d settings" % n) in pg.inner_text(".cp-status"), pg.inner_text(".cp-status"))
+    check("status says how many were copied", ("Copied every setting (%d settings)" % n) in pg.inner_text(".cp-status"), pg.inner_text(".cp-status"))
     try:
         clip = pg.evaluate("navigator.clipboard.readText()")
     except Exception as e:
@@ -468,7 +492,7 @@ def g_keyboard(c):
     pg.focus(".cp-gear"); pg.keyboard.press("Enter")
     pg.wait_for_selector(".cp-panel:not([hidden])")
     expected = pg.evaluate("""() => [...document.querySelectorAll('.cp-panel button, .cp-panel input, .cp-panel select, .cp-panel textarea, .cp-panel [tabindex="0"]')]
-      .filter(e => !(e.classList.contains('cp-tab') && e.tabIndex < 0) && e.getBoundingClientRect().width > 0 && !e.closest('[hidden]')).map(e => e.getAttribute('data-f') || e.getAttribute('data-a') || e.className)""")
+      .filter(e => !(e.classList.contains('cp-tab') && e.tabIndex < 0) && !e.disabled && e.getBoundingClientRect().width > 0 && !e.closest('[hidden]')).map(e => e.getAttribute('data-f') || e.getAttribute('data-a') || e.className)""")
     seen = []
     for _ in range(len(expected) + 12):
         pg.keyboard.press("Tab")
@@ -529,6 +553,7 @@ def all_tabs_audit(pg, label, minc=7.0, floor_px=14):
         d = audit(pg)
         for x in d["texts"]:
             n += 1
+            OFFSEEN[0] += 1 if x.get("off") else 0
             if x["size"] < floor_px - 0.01:
                 bad_size.append((label, t, x["tag"], x["text"], x["size"]))
             cr = contrast(x["fg"], x["bg"])
@@ -584,6 +609,7 @@ def g_contrast(c):
         check("0 console errors (%s)" % name, not pg.errs, pg.errs[:3])
         pg.ctx.close()
     check("examined thousands of text samples over six themes", total >= 2400, total)
+    check("grayed-out rows were part of the 7:1 sweep (%d texts in disabled rows)" % OFFSEEN[0], OFFSEEN[0] >= 30, OFFSEEN[0])
 
 
 def g_norange(c):
@@ -742,7 +768,7 @@ def g_list(c):
     check("choosing a field stores it", val(pg, "fieldAxis") == "Region")
     tab(pg, "fonts")
     fonts = pg.evaluate("[...document.querySelectorAll('select[data-k=fontFamily] option')].map(o => o.textContent)")
-    check("the font picker lists sans-serif families only", len(fonts) == 7 and not any(re.search(r"serif|mono|georgia|times|courier", f, re.I) for f in fonts), fonts)
+    check("the font picker lists sans-serif families only (Poppins added)", len(fonts) == 8 and "Poppins" in fonts and not any(re.search(r"serif|mono|georgia|times|courier", f, re.I) for f in fonts), fonts)
     pg.ctx.close()
 
 
@@ -762,6 +788,398 @@ def g_color(c):
     pg.click("[data-a=auto][data-k=labelColor]")
     check("the Auto button clears it", val(pg, "labelColor") == "" and pg.input_value("input.cp-hex[data-k=labelColor]") == "")
     check("0 console errors", not pg.errs, pg.errs[:3])
+    pg.ctx.close()
+
+
+# ------------------------------------------------------------------ 1.1.0 groups
+
+def hexrgb(h):
+    h = h.lstrip("#")
+    return [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+
+
+def clip_text(pg):
+    try:
+        return pg.evaluate("navigator.clipboard.readText()").replace(chr(13) + chr(10), chr(10))
+    except Exception as e:
+        return "ERR " + str(e)[:80]
+
+
+def g_diag(c):
+    pg = c.page(perms=True)
+    open_panel(pg)
+    pg.evaluate("() => { setTimeout(() => { throw new Error('diag boom'); }, 0); Promise.reject(new Error('diag reject')); }")
+    pg.wait_for_function("demo.P.errors().length >= 2", timeout=5000)
+    pg.click("[data-a=inc][data-k=angle]")
+    pg.wait_for_function("demo.store.draws().length >= 1", timeout=5000)
+    pg.evaluate("demo.panel.trace({ marks: 42 })")
+    tab(pg, "_panel")
+    check("the hint warns that sample rows are included", "sample rows" in pg.inner_text(".cp-row[data-row=diag]"))
+    pg.click("[data-a=diagshow]")
+    rep = json.loads(pg.input_value("textarea[data-f=diagtext]"))
+    check("report names the library, extension and its version", rep["library"] == "ctab-panel 1.1.0" and rep["extension"] == "Demo settings" and rep["extensionVersion"] == "demo", rep.get("library"))
+    check("report has the view size and pixel ratio", rep["view"]["width"] == 900 and rep["view"]["pixelRatio"] >= 1, rep["view"])
+    check("report has the browser", "Chrome" in rep["browser"], rep["browser"][:60])
+    check("report has the data received: rows, field names and types", rep["data"]["rows"] == 6 and [f["name"] for f in rep["data"]["fields"]] == ["Region", "Metric", "Value"] and rep["data"]["fields"][2]["type"] == "float", rep["data"])
+    check("report keeps at most 4 sample rows, native and formatted", len(rep["data"]["sample"]) == 4 and rep["data"]["sample"][0]["Value"] == {"value": 100, "formatted": "100.0"}, rep["data"]["sample"][:1])
+    check("report has the automatic field picks", rep["automaticPicks"] == {"fieldAxis": "Metric", "fieldValue": "Value"}, rep["automaticPicks"])
+    check("report has the last draws with their timing", len(rep["draws"]) >= 1 and "ms" in rep["draws"][-1] and "angle" in rep["draws"][-1]["keys"], rep["draws"])
+    check("report has the traced mark count", rep["traces"][-1]["marks"] == 42 and rep["traces"][-1]["w"] == 900, rep["traces"])
+    kinds = {(e["kind"], e["message"]) for e in rep["errors"]}
+    check("report has recent errors: thrown and unhandled rejection", ("error", "diag boom") in kinds or any(k == "error" and "diag boom" in m for k, m in kinds), kinds)
+    check("report has the unhandled rejection", ("unhandledrejection", "diag reject") in kinds, kinds)
+    check("report has the current settings and panel state", rep["settings"]["angle"] == 105 and rep["panel"]["tab"] == "_panel", rep["panel"])
+    pg.click("[data-a=diagcopy]")
+    pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied the diagnostics') === 0", timeout=5000)
+    cl = clip_text(pg)
+    check("Copy diagnostics puts the report on the clipboard", cl.startswith("{") and json.loads(cl)["report"] == "C-Tableau diagnostics", cl[:60])
+    pg.ctx.close()
+    pg = c.page(perms=True, query="&blank=1")
+    check("a blank screen offers Copy diagnostics", pg.is_visible("#blank .cp-diagbtn"))
+    pg.click("#blank .cp-diagbtn")
+    pg.wait_for_function("document.querySelector('#blank .cp-diagbtn').textContent === 'Copied diagnostics'", timeout=5000)
+    cl = clip_text(pg)
+    try:
+        bl = json.loads(cl)
+    except Exception:
+        bl = {}
+    check("the blank-screen report is the full one (settings and data)", bl.get("extension") == "Demo settings" and "angle" in bl.get("settings", {}) and bl.get("data", {}).get("rows") == 6, cl[:80])
+    b = pg.evaluate("""() => { const e = document.querySelector('#blank .cp-diagbtn'), cs = getComputedStyle(e), p = s => (s.match(/[\\d.]+/g) || []).map(Number).slice(0, 3);
+      return { fg: p(cs.color), bg: p(cs.backgroundColor), size: parseFloat(cs.fontSize), h: e.getBoundingClientRect().height }; }""")
+    check("the blank-screen button is 14px or more at 7:1", b["size"] >= 14 and contrast(b["fg"], b["bg"]) >= 7, b)
+    pg.ctx.close()
+
+
+def g_machine(c):
+    pg = c.page(h=800, query="&legacy=1")
+    check("a 1.0.0 workbook panel state is present in the settings", pg.evaluate("demo.fake.get('demo._panel')") is not None)
+    open_panel(pg)
+    check("HYDRATE: the saved dark theme is carried over", pg.get_attribute(".cp-panel", "data-theme") == "dark", pg.get_attribute(".cp-panel", "data-theme"))
+    st = pg.evaluate("[demo.panel.state.x, demo.panel.state.y, demo.panel.state.tab, demo.panel.state.docked]")
+    check("HYDRATE: the saved position and tab are carried over", st == [30, 40, "rings", False], st)
+    r = pg.evaluate(RECT, ".cp-panel"); f = pg.evaluate(RECT, "#frame")
+    check("HYDRATE: the panel really sits at the saved spot", abs(r["l"] - f["l"] - 30) <= 1.5 and abs(r["t"] - f["t"] - 40) <= 1.5, (r, f))
+    check("HYDRATE: now kept on this machine", '"theme":"dark"' in (pg.evaluate("localStorage.getItem('ctab:demo.panel')") or ""))
+    check("HYDRATE: the workbook copy is left in place, never deleted", pg.evaluate("demo.fake.get('demo._panel')") is not None)
+    check("HYDRATE: carrying it over did not save the workbook", pg.evaluate("demo.fake.saves") == 0)
+    pg.ctx.close()
+    pg = c.page(query="&nols=1")
+    check("blocked storage: localStorage really throws on this page", pg.evaluate("(() => { try { localStorage.getItem('x'); return false; } catch (e) { return true; } })()"))
+    open_panel(pg)
+    x, y = head_point(pg)
+    pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 120, y + 60, steps=4); pg.mouse.up()
+    tab(pg, "rings")
+    check("blocked storage: panel habits fall back to memory for this visit", pg.evaluate("(() => { try { demo.store.panelState.set({ x: 5, tab: 'rings' }); return demo.store.panelState.get().x === 5; } catch (e) { return 'threw ' + e.message; } })()") is True)
+    check("blocked storage: the panel still drags and switches tabs", pg.evaluate("demo.panel.state.docked") is False and pg.get_attribute(".cp-tab[data-t='rings']", "aria-selected") == "true")
+    check("blocked storage: 0 console errors", not pg.errs, pg.errs[:3])
+    pg.ctx.close()
+
+
+def acc_state(pg):
+    return pg.evaluate("[...document.querySelectorAll('.cp-acc')].map(b => [b.dataset.t, b.getAttribute('aria-expanded')])")
+
+
+def g_pin(c):
+    pg = c.page(w=1000, h=600, query="&persist=1")
+    pg.evaluate("localStorage.clear()"); pg.reload(); pg.wait_for_function("window.demo")
+    open_panel(pg)
+    f = pg.evaluate(RECT, "#frame"); ch0 = pg.evaluate(RECT, "#chart")
+    check("Pin to side is in the header", pg.evaluate("document.querySelector('.cp-head [data-a=pin]').getAttribute('aria-label')") == "Pin to side")
+    pg.click("[data-a=pin]")
+    pg.wait_for_function("document.querySelector('.cp-panel').classList.contains('cp-pinned')", timeout=5000)
+    pg.wait_for_timeout(100)
+    r = pg.evaluate(RECT, ".cp-panel"); ch1 = pg.evaluate(RECT, "#chart")
+    check("pinned: a full-height strip on the right edge", abs(r["r"] - f["r"]) <= 1 and abs(r["t"] - f["t"]) <= 1 and abs(r["h"] - f["h"]) <= 1 and 355 <= r["w"] <= 361, (r, f))
+    check("pinned: the chart reflows narrower and clears the strip", ch1["r"] <= r["l"] + 1 and ch1["w"] <= ch0["w"] - 355, (ch0, ch1, r))
+    check("pinned: onLayout told the extension", pg.evaluate("demo.layouts.slice(-1)[0]") == {"reserveRight": 360, "pinned": True}, pg.evaluate("demo.layouts"))
+    check("the pin button reports pressed and offers Float", pg.get_attribute("[data-a=pin]", "aria-pressed") == "true" and pg.get_attribute("[data-a=pin]", "aria-label") == "Float the panel")
+    acc = acc_state(pg)
+    check("pinned: the tabs become accordion headers with aria-expanded", len(acc) == 12 and not pg.is_visible(".cp-tabs") and dict(acc).get("layout") == "true", acc)
+    pg.click(".cp-acc[data-t=rings]"); pg.click(".cp-acc[data-t=colors]")
+    opened = [t for t, e in acc_state(pg) if e == "true"]
+    check("several sections open at once", set(opened) >= {"layout", "rings", "colors"}, opened)
+    check("each open section shows its rows", pg.query_selector(".cp-row[data-row=ringCount]") is not None and pg.query_selector(".cp-row[data-row=palette]") is not None and pg.query_selector(".cp-row[data-row=mode]") is not None)
+    pg.click(".cp-acc[data-t=layout]")
+    st2 = dict(acc_state(pg))
+    check("a section collapses on its own, the others stay open", st2["layout"] == "false" and st2["rings"] == "true" and st2["colors"] == "true" and pg.query_selector(".cp-row[data-row=mode]") is None, st2)
+    hs = pg.evaluate("[...document.querySelectorAll('.cp-acc')].map(b => b.getBoundingClientRect().height)")
+    check("accordion headers are 44px targets", min(hs) >= 43.5, min(hs))
+    pg.click("[data-a=inc][data-k=ringCount]")
+    check("a setting changes from inside the accordion", val(pg, "ringCount") == 5)
+    x, y = head_point(pg)
+    pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 200, y + 80, steps=4); pg.mouse.up()
+    r2 = pg.evaluate(RECT, ".cp-panel")
+    check("a pinned panel does not drag", abs(r2["l"] - r["l"]) < 1 and abs(r2["t"] - r["t"]) < 1, (r, r2))
+    pg.wait_for_timeout(150)
+    pg.reload(); pg.wait_for_function("window.demo")
+    open_panel(pg)
+    pg.wait_for_function("document.querySelector('.cp-panel').classList.contains('cp-pinned')", timeout=5000)
+    st3 = dict(acc_state(pg))
+    check("pinned state and the open sections are remembered on this machine", st3.get("rings") == "true" and st3.get("colors") == "true" and st3.get("layout") == "false", st3)
+    pg.click("[data-a=close]")
+    ch2 = pg.evaluate(RECT, "#chart")
+    check("closing a pinned panel gives the chart its full width back", abs(ch2["w"] - ch0["w"]) <= 1 and pg.evaluate("demo.layouts.slice(-1)[0].reserveRight") == 0, (ch0, ch2))
+    open_panel(pg)
+    pg.click("[data-a=pin]")
+    pg.wait_for_function("!document.querySelector('.cp-panel').classList.contains('cp-pinned')", timeout=5000)
+    ch3 = pg.evaluate(RECT, "#chart"); r3 = pg.evaluate(RECT, ".cp-panel")
+    check("Float makes it a floating panel again and the chart full width", abs(ch3["w"] - ch0["w"]) <= 1 and r3["w"] <= 401 and pg.is_visible(".cp-tabs"), (ch3, r3))
+    check("0 console errors", not pg.errs, pg.errs[:3])
+    pg.ctx.close()
+    for (w, h) in ((700, 500), (1000, 400)):
+        pg = c.page(w=w, h=h)
+        open_panel(pg)
+        check("%dx%d: Pin is unavailable, aria-disabled with the reason in its title" % (w, h), pg.get_attribute("[data-a=pin]", "aria-disabled") == "true" and "760 by 420" in (pg.get_attribute("[data-a=pin]", "title") or ""), pg.get_attribute("[data-a=pin]", "title"))
+        pg.click("[data-a=pin]", force=True)  # aria-disabled is still clickable for a person; Playwright would wait
+        check("%dx%d: clicking it says why and does not pin" % (w, h), "needs a view at least 760 by 420" in pg.inner_text(".cp-status") and not pg.evaluate("document.querySelector('.cp-panel').classList.contains('cp-pinned')"))
+        pg.ctx.close()
+    pg = c.page(w=390, h=700)
+    open_panel(pg)
+    check("390 sheet: the Dock and Pin buttons step aside", not pg.is_visible("[data-a=pin]") and not pg.is_visible("[data-a=dock]"))
+    pg.ctx.close()
+
+
+def g_dock(c):
+    pg = c.page(w=1000, h=640)
+    open_panel(pg)
+    f = pg.evaluate(RECT, "#frame")
+    d = pg.evaluate(RECT, ".cp-head [data-a=dock]")
+    check("a 36px Dock button sits in the header", d is not None and abs(d["w"] - 36) <= 1 and abs(d["h"] - 36) <= 1 and pg.get_attribute("[data-a=dock]", "aria-label") == "Dock the panel top right", d)
+    x, y = head_point(pg)
+    pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 300, y + 120, steps=5); pg.mouse.up()
+    r1 = pg.evaluate(RECT, ".cp-panel")
+    check("dragged away from the corner", r1["r"] < f["r"] - 200, r1)
+    pg.click("[data-a=dock]")
+    r2 = pg.evaluate(RECT, ".cp-panel")
+    corner = lambda r: abs(r["r"] - (f["r"] - 8)) <= 1.5 and abs(r["t"] - (f["t"] + 8)) <= 1.5
+    check("Dock returns it to the top right", corner(r2), (r2, f))
+    x, y = head_point(pg)
+    pg.mouse.dblclick(x, y)
+    r3 = pg.evaluate(RECT, ".cp-panel")
+    check("double-click on a docked title bar puts it back where it was", abs(r3["l"] - r1["l"]) <= 1.5 and abs(r3["t"] - r1["t"]) <= 1.5, (r1, r3))
+    x, y = head_point(pg)
+    pg.mouse.dblclick(x, y)
+    check("double-click again docks it (a toggle)", corner(pg.evaluate(RECT, ".cp-panel")))
+    pg.evaluate("demo.frame.style.width = '900px'")
+    pg.wait_for_function("(() => { const p = document.querySelector('.cp-panel').getBoundingClientRect(), f = document.querySelector('#frame').getBoundingClientRect(); return Math.abs(p.right - (f.right - 8)) <= 1.5; })()", timeout=5000)
+    check("a docked panel follows the corner when the frame resizes", True)
+    pg.evaluate("demo.frame.style.width = '1000px'")
+    pg.wait_for_timeout(100)
+    pg.click("[data-a=pin]")
+    pg.wait_for_function("document.querySelector('.cp-panel').classList.contains('cp-pinned')", timeout=5000)
+    x, y = head_point(pg)
+    pg.mouse.dblclick(x, y)
+    check("double-click on a pinned title bar floats it", not pg.evaluate("document.querySelector('.cp-panel').classList.contains('cp-pinned')"))
+    check("0 console errors", not pg.errs, pg.errs[:3])
+    pg.ctx.close()
+
+
+def g_revert(c):
+    pg = c.page()
+    open_panel(pg)
+    pg.click("[data-a=inc][data-k=angle]"); pg.click(".cp-chip[data-v=multi]")
+    tab(pg, "rings"); pg.click("[data-a=inc][data-k=ringCount]")
+    pg.click("[data-a=close]"); open_panel(pg)
+    pg.click("[data-a=revert]")
+    check("Revert restores the settings from when the panel was first opened", (val(pg, "angle"), val(pg, "mode"), val(pg, "ringCount")) == (90, "overlay", 4), (val(pg, "angle"), val(pg, "mode"), val(pg, "ringCount")))
+    stt = pg.inner_text(".cp-status")
+    check("it says how many and that Undo brings them back", "3 settings" in stt and "Undo" in stt, stt)
+    pg.click("[data-a=undo]")
+    check("Revert is one undo step", (val(pg, "angle"), val(pg, "mode"), val(pg, "ringCount")) == (105, "multi", 5))
+    pg.click("[data-a=revert]"); pg.click("[data-a=revert]")
+    check("a second Revert says nothing has changed", "Nothing has changed" in pg.inner_text(".cp-status"), pg.inner_text(".cp-status"))
+    pg.wait_for_function("demo.fake.saves >= 1", timeout=5000)
+    check("save-as-you-go stays: the revert reached the workbook", pg.evaluate("demo.fake.m['demo.angle']") == "90", pg.evaluate("demo.fake.m['demo.angle']"))
+    pg.ctx.close()
+
+
+def g_savestatus(c):
+    pg = c.page()
+    open_panel(pg)
+    check("before any change the line says changes save as you go", "save to the workbook as you go" in pg.inner_text(".cp-save"), pg.inner_text(".cp-save"))
+    check("the save line is a polite status region", pg.get_attribute(".cp-save", "role") == "status" and pg.get_attribute(".cp-save", "aria-live") == "polite")
+    pg.click("[data-a=inc][data-k=angle]")
+    pg.wait_for_function("document.querySelector('.cp-save').dataset.state === 'saved'", timeout=5000)
+    check("after a change: Saved to the workbook", pg.inner_text(".cp-save") == "Saved to the workbook.", pg.inner_text(".cp-save"))
+    pg.ctx.close()
+    pg = c.page(query="&nosave=1")
+    open_panel(pg)
+    pg.click("[data-a=inc][data-k=angle]")
+    pg.wait_for_function("document.querySelector('.cp-save').dataset.state === 'failed'", timeout=5000)
+    t = pg.inner_text(".cp-save")
+    check("a view that cannot save says so plainly", t == "These changes last for this visit only: this view cannot save to the workbook." and "cp-err" in pg.get_attribute(".cp-save", "class"), t)
+    w = [x for x in audit(pg)["texts"] if x["text"].startswith("These changes")]
+    check("the warning reads at 7:1", w and contrast(w[0]["fg"], w[0]["bg"]) >= 7, w[:1])
+    check("the change still applies for this visit", val(pg, "angle") == 105)
+    pg.ctx.close()
+
+
+def g_copyfmt(c):
+    pg = c.page(perms=True)
+    open_panel(pg)
+    pg.click("[data-a=inc][data-k=angle]")
+    tab(pg, "fields"); pg.select_option("select[data-k=fieldAxis]", "Region")
+    pg.click("[data-a=copy][data-kind=formatting]")
+    pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied the formatting') === 0", timeout=5000)
+    blk = json.loads(pg.evaluate("demo.panel.lastCopied"))
+    check("Copy formatting makes a labeled block", blk["ctab"] == 1 and blk["chart"] == "demo." and blk["name"] == "Demo settings" and blk["kind"] == "formatting" and re.match(r"\d{4}-\d\d-\d\dT", blk["copied"]), {k: blk[k] for k in blk if k != "settings"})
+    sv = blk["settings"]
+    check("Copy formatting leaves out field picks and per-item lists", "fieldAxis" not in sv and "axes" not in sv and "catColors" not in sv and sv.get("palette") == "datadivers" and sv.get("angle") == 105, sorted(sv)[:8])
+    check("the clipboard holds that block", clip_text(pg) == pg.evaluate("demo.panel.lastCopied"))
+    pg.click("[data-a=copy][data-kind=everything]")
+    pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied every setting') === 0", timeout=5000)
+    blk2 = json.loads(pg.evaluate("demo.panel.lastCopied"))
+    check("Copy everything keeps the field picks and lists", blk2["kind"] == "everything" and blk2["settings"]["fieldAxis"] == "Region" and isinstance(blk2["settings"]["axes"], list))
+    check("the copy is also kept on this machine", pg.evaluate("localStorage.getItem('ctab:lastcopy')") == pg.evaluate("demo.panel.lastCopied"))
+    pg.select_option("select[data-k=fieldAxis]", ""); tab(pg, "layout"); pg.click("[data-a=dec][data-k=angle]")
+    pg.click("[data-a=paste]")
+    meta = pg.inner_text(".cp-foot")
+    check("the paste box offers the last copy on this machine, with where it came from", pg.is_visible("[data-a=pastelast]") and "Demo settings, everything" in meta, meta[-120:])
+    pg.click("[data-a=pastelast]")
+    stt = pg.inner_text(".cp-status")
+    check("Use the last copy applies it and reports its source", val(pg, "fieldAxis") == "Region" and val(pg, "angle") == 105 and stt.startswith("From Demo settings (everything, copied "), stt)
+    radar = {"ctab": 1, "chart": "radar.", "name": "Radar settings", "kind": "everything", "copied": "2026-11-24T21:00:00Z",
+             "settings": {"labelSize": 20, "palette": "okabe", "angle": 10, "fieldAxis": "Metric", "spokes": 3}}
+    pg.click("[data-a=paste]"); pg.fill("textarea[data-f=paste]", json.dumps(radar)); pg.click("[data-a=pasteapply]")
+    stt = pg.inner_text(".cp-status")
+    check("from another chart type only the shared looks move over", val(pg, "labelSize") == 20 and val(pg, "palette") == "okabe" and val(pg, "angle") == 105 and val(pg, "fieldAxis") == "Region",
+          (val(pg, "labelSize"), val(pg, "palette"), val(pg, "angle"), val(pg, "fieldAxis")))
+    check("and the message says where it came from and what it skipped", "From Radar settings (everything, copied 11/24/2026" in stt and "applied 2 shared settings" in stt and "Skipped 3 only that chart has" in stt, stt)
+    check("0 console errors", not pg.errs, pg.errs[:3])
+    pg.ctx.close()
+
+
+def g_fonts(c):
+    pg = c.page()
+    open_panel(pg)
+    res = pg.evaluate("""async () => { await Promise.all(['400 14px Poppins', '700 14px Poppins', '600 14px Poppins', '14px Inter'].map(f => document.fonts.load(f)));
+      await document.fonts.ready; return [...document.fonts].map(f => [f.family.replace(/"/g, ''), String(f.weight), f.status]); }""")
+    loaded = [(fam, w) for fam, w, st in res if st == "loaded"]
+    check("Inter loads from the bundled file", any(fam == "Inter" for fam, w in loaded), res)
+    check("Poppins 400, 600 and 700 load from the bundled files", all(("Poppins", w) in loaded for w in ("400", "600", "700")), res)
+    check("no bundled font failed to load", not [x for x in res if x[2] == "error"], res)
+    fonts = sorted(x.name for x in (ROOT / "fonts").iterdir())
+    check("the font folder holds both OFL licenses and five woff2 files", "LICENSE-Inter-OFL.txt" in fonts and "LICENSE-Poppins-OFL.txt" in fonts and len([x for x in fonts if x.endswith(".woff2")]) == 5, fonts)
+    check("every woff2 file really is WOFF2", all((ROOT / "fonts" / x).read_bytes()[:4] == b"wOF2" for x in fonts if x.endswith(".woff2")))
+    check("both licenses are the SIL Open Font License", all("SIL OPEN FONT LICENSE" in (ROOT / "fonts" / x).read_text(encoding="utf-8", errors="replace").upper() for x in fonts if x.startswith("LICENSE")))
+    tab(pg, "fonts")
+    opts = pg.evaluate("[...document.querySelectorAll('select[data-k=fontFamily] option')].map(o => o.textContent)")
+    check("Poppins is a font choice", "Poppins" in opts, opts)
+    pg.select_option("select[data-k=fontFamily]", "poppins")
+    check("choosing it stores poppins", val(pg, "fontFamily") == "poppins")
+    check("the panel itself renders in Inter", pg.evaluate("getComputedStyle(document.querySelector('.cp-panel')).fontFamily").startswith("Inter"))
+    pg.ctx.close()
+
+
+def g_textsize(c):
+    pg = c.page()
+    open_panel(pg)
+    tab(pg, "fonts")
+    sz = pg.evaluate("[...document.querySelectorAll('.cp-chip[data-k=textScale]')].map(b => parseFloat(getComputedStyle(b).fontSize))")
+    check("Text size is stepped buttons that preview their own size", sz == [14, 16, 18, 20], sz)
+    check("no slider anywhere", pg.evaluate("document.querySelectorAll('input[type=range]').length") == 0)
+    pg.click('.cp-chip[data-k=textScale][data-v="1.3"]')
+    pg.wait_for_function("document.querySelector('#chart').textContent.indexOf('\"labelSize\": 18') >= 0", timeout=5000)
+    check("at 130% the chart gets 18px labels while 14 stays stored", pg.evaluate("[demo.store.get().labelSize, demo.store.raw().labelSize, demo.store.get().titleSize]") == [18, 14, 23])
+    check("the steppers still show what was typed", pg.input_value("input[data-k=titleSize]") == "18")
+    tab(pg, "_panel")
+    pg.click('.cp-chip[data-k=uiScale][data-v="1.3"]')
+    fs = pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.cp-row .cp-lab, .cp-row .cp-help')).fontSize)")
+    check("Panel text size scales the panel text (130% is 18.2px)", abs(fs - 18.2) < 0.25, fs)
+    small = [x for x in audit(pg)["texts"] if x["size"] < 14 - 0.01]
+    check("nothing in the scaled panel is under 14px", not small, small[:3])
+    pg.ctx.close()
+
+
+def g_titles(c):
+    pg = c.page()
+    open_panel(pg)
+    tab(pg, "fonts")
+    check("the title box shows a placeholder example", "{top}" in (pg.get_attribute("input[data-k=titleText]", "placeholder") or ""))
+    pg.check("input[data-k=showTitle]")
+    pg.fill("input[data-k=titleText]", "Top {top} of {n} ({total}) {nope}")
+    pg.wait_for_function("document.querySelector('#chart').textContent.indexOf('Top Alpha of 6 (1,250) {nope}') >= 0", timeout=5000)
+    check("placeholders fill from the chart, unknown ones stay as typed", True)
+    check("the box keeps what was typed", pg.input_value("input[data-k=titleText]") == "Top {top} of {n} ({total}) {nope}")
+    check("the help lists the placeholders this chart offers", "This chart offers {n}, {top}, {total}." in pg.inner_text(".cp-row[data-row=titleText]"), pg.inner_text(".cp-row[data-row=titleText]"))
+    pg.ctx.close()
+
+
+def g_options(c):
+    pg = c.page()
+    open_panel(pg)
+    tab(pg, "numbers")
+    labs = pg.evaluate("[...document.querySelectorAll('.cp-chip[data-k=numThousands]')].map(b => b.textContent)")
+    check("thousands chips show their result", labs == ["1,234,567", "1 234 567", "1234567"], labs)
+    pv = lambda: pg.inner_text("[data-preview=numPreview]")
+    check("a live line shows the format", pv() == "Shows as 12,345.6 and -0.5", pv())
+    pg.click("[data-a=inc][data-k=numDecimals]")
+    pg.wait_for_function("document.querySelector('[data-preview=numPreview]').textContent.indexOf('12,345.60') >= 0", timeout=3000)
+    check("it follows the decimals", True)
+    pg.click(".cp-chip[data-k=numThousands][data-v=space]")
+    check("it follows the separator", "12 345.60" in pv(), pv())
+    pg.fill("input[data-k=numPrefix]", "$")
+    check("it follows typed text at once", pv() == "Shows as $12 345.60 and -$0.50", pv())
+    tab(pg, "labels")
+    wts = pg.evaluate("[...document.querySelectorAll('.cp-chip[data-k=labelWeight]')].map(b => getComputedStyle(b).fontWeight)")
+    check("weight chips are drawn in their own weight", wts == ["400", "700"], wts)
+    pg.ctx.close()
+
+
+def g_darkpal(c):
+    pg = c.page()
+    open_panel(pg)
+    tab(pg, "colors")
+    orig = pg.evaluate("demo.P.PALETTES[0].colors")
+    r0 = pg.evaluate("demo.renders()")
+    pg.evaluate("demo.panel.applyAppearance('#0b1f33', '#e8f0f7')")
+    pg.wait_for_function("demo.renders() > %d" % r0, timeout=5000)
+    check("a chart turning dark redraws once with the dark palette", True)
+    bad = []
+    for p in pg.evaluate("demo.P.PALETTES.map(p => p.id)"):
+        for col in pg.evaluate("(id) => demo.P.paletteColors(id)", p):
+            if contrast(hexrgb(col), hexrgb("#0b1f33")) < 3:
+                bad.append((p, col))
+    check("every palette color reaches 3:1 on the dark chart", not bad, bad[:4])
+    check("the palette buttons show the dark variant", "dark variant" in pg.inner_text(".cp-pals"))
+    strip = pg.evaluate("getComputedStyle(document.querySelectorAll('.cp-pal')[0].querySelectorAll('i')[1]).backgroundColor")
+    dv = pg.evaluate("demo.P.paletteColors('datadivers')[1]")
+    check("the swatch strip draws the dark colors", strip == "rgb(%d, %d, %d)" % tuple(hexrgb(dv)), (strip, dv))
+    pg.evaluate("demo.panel.applyAppearance('#ffffff', '#14202e')")
+    check("back on white the palette is the original", pg.evaluate("demo.P.paletteColors('datadivers')") == orig)
+    pg.ctx.close()
+
+
+def g_action(c):
+    pg = c.page()
+    open_panel(pg)
+    tab(pg, "fonts")
+    pg.click("[data-a=action][data-k=setupMeeting]")
+    got = [val(pg, k) for k in ("textScale", "labelWeight", "titleWeight", "labelsOn")]
+    check("one click sets several settings", got == ["1.3", "bold", "bold", True], got)
+    check("it reports in the status line", pg.inner_text(".cp-status").startswith('Applied "Set up for a meeting room": 2 settings changed'), pg.inner_text(".cp-status"))
+    pg.click("[data-a=undo]")
+    check("Undo takes the whole setup back in one step", [val(pg, k) for k in ("textScale", "labelWeight")] == ["1", "normal"])
+    pg.ctx.close()
+
+
+def g_frames(c):
+    """Smoothness: rAF frame times while dragging, pinning, floating and docking. Hidden tabs freeze rAF, so check visibility first."""
+    pg = c.page(w=1000, h=640)
+    open_panel(pg)
+    check("the page is visible (rAF runs)", pg.evaluate("document.visibilityState") == "visible")
+    pg.evaluate("window.__ft = []; (function loop(t) { window.__ft.push(t); if (window.__ft.length < 260) requestAnimationFrame(loop); })(performance.now())")
+    x, y = head_point(pg)
+    pg.mouse.move(x, y); pg.mouse.down()
+    for i in range(40):
+        pg.mouse.move(x - i * 6, y + i * 3)
+    pg.mouse.up()
+    pg.click("[data-a=pin]"); pg.click("[data-a=pin]"); pg.click("[data-a=dock]")
+    pg.wait_for_function("window.__ft.length >= 260", timeout=20000)
+    ft = pg.evaluate("window.__ft")
+    d = sorted(ft[i + 1] - ft[i] for i in range(len(ft) - 1))
+    med, p95, mx = d[len(d) // 2], d[int(len(d) * 0.95)], d[-1]
+    check("frames n=%d median %.1f p95 %.1f max %.1f ms: median at 60 fps and p95 under 34 ms" % (len(d), med, p95, mx), len(d) >= 200 and med <= 20 and p95 <= 34, (med, p95, mx))
     pg.ctx.close()
 
 
@@ -796,8 +1214,19 @@ def main():
                 pg = c.page(w=size[0], h=size[1], query=query)
                 pg.wait_for_timeout(300); pg.screenshot(path=str(out / ("panel-%s.png" % name)))
                 if name == "light":
+                    tab(pg, "labels"); pg.uncheck("input[data-k=labelsOn]"); pg.wait_for_timeout(200)
+                    pg.screenshot(path=str(out / "panel-grayed-rows.png"))
                     tab(pg, "_panel"); pg.click(".cp-chip[data-v=dark]"); pg.click(".cp-tab[data-t='colors']"); pg.wait_for_timeout(200)
                     pg.screenshot(path=str(out / "panel-dark-colors.png"))
+                pg.ctx.close()
+            pg = c.page(w=1280, h=800, query="&open=1")
+            pg.click("[data-a=pin]"); pg.click(".cp-acc[data-t=rings]"); pg.wait_for_timeout(300)
+            pg.screenshot(path=str(out / "panel-pinned-1280.png"))
+            pg.ctx.close()
+            for name, query, size in (("diag", "&open=1", (900, 640)),):
+                pg = c.page(w=size[0], h=size[1], query=query)
+                tab(pg, "_panel"); pg.click("[data-a=diagshow]"); pg.wait_for_timeout(200)
+                pg.screenshot(path=str(out / "panel-diagnostics.png"))
                 pg.ctx.close()
         b.close()
     srv.shutdown()
