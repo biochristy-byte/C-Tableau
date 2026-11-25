@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.xeomatrix.vizext.rangedot" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Range Dot: where one member sits against a group's range, column by column, with the dot colored by bands you define.</description>
+    <author name="XeoMatrix" email="" organization="XeoMatrix" website="https://www.xeomatrix.com"/>
+    <min-api-version>1.1</min-api-version>
+    <source-location>
+      <url>http://localhost:8771/index.html</url>
+    </source-location>
+    <icon/>
+    <!-- Tableau allows at most FOUR custom encodings (a fifth fails with
+         "element encoding is not allowed"). Tooltip and Detail are built in
+         on top. Anything past four rides on Detail and is matched by field
+         name in viz.js (EXTRAS), overridable in the Fields tab. -->
+    <encoding id="category">
+      <display-name>Category</display-name>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-c" />
+      <tooltip resource-id="tooltip-category">Required. One column per member, such as a week.</tooltip>
+    </encoding>
+    <!-- No role-spec here, so any measure can be dropped. -->
+    <encoding id="value">
+      <display-name>Value</display-name>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-v" />
+      <tooltip resource-id="tooltip-value">Required. The measure being compared.</tooltip>
+    </encoding>
+    <encoding id="member">
+      <display-name>Member</display-name>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-m" />
+      <tooltip resource-id="tooltip-member">Who the range is made of, such as a person. Leave empty when low and high fields are on Detail.</tooltip>
+    </encoding>
+    <!-- No role-spec: a measure is cut into bands, a dimension colors by name. -->
+    <encoding id="color">
+      <display-name>Color</display-name>
+      <fields max-count="1"/>
+      <encoding-icon token="color" />
+      <tooltip resource-id="tooltip-color">Optional. A measure is cut into bands at boundaries you set. A dimension colors the dot by name.</tooltip>
+    </encoding>
+  </worksheet-extension>
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Range Dot</text>
+    </resource>
+  </resources>
+</manifest>

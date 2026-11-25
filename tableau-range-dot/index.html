@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Range Dot</title>
+    <style>
+      /* Bundled Poppins (offline, no CDN). */
+      @font-face { font-family: 'Poppins'; font-weight: 400; src: url('./assets/fonts/Poppins-Regular.ttf'); }
+      @font-face { font-family: 'Poppins'; font-weight: 500; src: url('./assets/fonts/Poppins-Medium.ttf'); }
+      @font-face { font-family: 'Poppins'; font-weight: 600; src: url('./assets/fonts/Poppins-SemiBold.ttf'); }
+      @font-face { font-family: 'Poppins'; font-weight: 700; src: url('./assets/fonts/Poppins-Bold.ttf'); }
+
+      html, body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        font-family: 'Poppins', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #333; overflow: hidden;
+      }
+      #app { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; }
+      /* Without this a long legend or title widens the whole view. */
+      #app > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+
+      /* Settings wheel, top-right corner of the view. */
+      #gear {
+        position: fixed; top: 8px; right: 8px; z-index: 900;
+        width: 30px; height: 30px; border-radius: 50%;
+        border: 1px solid rgba(0,0,0,0.12); background: rgba(255,255,255,0.9);
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        padding: 0; color: #555; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      }
+      #gear:hover { color: #000; background: #fff; }
+      #gear svg { width: 18px; height: 18px; }
+
+      /* ---- CHART: title block, legend and drawing area. Edit freely. ---- */
+      #header { flex: 0 0 auto; padding: 14px 52px 6px 20px; }
+      #h-title { font-weight: 700; line-height: 1.2; }
+      #h-title .h-rest { font-weight: 400; }
+      #h-sub { margin-top: 3px; line-height: 1.35; }
+      #legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+      #legend .lg-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+      #legend .lg-dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; box-sizing: border-box; }
+      #legend .lg-open { background: transparent; border: 1.5px solid #5f6770; margin-left: 6px; }
+      #legend .lg-bar { width: 9px; height: 15px; border-radius: 3px; flex: 0 0 auto; }
+      #legend .lg-line { width: 16px; height: 2px; border-radius: 1px; flex: 0 0 auto; }
+      #legend .lg-peer { width: 5px; height: 5px; border-radius: 50%; flex: 0 0 auto; opacity: 0.5; }
+      #body { flex: 1 1 auto; overflow: auto; position: relative; min-height: 0; }
+      #chart { display: block; }
+      .mark { transition: opacity 0.12s; }
+      #chart.hovering .col-g.dim .mark, #chart.hovering .col-g.dim .dot-label { opacity: 0.4; }
+      .dot-label { transition: opacity 0.12s; }
+      /* ---- end CHART ---- */
+
+      #message {
+        display: flex; align-items: center; justify-content: center;
+        width: 100%; height: 100%; padding: 16px; box-sizing: border-box;
+        text-align: center; color: #666; font-size: 14px; line-height: 1.6;
+      }
+      #message a { color: #2f7ed8; }
+      /* Why the chart is blank. Silent failures here are expensive to chase. */
+      #diag { display: none; margin-top: 10px; font-size: 11px; color: #9aa0a6;
+        font-family: Consolas, 'Courier New', monospace; }
+
+      /* Tooltip */
+      #tooltip {
+        position: fixed; pointer-events: none; display: none; z-index: 1100;
+        background: #fff; border: 1px solid #ccc; border-radius: 6px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.15); padding: 8px 12px;
+        font-size: 12px; color: #333; white-space: nowrap; line-height: 1.5;
+      }
+      #tooltip .t-title { font-weight: 700; font-size: 13px; }
+      #tooltip .t-muted { color: #777; }
+      #tooltip .t-strong { font-weight: 700; }
+      #tooltip .t-sep { height: 1px; background: #e3e6eb; margin: 5px 0 4px; }
+      #tooltip .t-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+      /* Settings panel: floating, draggable by its title bar, live preview. */
+      #panel {
+        position: fixed; top: 8px; right: 8px; z-index: 1001; display: none;
+        width: 400px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); box-sizing: border-box;
+        flex-direction: column;
+        background: #f7f8fa; border: 1px solid #d9dce1; border-radius: 8px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.25); padding: 0 18px 14px;
+        font-size: 13px; color: #2b2f36;
+      }
+      #panel-head { display: flex; align-items: center; gap: 8px; margin: 0 -18px 8px; padding: 12px 14px 10px 18px;
+        cursor: grab; user-select: none; touch-action: none; border-bottom: 1px solid #e3e6eb;
+        border-radius: 8px 8px 0 0; background: #eef1f5; }
+      #panel-head.dragging { cursor: grabbing; }
+      #panel-head h2 { font-size: 16px; font-weight: 700; margin: 0; flex: 1 1 auto; }
+      #panel-head .grip { color: #9aa2ad; font-size: 15px; letter-spacing: -2px; line-height: 1; }
+      #panel-head .head-btn { font-family: inherit; font-size: 12px; padding: 3px 8px; border-radius: 5px; cursor: pointer;
+        border: 1px solid #cfd3da; background: #fff; color: #4b5260; }
+      #panel-head .head-btn:hover { background: #e6ebf2; }
+      #tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+      .tab { font-family: inherit; font-size: 12px; padding: 5px 9px; border-radius: 14px; cursor: pointer;
+        border: 1px solid #d5d9e0; background: #fff; color: #4b5260; }
+      .tab.active { background: #2f7ed8; border-color: #2f7ed8; color: #fff; }
+      #panes { overflow-y: auto; overflow-x: hidden; flex: 1 1 auto; min-height: 0; padding-right: 4px; }
+      .pane { display: none; }
+      .pane.active { display: block; }
+      .acc-head { display: none; }
+
+      /* Pinned: a full-height strip on the right. The chart narrows, so nothing is covered. */
+      #panel.pinned { top: 0; right: 0; bottom: 0; left: auto; width: 380px; max-height: none; border-radius: 0;
+        border-width: 0 0 0 1px; box-shadow: -4px 0 16px rgba(0,0,0,0.12); }
+      #panel.pinned #panel-head { cursor: default; border-radius: 0; }
+      #panel.pinned .grip { visibility: hidden; }
+      body.panel-pinned #app, body.panel-pinned #message { width: calc(100% - 380px); }
+      body.panel-pinned #gear { right: 388px; }
+      body.panel-pinned #notice { right: 430px; }
+
+      /* Accordion: the same panes, stacked, each under a header that opens and closes it. */
+      #panel.accordion #tabs { display: none; }
+      #panel.accordion .pane { display: block; border-bottom: 1px solid #e3e6eb; }
+      #panel.accordion .acc-head { display: flex; width: 100%; box-sizing: border-box; align-items: center;
+        justify-content: space-between; font-family: inherit; font-size: 13px; font-weight: 700; color: #2b2f36;
+        padding: 11px 2px; border: 0; background: transparent; cursor: pointer; text-align: left; }
+      #panel.accordion .acc-head:hover { color: #2f7ed8; }
+      .acc-head .chev { font-size: 18px; line-height: 1; color: #6b7280; transition: transform 0.15s; }
+      .pane.open .acc-head .chev { transform: rotate(90deg); }
+      #panel.accordion .pane-body { display: none; padding-bottom: 10px; }
+      #panel.accordion .pane.open .pane-body { display: block; }
+      #panel-head .head-btn:disabled { opacity: 0.45; cursor: default; }
+      #panel .section { font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+        color: #2f7ed8; text-transform: uppercase; margin: 14px 0 6px; }
+      #panel .row { display: grid; grid-template-columns: 112px 1fr auto; align-items: center;
+        gap: 8px; margin: 7px 0; }
+      #panel .row label.name { color: #555; }
+      #panel select, #panel input[type="text"], #panel input[type="number"], #panel textarea {
+        width: 100%; box-sizing: border-box; font-size: 13px; padding: 5px 6px;
+        border: 1px solid #cfd3da; border-radius: 4px; background: #fff; font-family: inherit;
+      }
+      #panel input[type="range"] { width: 100%; }
+      #panel input[type="range"]:disabled { opacity: 0.4; }
+      #panel input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid #cfd3da;
+        border-radius: 3px; background: #fff; cursor: pointer; }
+      #panel .slider-val { color: #8a9099; font-size: 12px; min-width: 44px; text-align: right; }
+      #panel .check { display: flex; align-items: center; gap: 8px; }
+      #panel input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2f7ed8; }
+      #panel .hint { font-size: 11.5px; color: #7a808a; margin: 4px 0 8px; line-height: 1.45; }
+      #panel .row.off, #panel .sec.off { opacity: 0.45; }
+      #panel .check input[type="text"] { flex: 1 1 auto; min-width: 0; }
+      /* Boundary editor and named colors: one compact line each. */
+      .band-row { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
+      .band-row .band-lead { flex: 0 0 70px; white-space: nowrap; color: #555; font-size: 12px; }
+      #panel .band-row .band-num { flex: 0 0 68px; width: 68px; }
+      #panel .band-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+      .band-row .band-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .band-row .band-del { flex: 0 0 auto; border: none; background: transparent; color: #8a9099; font-size: 17px;
+        line-height: 1; cursor: pointer; padding: 0 4px; }
+      .band-row .band-del:hover { color: #b4232a; }
+
+      #palette-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .pcard { border: 2px solid transparent; border-radius: 6px; padding: 4px; cursor: pointer; background: #fff; }
+      .pcard.selected { border-color: #2f7ed8; }
+      .pcard .swatches { display: flex; height: 20px; border-radius: 4px; overflow: hidden; }
+      .pcard .swatches span { flex: 1 1 auto; }
+      .pcard .pname { font-size: 11px; color: #6b7280; text-align: center; margin-top: 3px; }
+
+      .mini-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+      .mini-btn { font-family: inherit; font-size: 12px; padding: 4px 10px; border-radius: 5px; cursor: pointer;
+        border: 1px solid #cfd3da; background: #fff; color: #333; }
+      .mini-btn:hover { background: #eef2f7; }
+      .msg-btns { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+      #msg-diag-text { display: none; width: min(560px, 90vw); height: 200px; margin-top: 10px; text-align: left;
+        font-family: Consolas, 'Courier New', monospace; font-size: 11px; border: 1px solid #cfd3da;
+        border-radius: 4px; padding: 6px; box-sizing: border-box; }
+      #set-text { display: none; width: 100%; box-sizing: border-box; height: 110px; margin-top: 8px;
+        font-family: Consolas, 'Courier New', monospace; font-size: 11px; border: 1px solid #cfd3da;
+        border-radius: 4px; padding: 6px; resize: vertical; }
+      #set-load-row { align-items: center; }
+      #set-load-row .hint { margin: 0; }
+      #diag-text { display: none; width: 100%; box-sizing: border-box; height: 180px; margin-top: 8px;
+        font-family: Consolas, 'Courier New', monospace; font-size: 11px; border: 1px solid #cfd3da;
+        border-radius: 4px; padding: 6px; resize: vertical; }
+      /* A dismissible note, for when the chart had to adapt to the data. */
+      #notice { position: fixed; left: 10px; bottom: 10px; right: 50px; z-index: 950; display: none;
+        align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px;
+        background: #fff6e5; border: 1px solid #f0d9a8; color: #7a5b1e; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+      #notice span { flex: 1 1 auto; }
+      #notice button { border: none; background: transparent; font-size: 16px; line-height: 1; cursor: pointer; color: #7a5b1e; }
+      .field-warn { font-size: 11.5px; color: #a3471b; margin: -2px 0 6px 120px; }
+
+      #panel .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; flex: 0 0 auto; }
+      #panel .btn { font-size: 13px; padding: 8px 18px; border-radius: 6px; cursor: pointer;
+        border: 1px solid transparent; font-family: inherit; }
+      #btn-cancel { background: #e6e8eb; color: #333; }
+      #btn-apply { background: #2f7ed8; color: #fff; }
+      /* Sits apart from Cancel/Apply so it is not mistaken for the primary action. */
+      #btn-reset { background: transparent; color: #b4232a; border-color: #e2c3c5;
+        margin-right: auto; padding: 8px 12px; }
+      #btn-reset:hover { background: #fbeff0; border-color: #d99ba0; }
+      #reset-note { display: none; margin-top: 10px; padding: 7px 10px;
+        background: #fff6e5; border: 1px solid #f0d9a8; border-radius: 5px;
+        font-size: 12px; color: #7a5b1e; flex: 0 0 auto; }
+    </style>
+  </head>
+  <body>
+    <button id="gear" title="Range Dot settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+
+    <!-- Shown until there is data, and whenever the chart cannot draw. The
+         text here is the default instruction; viz.js swaps in specifics. -->
+    <div id="message">
+      <div>
+        <div id="msg-text">Drop a dimension on <b>Category</b> (a week, a grade) and a measure on <b>Value</b> in the Marks card.<br />
+          Put the dimension whose members make up the range on <b>Member</b> (a person, a product).<br />
+          A true or false field on <b>Detail</b> picks who gets the dot.</div>
+        <div id="diag"></div>
+        <div class="msg-btns">
+          <button class="mini-btn" id="msg-retry">Retry now</button>
+          <button class="mini-btn" id="msg-diag">Diagnostics</button>
+        </div>
+        <textarea id="msg-diag-text" readonly></textarea>
+      </div>
+    </div>
+
+    <div id="app" style="display:none">
+      <div id="header">
+        <div id="h-title"></div>
+        <div id="h-sub"></div>
+        <div id="legend"></div>
+      </div>
+      <div id="body"><svg id="chart"></svg></div>
+    </div>
+
+    <div id="tooltip"></div>
+    <div id="notice"><span></span><button id="notice-close" title="Dismiss">&times;</button></div>
+
+    <!-- SETTINGS PANEL. To add a setting: a row here, a default in DEFAULTS,
+         a line in CONTROLS (both in viz.js). Ids are prefix-key: sel- chk-
+         rng- inp- col- num-, and a range's value label is lbl-<same suffix>.
+         The accordion headers (pinned view) are built from the tab buttons. -->
+    <div id="panel">
+      <div id="panel-head" title="Drag to move. Double-click to dock.">
+        <span class="grip">&#8942;&#8942;</span>
+        <h2>Range Dot Settings</h2>
+        <button class="head-btn" id="btn-pin">Pin to side</button>
+        <button class="head-btn" id="btn-dock" title="Return the panel to the corner">Dock</button>
+      </div>
+      <div id="tabs">
+        <button class="tab active" data-tab="layout">Layout</button>
+        <button class="tab" data-tab="range">Range</button>
+        <button class="tab" data-tab="dot">Dot</button>
+        <button class="tab" data-tab="values">Values</button>
+        <button class="tab" data-tab="reference">Line</button>
+        <button class="tab" data-tab="title">Title</button>
+        <button class="tab" data-tab="colors">Colors</button>
+        <button class="tab" data-tab="fonts">Fonts</button>
+        <button class="tab" data-tab="fields">Fields</button>
+      </div>
+
+      <div id="panes">
+        <!-- LAYOUT -->
+        <div class="pane active" data-pane="layout">
+          <div class="section">Quick setup</div>
+          <div class="hint">For a value that is a share of a limit, such as hours against capacity, spend against
+            budget or sales against quota. Sets percent format, a line at 100% and four color bands. Change any of it afterward.</div>
+          <div class="mini-btns"><button class="mini-btn" id="btn-quick-limit">Set up as percent of a limit</button></div>
+          <div class="section">Columns</div>
+          <div class="row"><label class="name">Fit</label>
+            <select id="sel-fit">
+              <option value="fill">Fill the view</option>
+              <option value="fixed">Fixed column width, scroll</option>
+            </select><span></span></div>
+          <div class="row" id="row-colwidth"><label class="name">Column width</label>
+            <input type="range" id="rng-colwidth" min="30" max="240" step="2" />
+            <span class="slider-val" id="lbl-colwidth"></span></div>
+          <div class="row"><label class="name">Bar width</label>
+            <input type="range" id="rng-barwidth" min="4" max="80" step="1" />
+            <span class="slider-val" id="lbl-barwidth"></span></div>
+          <div class="row"><label class="name">Corners</label>
+            <input type="range" id="rng-radius" min="0" max="20" step="1" />
+            <span class="slider-val" id="lbl-radius"></span></div>
+          <div class="row"><label class="name">Order</label>
+            <select id="sel-sort">
+              <option value="auto">Automatic (order field, then dates)</option>
+              <option value="order">Order field (Detail)</option>
+              <option value="name">Name (A to Z)</option>
+              <option value="data">Data order</option>
+            </select><span></span></div>
+          <div class="section">Category labels</div>
+          <div class="row"><label class="name">Show</label>
+            <div class="check"><input type="checkbox" id="chk-catlabels" /><span>Name each column</span></div><span></span></div>
+          <div class="row" id="row-catfmt"><label class="name">Dates as</label>
+            <select id="sel-catfmt">
+              <option value="auto">As Tableau shows them</option>
+              <option value="md">11/8</option>
+              <option value="mond">Nov 8</option>
+              <option value="mdy">11/8/26</option>
+              <option value="monyear">Nov 2026</option>
+            </select><span></span></div>
+          <div class="row"><label class="name">Axis name</label>
+            <div class="check"><input type="checkbox" id="chk-cattitle" /><input type="text" id="inp-cattitle" placeholder="(the field name)" /></div><span></span></div>
+          <div class="section">Note under a column</div>
+          <div class="hint">A small second line under a column, read from a field on Detail, such as capacity hours
+            for the week. Most columns share a baseline, and only the exceptions need calling out.</div>
+          <div class="row"><label class="name">Show</label>
+            <select id="sel-noteshow">
+              <option value="unusual">Only the exceptions</option>
+              <option value="always">Under every column</option>
+              <option value="never">Hidden</option>
+            </select><span></span></div>
+          <div class="row" id="row-noteusual"><label class="name">Baseline</label>
+            <input type="text" id="inp-noteusual" placeholder="(automatic: the most common)" /><span></span></div>
+          <div class="hint" id="hint-baseline"></div>
+          <div class="row" id="row-notewhich"><label class="name">Exceptions</label>
+            <select id="sel-notewhich">
+              <option value="any">Any difference from the baseline</option>
+              <option value="below">Only below the baseline</option>
+              <option value="above">Only above the baseline</option>
+            </select><span></span></div>
+          <div class="row" id="row-notetol"><label class="name">Tolerance</label>
+            <input type="range" id="rng-notetol" min="0" max="10" step="0.5" />
+            <span class="slider-val" id="lbl-notetol"></span></div>
+          <div class="hint">How far from the baseline still counts as the same, as a share of it. At 1%, 39.9 against 40 is not called out.</div>
+          <div class="row" id="row-notetpl"><label class="name">Note text</label>
+            <input type="text" id="inp-notetpl" placeholder="{note}" /><span></span></div>
+          <div class="hint">Write text around <b>{note}</b>, for example <b>{note} h cap</b>. Also available:
+            <b>{baseline}</b> and <b>{diff}</b>, the signed gap to it, as in <b>{diff} h vs {baseline}</b>.</div>
+          <div class="row" id="row-noteaccent"><label class="name">Emphasis</label>
+            <div class="check"><input type="checkbox" id="chk-noteaccent" /><span>Color the exceptions</span><input type="color" id="col-notecolor" /></div><span></span></div>
+          <div class="row"><label class="name">Key line</label>
+            <input type="text" id="inp-notekey" placeholder="(none)" /><span></span></div>
+          <div class="hint">An optional line in the key that states the baseline, for example
+            <b>Usual capacity: {baseline} h</b>. The title and subtitle accept <b>{baseline}</b> and <b>{exceptions}</b> too.</div>
+          <div class="section">Value axis</div>
+          <div class="row"><label class="name">Labels</label>
+            <div class="check"><input type="checkbox" id="chk-axis" /><span>Show the scale</span></div><span></span></div>
+          <div class="row"><label class="name">Start at zero</label>
+            <div class="check"><input type="checkbox" id="chk-axiszero" /></div><span></span></div>
+          <div class="row"><label class="name">Gridlines</label>
+            <div class="check"><input type="checkbox" id="chk-grid" /></div><span></span></div>
+        </div>
+
+        <!-- RANGE -->
+        <div class="pane" data-pane="range">
+          <div class="hint" id="hint-mode"></div>
+          <div class="section">What to draw</div>
+          <div class="row"><label class="name">Light bar</label>
+            <select id="sel-rangekind">
+              <option value="minmax">Lowest to highest</option>
+              <option value="p5p95">5th to 95th percentile</option>
+              <option value="p10p90">10th to 90th percentile</option>
+              <option value="none">Hidden</option>
+            </select><span></span></div>
+          <div class="row"><label class="name">Darker band</label>
+            <select id="sel-bandkind">
+              <option value="iqr">Middle half (25th to 75th)</option>
+              <option value="p10p90">Middle 80% (10th to 90th)</option>
+              <option value="sd">Within 1 standard deviation</option>
+              <option value="none">Hidden</option>
+            </select><span></span></div>
+          <div class="row"><label class="name">Center line</label>
+            <select id="sel-centerkind">
+              <option value="median">Median</option>
+              <option value="mean">Average</option>
+              <option value="none">Hidden</option>
+            </select><span></span></div>
+          <div class="hint">Percentiles are worked out the way Tableau's PERCENTILE does. When the range arrives as
+            fields on Detail, these three choices only show or hide each piece.</div>
+          <div class="row"><label class="name">Count the dot</label>
+            <div class="check"><input type="checkbox" id="chk-rangeincl" /><span>The highlighted member is part of the range</span></div><span></span></div>
+          <div class="row"><label class="name">Everyone</label>
+            <div class="check"><input type="checkbox" id="chk-peers" /><span>A small dot for each member</span></div><span></span></div>
+          <div class="row"><label class="name">Call it</label>
+            <input type="text" id="inp-grouplabel" placeholder="Group" /><span></span></div>
+          <div class="hint">The word for who the range is made of, such as Team, Peers or Region. Used in the key and the tooltip.</div>
+          <div class="section">Look</div>
+          <div class="row"><label class="name">Colors</label>
+            <div class="check"><input type="color" id="col-range" title="Light bar" /><input type="color" id="col-band" title="Darker band" /><input type="color" id="col-center" title="Center line" /></div><span></span></div>
+          <div class="row"><label class="name">Line weight</label>
+            <input type="range" id="rng-centerweight" min="1" max="6" step="0.5" />
+            <span class="slider-val" id="lbl-centerweight"></span></div>
+        </div>
+
+        <!-- DOT -->
+        <div class="pane" data-pane="dot">
+          <div class="section">Who gets the dot</div>
+          <div class="row"><label class="name">Highlight</label>
+            <select id="sel-hlpick"></select><span></span></div>
+          <div class="hint" id="hint-dot"></div>
+          <div class="row"><label class="name">Size</label>
+            <input type="range" id="rng-dotsize" min="3" max="24" step="0.5" />
+            <span class="slider-val" id="lbl-dotsize"></span></div>
+          <div class="row"><label class="name">Outline</label>
+            <input type="range" id="rng-dotring" min="0" max="6" step="0.5" />
+            <span class="slider-val" id="lbl-dotring"></span></div>
+          <div class="row"><label class="name">Value label</label>
+            <select id="sel-dotlabels">
+              <option value="auto">Automatic (where it fits)</option>
+              <option value="right">Beside the dot</option>
+              <option value="above">Above the dot</option>
+              <option value="off">Hidden</option>
+            </select><span></span></div>
+          <div class="section">Dot color</div>
+          <div class="row"><label class="name">Color by</label>
+            <select id="sel-colormode">
+              <option value="auto">Automatic</option>
+              <option value="bounds">Boundaries on a number</option>
+              <option value="position">Position against the range</option>
+              <option value="field">Names on the Color shelf</option>
+              <option value="single">One color</option>
+            </select><span></span></div>
+          <div class="hint" id="hint-color"></div>
+          <div class="sec" id="sec-bounds">
+            <div class="section">Boundaries</div>
+            <div class="hint">The number being cut into bands is the measure on the <b>Color</b> shelf. With that shelf
+              empty, it is the dot's own value.</div>
+            <div id="band-list"></div>
+            <div class="mini-btns">
+              <button class="mini-btn" id="btn-band-add">Add a boundary</button>
+              <button class="mini-btn" id="btn-band-suggest">Suggest from the data</button>
+              <button class="mini-btn" id="btn-band-clear">Clear</button>
+            </div>
+            <div class="hint" id="hint-bandrange"></div>
+            <div class="row"><label class="name">On a boundary</label>
+              <select id="sel-boundedge">
+                <option value="lower">Belongs to the band below</option>
+                <option value="upper">Belongs to the band above</option>
+              </select><span></span></div>
+          </div>
+          <div class="sec" id="sec-position">
+            <div class="section">Position colors</div>
+            <div class="row"><label class="name">Below, in, above</label>
+              <div class="check"><input type="color" id="col-posbelow" title="Below the middle band" /><input type="color" id="col-posinside" title="Inside the middle band" /><input type="color" id="col-posabove" title="Above the middle band" /></div><span></span></div>
+          </div>
+          <div class="sec" id="sec-names">
+            <div class="section">Named colors</div>
+            <div id="name-color-list"></div>
+            <div class="mini-btns"><button class="mini-btn" id="btn-names-reset">Reset these</button></div>
+          </div>
+          <div class="row" id="row-single"><label class="name">One color</label>
+            <div class="check"><input type="color" id="col-single" /></div><span></span></div>
+        </div>
+
+        <!-- VALUES -->
+        <div class="pane" data-pane="values">
+          <div class="section">Number format</div>
+          <div class="row"><label class="name">Format</label>
+            <select id="sel-valfmt">
+              <option value="auto">Automatic (shares as percent)</option>
+              <option value="percent">Percent (1.05 shows 105%)</option>
+              <option value="percent100">Percent, already 0 to 100</option>
+              <option value="number">Number</option>
+              <option value="compact">Compact (K, M, B)</option>
+            </select><span></span></div>
+          <div class="hint">Tableau's own number format is not a reliable way to format an extension, so the
+            format lives here. Automatic keeps Tableau's text when it carries a format, and shows a measure that
+            looks like a share as a percent.</div>
+          <div class="row"><label class="name">Decimals</label>
+            <input type="range" id="rng-valdec" min="0" max="4" step="1" />
+            <span class="slider-val" id="lbl-valdec"></span></div>
+          <div class="row"><label class="name">Thousands</label>
+            <div class="check"><input type="checkbox" id="chk-valsep" /><span>Use a separator (1,234)</span></div><span></span></div>
+          <div class="row"><label class="name">Prefix</label>
+            <input type="text" id="inp-valprefix" placeholder="(none)" /><span></span></div>
+          <div class="row"><label class="name">Suffix</label>
+            <input type="text" id="inp-valsuffix" placeholder="(none)" /><span></span></div>
+          <div class="section">Tooltip</div>
+          <div class="row"><label class="name">Show</label>
+            <div class="check"><input type="checkbox" id="chk-tips" /><span>Tooltip on hover</span></div><span></span></div>
+          <div class="row"><label class="name">Appears</label>
+            <select id="sel-tiparea">
+              <option value="marks">Over the bar or the dot</option>
+              <option value="column">Anywhere in the column</option>
+            </select><span></span></div>
+          <div class="row"><label class="name">Range</label>
+            <div class="check"><input type="checkbox" id="chk-tipstats" /><span>Low, band, center and high</span></div><span></span></div>
+          <div class="row"><label class="name">Difference</label>
+            <div class="check"><input type="checkbox" id="chk-tipdiff" /><span>Against the center and the line</span></div><span></span></div>
+          <div class="row"><label class="name">Field names</label>
+            <div class="check"><input type="checkbox" id="chk-tipnames" /><span>Label each line</span></div><span></span></div>
+        </div>
+
+        <!-- REFERENCE LINE -->
+        <div class="pane" data-pane="reference">
+          <div class="hint">One line across the chart at a value you set, such as 100% of capacity, a target or a budget.</div>
+          <div class="row"><label class="name">Show</label>
+            <div class="check"><input type="checkbox" id="chk-refshow" /></div><span></span></div>
+          <div class="row" id="row-refvalue"><label class="name">At</label>
+            <input type="number" id="num-refvalue" step="any" /><span></span></div>
+          <div class="hint">In the data's own units: 1 for 100% when the data holds fractions.</div>
+          <div class="row" id="row-reflabel"><label class="name">Label</label>
+            <input type="text" id="inp-reflabel" placeholder="(none)" /><span></span></div>
+          <div class="row"><label class="name">Color</label>
+            <div class="check"><input type="color" id="col-refcolor" /></div><span></span></div>
+          <div class="row"><label class="name">Weight</label>
+            <input type="range" id="rng-refwidth" min="0.5" max="5" step="0.25" />
+            <span class="slider-val" id="lbl-refwidth"></span></div>
+          <div class="row"><label class="name">Dashed</label>
+            <div class="check"><input type="checkbox" id="chk-refdash" /></div><span></span></div>
+        </div>
+
+        <!-- TITLE -->
+        <div class="pane" data-pane="title">
+          <div class="row"><label class="name">Show title</label>
+            <div class="check"><input type="checkbox" id="chk-showtitle" /></div><span></span></div>
+          <div class="row"><label class="name">Title</label>
+            <input type="text" id="inp-title" /><span></span></div>
+          <div class="hint">Blank uses the sheet name. Text after a | is shown in regular weight.</div>
+          <div class="row"><label class="name">Subtitle</label>
+            <input type="text" id="inp-subtitle" placeholder="(none)" /><span></span></div>
+          <div class="hint">Both lines can quote the chart, so the headline stays true when the data changes:
+            <b>{highlight}</b> who the dot is, <b>{group}</b> the range's name, <b>{n}</b> columns with a dot,
+            <b>{above}</b> and <b>{below}</b> columns where the dot is above or below the center,
+            <b>{over}</b> and <b>{under}</b> columns above or below the line, <b>{ref}</b> the line's label,
+            <b>{category}</b>, <b>{value}</b> and <b>{member}</b> the field names.</div>
+          <div class="row"><label class="name">Key</label>
+            <select id="sel-legend">
+              <option value="show">Show what each piece is</option>
+              <option value="hidden">Hidden</option>
+            </select><span></span></div>
+        </div>
+
+        <!-- COLORS -->
+        <div class="pane" data-pane="colors">
+          <div class="hint">Dot colors are on the Dot tab, and the range's colors are on the Range tab.</div>
+          <div class="section">Palette for named colors</div>
+          <div id="palette-cards"></div>
+          <div class="section">Background</div>
+          <div class="row"><label class="name">View</label>
+            <div class="check"><input type="color" id="col-background" /></div><span></span></div>
+          <div class="row"><label class="name">Gridlines</label>
+            <div class="check"><input type="color" id="col-grid" /></div><span></span></div>
+        </div>
+
+        <!-- FONTS -->
+        <div class="pane" data-pane="fonts">
+          <div class="row"><label class="name">Font</label>
+            <select id="sel-font">
+              <option value="Poppins">Poppins</option>
+              <option value="system">System</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Arial">Arial</option>
+              <option value="Tableau Book">Tableau Book</option>
+            </select><span></span></div>
+          <div class="row"><label class="name">Title size</label>
+            <input type="range" id="rng-titlesize" min="10" max="40" step="1" />
+            <span class="slider-val" id="lbl-titlesize"></span></div>
+          <div class="row"><label class="name">Subtitle size</label>
+            <input type="range" id="rng-subtitlesize" min="9" max="24" step="1" />
+            <span class="slider-val" id="lbl-subtitlesize"></span></div>
+          <div class="row"><label class="name">Label size</label>
+            <input type="range" id="rng-labelsize" min="8" max="22" step="1" />
+            <span class="slider-val" id="lbl-labelsize"></span></div>
+          <div class="row"><label class="name">Text</label>
+            <div class="check"><input type="color" id="col-text" title="Main text" /><input type="color" id="col-muted" title="Secondary text" /></div><span></span></div>
+        </div>
+
+        <!-- FIELDS -->
+        <div class="pane" data-pane="fields">
+          <div class="hint">Category, Value, Member and Color come from the Marks card shelves. These extra inputs ride on
+            <b>Detail</b> and are matched by field name. Override a match here. The five range fields are read only
+            while the Member shelf is empty.</div>
+          <div id="field-list"></div>
+          <div class="section">Copy a look</div>
+          <div class="hint">Copy these settings to reuse them in another workbook, or paste a copied set. A pasted set
+            previews at once and is saved when you click Apply.</div>
+          <div class="mini-btns">
+            <button class="mini-btn" id="btn-set-copy">Copy settings</button>
+            <button class="mini-btn" id="btn-set-paste">Paste settings</button>
+          </div>
+          <textarea id="set-text" placeholder="Paste copied settings here, then click Load"></textarea>
+          <div class="mini-btns" id="set-load-row" style="display:none">
+            <button class="mini-btn" id="btn-set-load">Load</button><span class="hint" id="set-msg"></span>
+          </div>
+          <div class="section">Diagnostics</div>
+          <div class="hint">If something looks wrong inside Tableau, copy this text and send it to Claude. It lists
+            the fields, a few raw rows and what each render saw.</div>
+          <div class="mini-btns">
+            <button class="mini-btn" id="btn-diag">Show diagnostics</button>
+            <button class="mini-btn" id="btn-diag-copy">Copy</button>
+          </div>
+          <textarea id="diag-text" readonly></textarea>
+        </div>
+      </div>
+
+      <div id="reset-note">Defaults restored. Click Apply to save, or Cancel to keep your current settings.</div>
+      <div class="actions">
+        <button class="btn" id="btn-reset" title="Restore every setting to its default">Reset to defaults</button>
+        <button class="btn" id="btn-cancel">Cancel</button>
+        <button class="btn" id="btn-apply">Apply</button>
+      </div>
+    </div>
+
+    <!--
+      Load the Tableau Extensions API in Tableau, or a mock with sample data for
+      standalone browser preview (open index.html?preview=1). The same viz.js
+      runs in both. Loaded at the end of body so the DOM exists.
+    -->
+    <script>
+      (function () {
+        var preview = /[?&]preview=1/.test(location.search) || location.protocol === 'file:';
+        var libSrc = preview ? './mock-tableau.js' : './lib/tableau.extensions.1.latest.js';
+        // Load viz.js under a fresh name every time. Tableau can keep running
+        // an old viz.js after a Reload even with caching off on the server.
+        var bust = '?t=' + Date.now();
+        function load(src, cb) {
+          var s = document.createElement('script');
+          s.src = src;
+          s.onload = cb;
+          document.head.appendChild(s);
+        }
+        load(libSrc + bust, function () { load('./viz.js' + bust); });
+      })();
+    </script>
+  </body>
+</html>
