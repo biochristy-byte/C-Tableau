@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.datadivers.vizext.panelchart" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Bar, line, area and scatter in one chart, with a full settings panel inside the viz: type, orientation, sort, stacking, labels, axes, gridlines, palette, tooltips, number format, legend and title.</description>
+    <author name="Chris Fryar" email="" organization="Data Divers" website="https://datadivers.com"/>
+    <!-- 1.12 is the floor because this extension uses worksheetContent, which
+         the shipped type definitions tag as "since 1.12.0 and Tableau 2024.2". -->
+    <min-api-version>1.12</min-api-version>
+    <source-location>
+      <url>http://localhost:8778/src/index.html</url>
+    </source-location>
+    <icon/>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+
+    <encoding id="category">
+      <display-name resource-id="enc-category">Category</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-c"/>
+      <tooltip resource-id="tip-category">The dimension along the category axis. One bar, point or line vertex per value.</tooltip>
+    </encoding>
+
+    <encoding id="value">
+      <display-name resource-id="enc-value">Value</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-v"/>
+      <tooltip resource-id="tip-value">The measure that sets bar length, line height or point height.</tooltip>
+    </encoding>
+
+    <encoding id="color">
+      <display-name resource-id="enc-color">Color</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="color"/>
+      <tooltip resource-id="tip-color">Optional. Splits the marks into colored series: grouped or stacked bars, one line per value.</tooltip>
+    </encoding>
+
+    <encoding id="xvalue">
+      <display-name resource-id="enc-xvalue">X value</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="letter-x"/>
+      <tooltip resource-id="tip-xvalue">Optional. For a scatter: the measure along the X axis.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Panel Chart</text>
+    </resource>
+    <resource id="enc-category">
+      <text locale="en_US">Category</text>
+    </resource>
+    <resource id="enc-value">
+      <text locale="en_US">Value</text>
+    </resource>
+    <resource id="enc-color">
+      <text locale="en_US">Color</text>
+    </resource>
+    <resource id="enc-xvalue">
+      <text locale="en_US">X value</text>
+    </resource>
+    <resource id="tip-category">
+      <text locale="en_US">The dimension along the category axis. One bar, point or line vertex per value.</text>
+    </resource>
+    <resource id="tip-value">
+      <text locale="en_US">The measure that sets bar length, line height or point height.</text>
+    </resource>
+    <resource id="tip-color">
+      <text locale="en_US">Optional. Splits the marks into colored series: grouped or stacked bars, one line per value.</text>
+    </resource>
+    <resource id="tip-xvalue">
+      <text locale="en_US">Optional. For a scatter: the measure along the X axis.</text>
+    </resource>
+  </resources>
+</manifest>
