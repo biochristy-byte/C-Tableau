@@ -109,6 +109,7 @@
 .cp-save.cp-err { color: var(--cp-danger); font-weight: 600; }
 .cp-footin { display: grid; gap: 6px; }
 .cp-tabfoot { margin: 14px 0 4px; }
+.cp-tabfoot { margin: 14px 0 4px; }
 .cp-preview { color: var(--cp-ink); font-weight: 600; padding: 6px 10px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); }
 .cp-diagtext { font-family: Consolas, "Cascadia Mono", Menlo, monospace !important; white-space: pre; }
 
