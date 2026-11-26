@@ -69,7 +69,7 @@ SABOTAGES = [
      "if (a === 'min') { ps.min = !ps.min;", "if (a === 'min') { ps.min = ps.min;",
      ['python', 'test/render_test.py']),
     ('panel: text drops to 13px (lib css copy)', 'lib/ctab-panel/ctab-panel.css',
-     ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 14px; }", ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 13px; }",
+     ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 1em; }", ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 13px; }",
      ['python', 'test/render_test.py']),
     ('panel: a setting change no longer re-renders the chart (onChange dropped)', 'src/js/app.js',
      "onChange: function () { redraw(); }, log: log });", "onChange: function () { }, log: log });",
