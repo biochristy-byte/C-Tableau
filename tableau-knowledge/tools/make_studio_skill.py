@@ -68,6 +68,18 @@ def build(out: Path) -> None:
     shutil.copy2(SRC / "knowledge" / "studiomind-house-rules.md", out / "knowledge")
     shutil.copy2(SRC / "authoring-override-block.md", out)
     shutil.copy2(SRC / "README.md", out)
+    # Ship LF only: a Windows checkout can hand us CRLF, and frontmatter parsers differ on it.
+    for p in out.rglob("*"):
+        if p.suffix in (".md", ".py") and p.is_file():
+            p.write_bytes(p.read_bytes().replace(b"\r\n", b"\n"))
+
+
+def gate_line_endings(out: Path) -> list:
+    files = [p for p in out.rglob("*") if p.suffix in (".md", ".py") and p.is_file()]
+    if len(files) < len(REFERENCES) + 7:
+        return [f"line endings: only {len(files)} text files examined"]
+    return [f"{p.relative_to(out).as_posix()}: has CRLF line endings"
+            for p in files if b"\r" in p.read_bytes()]
 
 
 def frontmatter(text: str) -> dict:
@@ -174,7 +186,7 @@ def gate_a11y(out: Path) -> list:
 
 GATES = [("frontmatter", gate_frontmatter), ("files named", gate_files_named),
          ("expertise format", gate_expertise), ("text rules", gate_text),
-         ("a11y controls", gate_a11y)]
+         ("a11y controls", gate_a11y), ("line endings", gate_line_endings)]
 
 
 def run_gates(out: Path, quiet: bool = False) -> dict:
@@ -193,7 +205,7 @@ def edit(p: Path, old: str, new: str) -> None:
     text = p.read_text(encoding="utf-8")
     if old not in text:
         raise SystemExit(f"selftest setup: {old!r} not found in {p}")
-    p.write_text(text.replace(old, new, 1), encoding="utf-8")
+    p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
 
 
 def selftest() -> int:
@@ -212,7 +224,8 @@ def selftest() -> int:
         ("text rules", "banned word", lambda o: edit(au(o), "You never change", "You clearly never change")),
         ("text rules", "email address", lambda o: edit(kn(o), "## Implementation", "## Implementation\n\nmail someone@example.com")),
         ("text rules", "personal name", lambda o: edit(sm(o), "A base layer", "Celia's base layer")),
-        ("a11y controls", "contrast script broken", lambda o: (au(o).parent / "scripts" / "a11y_check.py").write_text("import sys; print('PASS 21.00:1'); sys.exit(0)\n")),
+        ("line endings", "CRLF in a SKILL.md", lambda o: sm(o).write_bytes(sm(o).read_bytes().replace(b"\n", b"\r\n"))),
+        ("a11y controls", "contrast script broken", lambda o: (au(o).parent / "scripts" / "a11y_check.py").write_text("import sys; print('PASS 21.00:1'); sys.exit(0)\n", newline="\n")),
     ]
     tmp = Path(tempfile.mkdtemp(prefix="studiomind-selftest-"))
     try:
