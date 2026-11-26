@@ -102,3 +102,28 @@ RED, to fix first:
 - schools: render_test "stress morph: script cost per frame <= 6 ms :: 7.41" and run.js "2,000 circles settle in under 6000 ms (6542 ms)". Both are timing; CPU was 40 to 44% with other tabs' jobs. Rerun alone at low CPU before touching code (rule 19 if it fails twice on load).
 
 Still to run: sabotages for panel-chart, radar, reef, schools, sketchbook, tide-lines, depth-lines, settings-panel; standalone rebuilds for radar and tide-lines; previews. Then commit per extension until git status is empty.
+
+## Final state 11/25 9:45 PM (extension side)
+All 9 extensions are committed; `git status --short` is empty. sync_check GREEN (9 copies match shared/, exit 0).
+
+Root causes of the three REDs
+- tide-lines "reading 'padding'": the g8 logs were written 30 s before the final render.js edit (log 13:59:51, render.js 14:00:21). The earlier _fontWait redraw passed the wrong arguments. The current code redraws with the stored [model, s, hooks] and passes.
+- radar "eased growth sampled mid-way": the first draw is now held until the fonts load (render.js returns before drawing), so the redraw cannot cut off or replay the entrance animation. The g8 failure predated that edit.
+- schools stress morph p95 and script cost: not load (it failed at 23% CPU). render.js had two font-load redraw blocks (_fontWait and _fontTried), so a second redraw could land mid-morph. The duplicate _fontTried block is removed.
+
+Gates (g9 logs in the session scratchpad)
+- tide-lines: mock_render GREEN 18 cases, 325 checks; standin GREEN 10 pages, 97 checks; run.js GREEN 153.
+- radar: mock_render GREEN 28 cases, 352 checks; standin GREEN 9 pages, 92 checks; run.js GREEN 177.
+- schools: render_test 3,123,290 subjects, 0 failed; run.js 218 passed; settings_test all 89 settings; standin 111 subjects, 0 failed.
+- neurons: run.js GREEN; render.py GREEN 7 gates, 22,620 subjects.
+- panel-chart: run.js 171,416 checks; browser_test 332 checks.
+- depth-lines: panel_test 53 checks, 91 settings; run.js 120 checks.
+- reef (render 1,639; settings 91; standin 96; run.js 192) and sketchbook (render 3,271; panel 55; run.js 96): g8 results, files unchanged since.
+
+Sabotage (src, test and tools sha256 identical before and after; git status unchanged)
+- neurons 21 of 21 RED (earlier run)
+- panel-chart 20 of 20 RED
+- radar 14 of 14 RED
+- tide-lines 13 of 13 RED
+- STILL OWED: reef (tools/sabotage.py), schools (tools/sabotage.py), sketchbook (tools/sabotage_check.py), depth-lines (tools/sabotage_check.py), settings-panel (test/sabotage.py). The chain was stopped by PID after tide-lines so the hub could build from a clean tree. Run them one at a time after the hub ships.
+- The radar and schools-era commit messages lack a blank line before the trailers.
