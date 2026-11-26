@@ -155,6 +155,8 @@
     if (!state.renderer) return;
     state.renderer.draw(state.model, state.store.get(), { onSelect: pushSelection, onHover: pushHover });
     if (state.panel) { state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink); state.panel.render(); }
+    diagOnEmpty(document.getElementById('tl-chart'));
+    if (state.panel) { try { state.panel.trace({ marks: state.renderer.info && state.renderer.info.n ? state.renderer.info.n : 0 }); } catch (e) { /* diagnostics only */ } }
   }
   function onChange (keys) {
     if (keys.some(function (k) { return DATA_KEYS[k]; })) state.model = buildModel();
@@ -180,7 +182,49 @@
   function info () {
     var d = state.raw;
     return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {},
-      lists: { categories: state.renderer ? state.renderer.items : [] }, autoBw: state.renderer ? state.renderer.autoBw : 0 };
+      lists: { categories: state.renderer ? state.renderer.items : [] }, autoBw: state.renderer ? state.renderer.autoBw : 0,
+      data: diagData(), tokens: diagTokens() };
+  }
+
+  /* What the diagnostics report and the title placeholders see. Cheap, and never throws. */
+  function diagData () {
+    try {
+      var d = state.raw && state.raw.raw;
+      if (!d) return { rows: 0, fields: [], sample: [] };
+      var rows = d.rows, cols = d.columns;
+      var fields = cols.map(function (c) {
+        var t = 'text';
+        for (var i = 0; i < rows.length; i++) { var v = rows[i][c]; if (v === null || v === undefined) continue; t = typeof v === 'number' ? 'number' : (v instanceof Date ? 'date' : typeof v === 'boolean' ? 'boolean' : 'text'); break; }
+        return { name: c, type: t };
+      });
+      var sample = rows.slice(0, 4).map(function (r) {
+        var o = {};
+        cols.forEach(function (c) { o[c] = { value: r[c] === undefined ? null : r[c], formatted: r.__fmt ? r.__fmt[c] : '' }; });
+        return o;
+      });
+      return { rows: rows.length, fields: fields, sample: sample };
+    } catch (e) { return { rows: 0, fields: [], sample: [] }; }
+  }
+  /* A ridgeline shows distributions, so a sum means nothing: only the category with the highest mean is offered. */
+  function diagTokens () {
+    try {
+      var rows = state.model && state.model.rows; if (!rows || !rows.length) return {};
+      var sum = {}, cnt = {}, top = '', topV = -Infinity;
+      rows.forEach(function (r) { sum[r.cat] = (sum[r.cat] || 0) + r.value; cnt[r.cat] = (cnt[r.cat] || 0) + 1; });
+      Object.keys(sum).forEach(function (k) { var m = sum[k] / cnt[k]; if (m > topV) { topV = m; top = k; } });
+      return top ? { top: top } : {};
+    } catch (e) { return {}; }
+  }
+  /* A Copy diagnostics button on the blank screen; the message box is rebuilt on every draw, so one at a time. */
+  function diagOnEmpty (chart) {
+    try {
+      var e = chart && chart.querySelector('.tl-empty');
+      if (e && !e.querySelector('.cp-diagwrap')) CP.diagButton(e, { panel: state.panel });
+    } catch (x) { log('diag button failed', x); }
+  }
+  function scheduleRedraw () {
+    if (state.resizeTimer) clearTimeout(state.resizeTimer);
+    state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);
   }
 
   function mount (ws) {
@@ -190,12 +234,11 @@
     applyLegacy(state.store);
     var root = document.getElementById('tl-root'), chart = document.getElementById('tl-chart');
     state.renderer = new TL.Renderer(chart);
-    state.panel = CP.create(root, { title: 'Tide Lines settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
+    state.panel = CP.create(root, { title: 'Tide Lines settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX, version: '1.0.0',
+      /* Pinned to the side, the panel pulls the chart in from the right; a window resize never fires for that. */
+      onLayout: function () { if (state.model) scheduleRedraw(); } });
     state.panel.applyAppearance('#ffffff', '#0b1f2e');
-    global.addEventListener('resize', function () {
-      if (state.resizeTimer) clearTimeout(state.resizeTimer);
-      state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);
-    });
+    global.addEventListener('resize', scheduleRedraw);
     if (ws.addEventListener) {
       var T = global.tableau.TableauEventType || {};
       [T.SummaryDataChanged, T.FilterChanged, T.ParameterChanged, T.WorksheetFormattingChanged].forEach(function (evt) {
@@ -215,7 +258,7 @@
     }).catch(function (e) {
       log('initializeAsync failed', e);
       var chart = document.getElementById('tl-chart');
-      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'tl-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); }
+      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'tl-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); try { CP.diagButton(d, { panel: state.panel }); } catch (x) { /* no panel yet */ } }
     });
   }
 

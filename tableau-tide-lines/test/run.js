@@ -187,7 +187,7 @@ ok('at least 60 settings (' + rowsAll.length + ')', rowsAll.length >= 60);
 ok('at least 15 tabs: 6 chart tabs plus the nine standard ones (' + SET.schema.tabs.length + ')', SET.schema.tabs.length >= 15 && SET.schema.tabs.slice(0, 6).map((x) => x.id).join() === 'density,layout,marks,gradient,outline,axis');
 ok('the nine standard tabs are all present', ['colors', 'labels', 'numbers', 'tooltip', 'fonts', 'background', 'animation', 'interaction', 'fields'].every((id) => SET.schema.tabs.some((x) => x.id === id)));
 ok('every chart tab has at least 5 settings', ['density', 'layout', 'marks', 'gradient', 'outline', 'axis'].every((id) => rowsAll.filter((r) => r.tab === id).length >= 5));
-ok('no setting is a slider (no row type is range)', rowsAll.every((r) => ['number', 'select', 'chips', 'check', 'color', 'text', 'font', 'palette', 'field', 'list'].indexOf(r.type) >= 0));
+ok('no setting is a slider (no row type is range)', rowsAll.every((r) => ['number', 'select', 'chips', 'check', 'color', 'text', 'font', 'palette', 'field', 'list', 'preview', 'action'].indexOf(r.type) >= 0));
 ok('every number row has a unit-safe floor: no text size row goes below 14', rowsAll.filter((r) => /size$/i.test(r.key) && r.unit === 'px' && /label|tip|title|value/i.test(r.key)).every((r) => r.min >= 14));
 ok('the font choices are sans-serif only', CP.FONTS.every((f) => !/serif\b(?!.*sans)|mono|courier|georgia|times/i.test(f.stack.replace(/sans-serif/gi, 'sans'))));
 eq('sort chips', rowOf('sort').opts.map((o) => o.value), ['data', 'median', 'name', 'mean', 'count', 'manual']);

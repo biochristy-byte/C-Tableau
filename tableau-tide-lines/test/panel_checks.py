@@ -39,7 +39,7 @@ def panel_gate(b, port, H):
     tabs = pg.evaluate("[...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check("%d tabs: Density, Layout, Marks, Gradient, Outline, Axis + the standard nine" % len(tabs),
           len(tabs) >= MIN_TABS and tabs[:6] == ["Density", "Layout", "Marks", "Gradient", "Outline", "Axis"] and all(t in tabs for t in ("Colors", "Labels", "Number format", "Tooltip", "Fonts", "Background", "Animation", "Interaction", "Fields")), str(tabs))
-    n = pg.evaluate("TL.app.state.store.rows.filter(r => r.type !== 'note').length")
+    n = pg.evaluate("TL.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check("%d settings (at least %d)" % (n, MIN_SETTINGS), n >= MIN_SETTINGS)
 
     # ---- drag by the title clamps to the frame ----
@@ -81,10 +81,10 @@ def panel_gate(b, port, H):
     check("restore brings the panel back", pg.evaluate(RECT, ".cp-panel")["h"] > h_min * 2)
 
     # ---- Copy and Paste round trip ----
-    pg.click("[data-a=copy]")
+    pg.click("[data-f=copyall]")
     pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0 || document.querySelector('.cp-status').textContent.indexOf('clipboard') > 0", timeout=5000)
     txt = pg.evaluate("TL.app.state.panel.lastCopied")
-    obj = json.loads(txt)
+    obj = json.loads(txt)['settings']  # 1.1.0 labeled block
     check("Copy settings gives the flat JSON with every setting (%d keys)" % len(obj), len(obj) >= MIN_SETTINGS and obj["kernel"] == "epanechnikov" and obj["overlap"] > 2.1 and isinstance(obj["catColors"], list), len(obj))
     pg.evaluate("TL.app.state.store.reset()")
     pg.wait_for_function("TL.app.state.store.get().kernel === 'gaussian'", timeout=2000)
@@ -242,7 +242,7 @@ def flip_all(b, port, H):
     rows = None
     results = []
     pg0 = H.open_case(b, port, "birth", "900x520", "light", errs, {"animOn": False}, fast=True)
-    rows = pg0.evaluate("TL.app.state.store.rows.filter(r => r.type !== 'note').map(r => ({key: r.key, type: r.type, def: r.def, min: r.min, max: r.max, step: r.step, opts: (r.opts || []).map(o => o.value), tab: r.tab}))")
+    rows = pg0.evaluate("TL.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).map(r => ({key: r.key, type: r.type, def: r.def, min: r.min, max: r.max, step: r.step, opts: (r.opts || []).map(o => o.value), tab: r.tab}))")
     pages[("birth", "900x520")] = pg0
     H.cases.append("flip every setting")
     for row in rows:

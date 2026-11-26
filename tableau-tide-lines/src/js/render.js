@@ -87,6 +87,7 @@
    * s: the resolved settings (see settings.js).  hooks: { onSelect(ridges, additive), onHover(ridgeOrNull) } */
   Renderer.prototype.draw = function (model, s, hooks) {
     var self = this, box = this.container;
+    this._last = [model, s, hooks];
     var pad = s.padding || 0;
     var W = Math.max(1, Math.floor(box.clientWidth) - 2 * pad), H = Math.max(1, Math.floor(box.clientHeight) - 2 * pad);
     var wsBg = pal.toRgb(model.worksheetBg) ? pal.toHex(pal.toRgb(model.worksheetBg)) : '#ffffff';
@@ -94,6 +95,15 @@
     var dark = pal.isDark(bg);
     var ink = pal.ensureContrast(CP.color.normHex(s.labelColor) || (dark ? '#f3f5f7' : '#0b1f2e'), bg, 7);
     var fam = CP.fontStack(s.fontFamily);
+    /* The bundled Inter and Poppins load on first use. Text measured before they arrive uses fallback widths, so wait once per stack and draw again. */
+    this._fontWait = this._fontWait || {};
+    if (!this._fontWait[fam] && document.fonts && document.fonts.load) {
+      var fl = ['400 14px ' + fam, '700 14px ' + fam], me = this;
+      if (fl.some(function (f) { return !document.fonts.check(f); })) {
+        this._fontWait[fam] = true;
+        Promise.all(fl.map(function (f) { return document.fonts.load(f); })).then(function () { me.draw.apply(me, me._last); }, function () {});
+      }
+    }
     this.chartBg = bg; this.ink = ink;
     box.style.padding = pad + 'px';
     box.style.border = s.borderOn ? s.borderWidth + 'px solid ' + (CP.color.normHex(s.borderColor) || ink) : '0';

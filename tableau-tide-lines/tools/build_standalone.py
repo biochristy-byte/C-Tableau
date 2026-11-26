@@ -13,7 +13,7 @@ reviewed file (viz-extensions-hub/hosted/public/_vz/standin.js): it is read, nev
       --category "Mother group" --value "Birth weight (g)" --color "Mother smoked in pregnancy" \
       --label "Short name" --settings example/dark-settings.json --out standalone/index.html
 """
-import argparse, csv, json, os, sys
+import argparse, base64, csv, json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HUB_STANDIN = r"C:/Users/bioch/projects/viz-extensions-hub/hosted/public/_vz/standin.js"
@@ -74,6 +74,20 @@ data_url = "data:application/json;base64," + base64.b64encode(data.encode("utf-8
 cfg = {"dataUrl": data_url, "encodings": enc, "settings": settings, "prefix": "", "title": a.title, "home": "/"}
 
 css = read(os.path.join(PANEL, "ctab-panel.css")) + "\n" + read(os.path.join(ROOT, "src", "css", "tidelines.css"))
+
+# The library CSS points at fonts/*.woff2 by a relative url, which would 404 beside a single hosted page.
+# Embed them, so the page stays one file and Inter and Poppins render the same everywhere.
+def _embed_fonts(css_text, fonts_dir):
+    def one(m):
+        with open(os.path.join(fonts_dir, m.group(1)), "rb") as fh:
+            return 'url("data:font/woff2;base64,%s")' % base64.b64encode(fh.read()).decode("ascii")
+    out = re.sub(r'url\("fonts/([^"]+\.woff2)"\)', one, css_text)
+    if re.search(r'url\("fonts/', out):
+        sys.exit("RED: a font url in the panel CSS was not embedded")
+    return out
+
+
+css = _embed_fonts(css, os.path.join(PANEL, "fonts"))
 js = "/* ---- ctab-panel.js ---- */\n" + read(os.path.join(PANEL, "ctab-panel.js")) + "\n" + "\n".join("/* ---- %s ---- */\n%s" % (s, read(os.path.join(ROOT, "src", "js", s))) for s in SCRIPTS)
 standin = read(a.standin)
 if "__CTAB_VIZ" not in standin or "worksheetContent" not in standin:

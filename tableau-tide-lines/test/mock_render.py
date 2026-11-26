@@ -296,8 +296,8 @@ def behaviour(b, port):
     pg.check("input[data-k=showMean]"); pg.wait_for_timeout(250)
     check(name + ": the mean tick draws a dashed tick on every ridge", pg.evaluate("document.querySelectorAll('.tl-mean').length") == 6)
     pg.uncheck("input[data-k=showMean]")
-    pg.click("[data-a=copy]"); pg.wait_for_timeout(200)
-    obj = json.loads(pg.evaluate("TL.app.state.panel.lastCopied"))
+    pg.click("[data-f=copyall]"); pg.wait_for_timeout(200)
+    obj = json.loads(pg.evaluate("TL.app.state.panel.lastCopied"))["settings"]
     check(name + ": Copy settings produces JSON with the chosen kernel and overlap", obj.get("kernel") == "epanechnikov" and obj.get("overlap") == 3.5, str(obj)[:120])
     check(name + ": the copied JSON holds every setting", len(obj) >= 60, str(len(obj)))
     pg.close()

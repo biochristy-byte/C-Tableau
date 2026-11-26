@@ -111,8 +111,8 @@ def main():
         M.check("every call Tide Lines makes unguarded exists on the stand-in", all(pg.evaluate("typeof tableau.extensions.worksheetContent.worksheet.%s" % m) == "function" for m in ("getSummaryDataReaderAsync", "getVisualSpecificationAsync", "addEventListener", "selectMarksByValueAsync", "clearSelectedMarksAsync")) and pg.evaluate("typeof tableau.extensions.settings.get") == "function")
         # the panel works and the JSON it copies is what the stand-in reads back
         pg.click(".cp-gear"); pg.click(".cp-tab[data-t='density']"); pg.click(".cp-chip[data-k=kernel][data-v=gaussian]"); pg.wait_for_timeout(250)
-        pg.click("[data-a=copy]"); pg.wait_for_timeout(150)
-        out = json.loads(pg.evaluate("TL.app.state.panel.lastCopied"))
+        pg.click("[data-f=copyall]"); pg.wait_for_timeout(150)
+        out = json.loads(pg.evaluate("TL.app.state.panel.lastCopied"))["settings"]
         M.check("panel works on a viz page and Copy settings sees the visitor's change", out["kernel"] == "gaussian" and out["overlap"] == 3, str(out)[:100])
         pg.close()
         # the copied JSON, fed back, reproduces the chart
