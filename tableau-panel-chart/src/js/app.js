@@ -119,6 +119,8 @@
     if (!state.renderer) return;
     state.renderer.draw(state.model, state.store.get(), { onSelect: pushSelection, onHover: pushHover });
     if (state.panel) { state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink); state.panel.render(); }
+    diagOnEmpty();
+    if (state.panel) { try { state.panel.trace({ marks: state.renderer.L && state.renderer.L.marks ? state.renderer.L.marks.length : 0 }); } catch (e) { /* diagnostics only */ } }
   }
   function onChange(keys) {
     if (keys.some(function (k) { return DATA_KEYS[k]; })) state.model = buildModel();
@@ -140,7 +142,50 @@
   function info() {
     var d = state.raw, r = state.renderer;
     return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {},
-      lists: { categories: r ? r.items : [], cats: r ? r.catItems : [] } };
+      lists: { categories: r ? r.items : [], cats: r ? r.catItems : [] }, data: diagData(), tokens: diagTokens() };
+  }
+
+  /* What the diagnostics report and the title placeholders see. Cheap, and never throws. */
+  function diagData() {
+    try {
+      var d = state.raw && state.raw.raw;
+      if (!d) return { rows: 0, fields: [], sample: [] };
+      var rows = d.rows, cols = d.columns;
+      var fields = cols.map(function (c) {
+        var t = 'text';
+        for (var i = 0; i < rows.length; i++) { var v = rows[i][c]; if (v === null || v === undefined) continue; t = typeof v === 'number' ? 'number' : (v instanceof Date ? 'date' : typeof v === 'boolean' ? 'boolean' : 'text'); break; }
+        return { name: c, type: t };
+      });
+      var sample = rows.slice(0, 4).map(function (r) {
+        var o = {};
+        cols.forEach(function (c) { o[c] = { value: r[c] === undefined ? null : r[c], formatted: r.__fmt ? r.__fmt[c] : '' }; });
+        return o;
+      });
+      return { rows: rows.length, fields: fields, sample: sample };
+    } catch (e) { return { rows: 0, fields: [], sample: [] }; }
+  }
+  function diagTokens() {
+    try {
+      var rows = state.model && state.model.rows; if (!rows || !rows.length) return {};
+      var by = {}, total = 0, top = '', topV = -Infinity;
+      rows.forEach(function (r) {
+        if (r.value === null) return;
+        total += r.value; by[r.cat] = (by[r.cat] || 0) + r.value;
+        if (by[r.cat] > topV) { topV = by[r.cat]; top = r.cat; }
+      });
+      return topV === -Infinity ? {} : { top: top, total: total.toLocaleString('en-US', { maximumFractionDigits: 1 }) };
+    } catch (e) { return {}; }
+  }
+  /* A Copy diagnostics button on the blank screen; the box is rewritten on every draw, so one at a time. */
+  function diagOnEmpty() {
+    try {
+      var e = state.renderer && state.renderer.empty;
+      if (e && !e.hidden && !e.querySelector('.cp-diagwrap')) CP.diagButton(e, { panel: state.panel });
+    } catch (x) { log('diag button failed', x); }
+  }
+  function scheduleRedraw() {
+    if (state.resizeTimer) clearTimeout(state.resizeTimer);
+    state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);
   }
 
   function mount(ws) {
@@ -149,12 +194,11 @@
     state.store.load();
     var root = document.getElementById('pc-root'), chart = document.getElementById('pc-chart');
     state.renderer = new PC.Renderer(chart);
-    state.panel = CP.create(root, { title: 'Panel Chart settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
+    state.panel = CP.create(root, { title: 'Panel Chart settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX, version: '1.0.0',
+      /* Pinned to the side, the panel pulls the chart in from the right; a window resize never fires for that. */
+      onLayout: function () { if (state.model) scheduleRedraw(); } });
     state.panel.applyAppearance('#ffffff', '#14202e');
-    global.addEventListener('resize', function () {
-      if (state.resizeTimer) clearTimeout(state.resizeTimer);
-      state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);
-    });
+    global.addEventListener('resize', scheduleRedraw);
     if (ws.addEventListener) {
       var T = global.tableau.TableauEventType || {};
       [T.SummaryDataChanged, T.FilterChanged, T.ParameterChanged, T.WorksheetFormattingChanged].forEach(function (evt) {
@@ -174,7 +218,7 @@
     }).catch(function (e) {
       log('initializeAsync failed', e);
       var chart = document.getElementById('pc-chart');
-      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'pc-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); }
+      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'pc-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); try { CP.diagButton(d, { panel: state.panel }); } catch (x) { /* no panel yet */ } }
     });
   }
 

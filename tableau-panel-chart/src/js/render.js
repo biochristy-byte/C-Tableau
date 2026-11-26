@@ -58,6 +58,15 @@
     var wsBg = C.legalBg(C.normHex(data.worksheetBg) || '#ffffff');
     var bg = s.bgMode === 'custom' ? C.legalBg(C.normHex(s.bgColor) || wsBg) : wsBg;
     var stack = CP.fontStack(s.fontFamily);
+    /* The bundled Inter and Poppins load on first use. Text measured before they arrive uses fallback widths, so wait once per stack and draw again. */
+    this._fontWait = this._fontWait || {};
+    if (!this._fontWait[stack] && document.fonts && document.fonts.load) {
+      var fl = ['400 14px ' + stack, '700 14px ' + stack], me = this;
+      if (fl.some(function (f) { return !document.fonts.check(f); })) {
+        this._fontWait[stack] = true;
+        Promise.all(fl.map(function (f) { return document.fonts.load(f); })).then(function () { me.draw(me.data, me.s, me.cb); }, function () {});
+      }
+    }
     host.style.background = s.bgMode === 'transparent' ? 'transparent' : bg;
     host.style.fontFamily = stack;
     host.style.setProperty('--pc-hover-ms', (s.hoverMs || 0) + 'ms');

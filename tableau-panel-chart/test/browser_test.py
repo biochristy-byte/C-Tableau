@@ -230,7 +230,7 @@ def g_panel(b):
     check("the panel title says Panel Chart settings", pg.inner_text(".cp-title").strip() == "Panel Chart settings", pg.inner_text(".cp-title"))
     tabs = pg.evaluate("[...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check("%d tabs: the eight chart tabs then the standard ones" % len(tabs), len(tabs) >= 15 and tabs[:8] == ["Chart", "Bars", "Lines", "Points", "Axes", "Grid", "Legend", "Title"] and all(t in tabs for t in ("Colors", "Labels", "Number format", "Tooltip", "Fonts", "Background", "Animation", "Interaction", "Fields")), tabs)
-    n = pg.evaluate("PC.app.state.store.rows.filter(r => r.type !== 'note').length")
+    n = pg.evaluate("PC.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check("%d settings (at least 60)" % n, n >= 60)
     frame = pg.evaluate(RECT, "#pc-root")
     for dx, dy, name in ((-3000, -3000, "top left"), (4000, 4000, "bottom right")):
@@ -254,10 +254,10 @@ def g_panel(b):
     pg.wait_for_function("document.querySelector('.cp-panel').classList.contains('cp-min')")
     check("minimize collapses the panel to its title bar", pg.evaluate(RECT, ".cp-panel")["h"] < h_open * 0.5)
     pg.click("[data-a=min]")
-    pg.click("[data-a=copy]")
+    pg.click("[data-f=copyall]")
     pg.wait_for_function("PC.app.state.panel.lastCopied.length > 10", timeout=5000)
     txt = pg.evaluate("PC.app.state.panel.lastCopied")
-    obj = json.loads(txt)
+    obj = json.loads(txt)['settings']  # 1.1.0 labeled block
     check("Copy settings gives every setting as flat JSON (%d keys)" % len(obj), len(obj) >= 60 and obj["chartType"] == "line" and obj["lineWidth"] == 4)
     pg.evaluate("PC.app.state.store.reset()")
     pg.wait_for_function("PC.app.state.store.get().chartType === 'bar'", timeout=3000)
@@ -458,7 +458,7 @@ def flip_value(r):
 
 def g_flip(b):
     pages = {}
-    rows = [r for r in json.loads(open_flip_rows(b)) if r["type"] != "note"]
+    rows = [r for r in json.loads(open_flip_rows(b)) if r["type"] not in ("note", "preview", "action")]
     changed, missing = 0, []
     for r in rows:
         k = r["key"]

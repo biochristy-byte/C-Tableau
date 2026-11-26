@@ -21,7 +21,7 @@ function near(a, b, e) { return Math.abs(a - b) <= (e || 1e-9); }
 var measure = function (t, size, weight) { return Math.ceil(String(t).length * size * (weight === 'bold' ? 0.6 : 0.56)) + 1; };
 
 /* ---------------------------------------------------------------- schema */
-var rows = SET.prepared.rows.filter(function (r) { return r.type !== 'note'; });
+var rows = SET.prepared.rows.filter(function (r) { return r.type !== 'note' && r.type !== 'preview' && r.type !== 'action'; });
 check('settings: at least 60 (' + rows.length + ')', rows.length >= 60, rows.length);
 check('tabs: at least 15 (' + SET.schema.tabs.length + ')', SET.schema.tabs.length >= 15);
 check('the eight chart tabs come first', SET.schema.tabs.slice(0, 8).map(function (t) { return t.label; }).join(',') === 'Chart,Bars,Lines,Points,Axes,Grid,Legend,Title');
