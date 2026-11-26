@@ -131,6 +131,8 @@
     state.renderer.draw(state.model, state.store.get(), { onSelect: pushSelection, onHover: pushHover });
     if (state.panel && state.renderer.colors) state.panel.applyAppearance(state.renderer.colors.bg, state.renderer.colors.ink);
     if (state.panel) state.panel.render();
+    diagOnEmpty();
+    if (state.panel) { try { var pp = state.renderer.p; state.panel.trace({ marks: pp && pp.series && pp.axes ? pp.series.length * pp.axes.length : 0 }); } catch (e) { /* diagnostics only */ } }
   }
   function onChange(keys) {
     if (keys.some(function (k) { return DATA_KEYS[k]; })) state.model = buildModel();
@@ -153,7 +155,43 @@
   function info() {
     var d = state.raw, s = state.store.get(), m = state.model;
     return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {},
-      lists: { axes: RD.axisItems(m), categories: RD.seriesItems(m, s) } };
+      lists: { axes: RD.axisItems(m), categories: RD.seriesItems(m, s) }, data: diagData(), tokens: diagTokens() };
+  }
+
+  /* What the diagnostics report and the title placeholders see. Cheap, and never throws. */
+  function diagData() {
+    try {
+      var d = state.raw && state.raw.raw;
+      if (!d) return { rows: 0, fields: [], sample: [] };
+      var rows = d.rows, cols = d.columns;
+      var fields = cols.map(function (c) {
+        var t = 'text';
+        for (var i = 0; i < rows.length; i++) { var v = rows[i][c]; if (v === null || v === undefined) continue; t = typeof v === 'number' ? 'number' : (v instanceof Date ? 'date' : typeof v === 'boolean' ? 'boolean' : 'text'); break; }
+        return { name: c, type: t };
+      });
+      var sample = rows.slice(0, 4).map(function (r) {
+        var o = {};
+        cols.forEach(function (c) { o[c] = { value: r[c] === undefined ? null : r[c], formatted: r.__fmt ? r.__fmt[c] : '' }; });
+        return o;
+      });
+      return { rows: rows.length, fields: fields, sample: sample };
+    } catch (e) { return { rows: 0, fields: [], sample: [] }; }
+  }
+  /* A radar plots averages, so there is no natural sum: only the highest series (by mean) is offered. */
+  function diagTokens() {
+    try {
+      var ser = state.model && state.model.series; if (!ser || !ser.length) return {};
+      var top = null;
+      ser.forEach(function (x) { if (typeof x.mean === 'number' && isFinite(x.mean) && (!top || x.mean > top.mean)) top = x; });
+      return top ? { top: top.name } : {};
+    } catch (e) { return {}; }
+  }
+  /* A Copy diagnostics button on the blank screen; a draw rebuilds the stage, so one at a time. */
+  function diagOnEmpty() {
+    try {
+      var e = state.renderer && state.renderer.stage && state.renderer.stage.querySelector('.rd-empty');
+      if (e && !e.querySelector('.cp-diagwrap')) CP.diagButton(e, { panel: state.panel });
+    } catch (x) { log('diag button failed', x); }
   }
 
   function mount(ws) {
@@ -162,7 +200,7 @@
     state.store.load();
     var root = document.getElementById('rd-root'), chart = document.getElementById('rd-chart');
     state.renderer = new RD.Renderer(chart);
-    state.panel = CP.create(root, { title: 'Radar settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
+    state.panel = CP.create(root, { title: 'Radar settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX, version: '1.0.0' });
     /* Redraw only when the chart box really changed size. ResizeObserver also fires once on observe(); a redraw then would
      * replace the SVG under a hover that already started and cut its fade short. */
     var lastW = -1, lastH = -1;
@@ -197,7 +235,7 @@
     }).catch(function (e) {
       log('initializeAsync failed', e);
       var chart = document.getElementById('rd-chart');
-      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'rd-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); }
+      if (chart) { chart.innerHTML = ''; var d = document.createElement('div'); d.className = 'rd-empty'; d.textContent = 'This extension could not start. Check the browser console for details.'; chart.appendChild(d); try { CP.diagButton(d, { panel: state.panel }); } catch (x) { /* no panel yet */ } }
     });
   }
 

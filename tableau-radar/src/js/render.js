@@ -210,6 +210,17 @@
   Renderer.prototype.draw = function (model, s, hooks) {
     this.hooks = hooks || {}; this.s = s; this.model = model;
     var host = this.host, stack = CP.fontStack(s.fontFamily), self = this;
+    /* The bundled Inter and Poppins load on first use. Text measured before they arrive uses fallback widths, so wait once per stack and draw again. */
+    this._fontWait = this._fontWait || {};
+    if (!this._fontWait[stack] && document.fonts && document.fonts.load) {
+      var fl = ['400 14px ' + stack, '700 14px ' + stack], me = this;
+      if (fl.some(function (f) { return !document.fonts.check(f); })) {
+        this._fontWait[stack] = true;
+        var again = function () { me.draw(me.model, me.s, me.hooks); };
+        Promise.all(fl.map(function (f) { return document.fonts.load(f); })).then(again, again);
+        return; /* hold the first draw until the fonts are in, so the entrance animation is not cut short by the redraw */
+      }
+    }
     var bgWs = C.normHex(model.worksheetBg) || '#ffffff', bg = s.bgMode === 'custom' ? (C.normHex(s.bgColor) || bgWs) : bgWs;
     var ink = C.ensureContrast(C.normHex(s.labelColor) || C.bestInk(bg), [bg], 7.5), muted = C.ensureContrast(C.mix(ink, bg, 0.28), [bg], 7.2);
     this.colors = { bg: bg, ink: ink, muted: muted };

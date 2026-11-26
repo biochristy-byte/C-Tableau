@@ -71,6 +71,20 @@ data_url = "data:application/json;base64," + base64.b64encode(data.encode("utf-8
 cfg = {"dataUrl": data_url, "encodings": enc, "settings": settings, "prefix": "", "title": a.title, "home": "/"}
 
 css = read(os.path.join(ROOT, "lib", "ctab-panel", "ctab-panel.css")) + "\n" + read(os.path.join(ROOT, "src", "css", "radar.css"))
+
+# The library CSS points at fonts/*.woff2 by a relative url, which would 404 beside a single hosted page.
+# Embed them, so the page stays one file and Inter and Poppins render the same everywhere.
+def _embed_fonts(css_text, fonts_dir):
+    def one(m):
+        with open(os.path.join(fonts_dir, m.group(1)), "rb") as fh:
+            return 'url("data:font/woff2;base64,%s")' % base64.b64encode(fh.read()).decode("ascii")
+    out = re.sub(r'url\("fonts/([^"]+\.woff2)"\)', one, css_text)
+    if re.search(r'url\("fonts/', out):
+        sys.exit("RED: a font url in the panel CSS was not embedded")
+    return out
+
+
+css = _embed_fonts(css, os.path.join(ROOT, "lib", "ctab-panel", "fonts"))
 js = "/* ---- ctab-panel ---- */\n" + read(os.path.join(ROOT, "lib", "ctab-panel", "ctab-panel.js")) + "\n" + \
     "\n".join("/* ---- %s ---- */\n%s" % (s, read(os.path.join(ROOT, "src", "js", s))) for s in SCRIPTS)
 standin = read(a.standin)

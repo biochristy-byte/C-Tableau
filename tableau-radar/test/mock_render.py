@@ -237,7 +237,7 @@ def panel_behaviour(b, port):
     check("the gear opens the shared panel", pg.is_visible(".cp-panel"))
     tabs = pg.evaluate("[...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check("15 tabs: Layout, Rings, Axes, Series, Benchmark, Legend + the standard nine + Panel", len(tabs) == 16 and tabs[:6] == ["Layout", "Rings", "Axes", "Series", "Benchmark", "Legend"] and "Fields" in tabs, str(tabs))
-    n_settings = pg.evaluate("RD.app.state.store.rows.filter(r => r.type !== 'note').length")
+    n_settings = pg.evaluate("RD.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check("at least 40 settings (%d)" % n_settings, n_settings >= 40)
     check("no slider anywhere in the panel, on any tab", all(not pg.evaluate("document.querySelectorAll('input[type=range]').length") for _ in [pg.click(".cp-tab[data-t='%s']" % t.lower().replace(" ", "")) if False else None for t in []]))
     ranges = 0
@@ -298,9 +298,9 @@ def panel_behaviour(b, port):
     pg.wait_for_function("RD_MOCK.settings.saveCount >= 1", timeout=8000)
     saved = pg.evaluate("RD_MOCK.settings._v")
     check("settings are saved as strings under radar.", saved.get("radar.ringCount") == "7" and saved.get("radar.curve") == "straight" and all(isinstance(v, str) for v in saved.values()), str({k: saved[k] for k in list(saved)[:4]}))
-    pg.click("[data-a=copy]")
+    pg.click("[data-f=copyall]")
     pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0 || document.querySelector('.cp-status').textContent.indexOf('clipboard') > 0", timeout=5000)
-    copied = json.loads(pg.evaluate("RD.app.state.panel.lastCopied"))
+    copied = json.loads(pg.evaluate("RD.app.state.panel.lastCopied"))["settings"]
     check("Copy settings gives the flat JSON with every setting (%d keys)" % len(copied), len(copied) >= 90 and copied["ringCount"] == 7 and copied["benchMode"] == "value", len(copied))
     pg.close()
     pg = open_case(b, port, "who", "900x520", "light", errs, {"ringCount": 7, "benchMode": "value", "benchValue": 75, "animOn": False})

@@ -123,8 +123,8 @@ def main():
         # the panel works and the JSON it copies is what the stand-in reads back
         pg.click(".cp-gear"); pg.click(".cp-tab[data-t='series']"); pg.click(".cp-chip[data-k=curve][data-v=straight]")
         pg.wait_for_function("document.querySelector('.rd-svg').dataset.curve === 'straight'")
-        pg.click("[data-a=copy]"); pg.wait_for_timeout(150)
-        out = json.loads(pg.evaluate("RD.app.state.panel.lastCopied"))
+        pg.click("[data-f=copyall]"); pg.wait_for_timeout(150)
+        out = json.loads(pg.evaluate("RD.app.state.panel.lastCopied"))["settings"]
         M.check("panel works on a viz page and Copy settings sees the visitor's change", out["curve"] == "straight" and out["ringCount"] == 6, str({k: out.get(k) for k in ("curve", "ringCount")}))
         pg.close()
         pg, errs = load(ctx, port, "round trip", {"encodings": ENC, "settings": out, "prefix": "", "title": "t"})
