@@ -84,9 +84,9 @@ def main():
                 page.click('[data-a=inc][data-k=roughness]')
                 page.wait_for_timeout(500)
                 check(f'[{name}] a visitor stepper click works on the stand-in', int(page.get_attribute('#sb-root', 'data-marks')) == 54 and not errs, str(errs[:2]))
-                page.click('[data-a=copy]')
+                page.click('[data-f=copyall]')
                 page.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0 || document.querySelector('.cp-status').textContent.indexOf('clipboard') > 0", timeout=5000)
-                copied = json.loads(page.evaluate('SB.app.state.panel.lastCopied'))
+                copied = json.loads(page.evaluate('SB.app.state.panel.lastCopied'))["settings"]
                 check(f'[{name}] Copy settings gives the flat JSON the Viz pages flow reads ({len(copied)} keys)', len(copied) >= 90 and copied['seed'] == page.evaluate('SB.app.state.store.get().seed') and 'chartType' in copied and 'roughness' in copied)
                 page.click('[data-a=close]')
                 band = page.locator('.sb-hit').nth(3).bounding_box()

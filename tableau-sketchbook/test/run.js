@@ -47,7 +47,7 @@ try {
   eq('good fill style kept', co('fillStyle', 'zigzag'), 'zigzag');
   eq('chart types are bar, line, dot', rowOf('chartType').opts.map(o => o.value), ['bar', 'line', 'dot']);
   eq('fill styles include the three old ones first', rowOf('fillStyle').opts.map(o => o.value).slice(0, 3), ['hachure', 'solid', 'zigzag']);
-  ok('no row is a slider', S.prepared.rows.every(r => ['check', 'number', 'chips', 'select', 'color', 'text', 'font', 'palette', 'field', 'list', 'note'].includes(r.type)));
+  ok('no row is a slider', S.prepared.rows.every(r => ['check', 'number', 'chips', 'select', 'color', 'text', 'font', 'palette', 'field', 'list', 'note', 'preview', 'action'].includes(r.type)));
   ok('every number row that carries text has a 14px floor', ['labelSize', 'valueLabelSize', 'tipSize', 'titleSize', 'legendSwatch'].every(k => rowOf(k).min >= 14));
   const nSet = S.KEYS.length;
   ok('at least 40 settings (' + nSet + ')', nSet >= 40);

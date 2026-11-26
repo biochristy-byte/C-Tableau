@@ -130,7 +130,7 @@ def panel_behaviour(b):
     check('gear opens the panel inside the frame', pg.is_visible('.cp-panel') and inside(pg.evaluate(RECT, '.cp-panel'), f))
     tabs = pg.evaluate("[...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check('tabs: 7 chart tabs, the nine standard ones, Panel (%d)' % len(tabs), len(tabs) >= MIN_TABS and tabs[:7] == ['Chart', 'Sketch', 'Marks', 'Axes', 'Grid', 'Title underline', 'Legend'] and 'Fields' in tabs and 'Number format' in tabs, str(tabs))
-    n = pg.evaluate("SB.app.state.store.rows.filter(r => r.type !== 'note').length")
+    n = pg.evaluate("SB.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check('at least 40 settings (%d)' % n, n >= 40)
     stats['settings'] = n
     # drag clamps to the frame
@@ -182,9 +182,9 @@ def panel_behaviour(b):
     pg.fill('input[data-k=seed]', '9'); pg.press('input[data-k=seed]', 'Enter')
     pg.wait_for_function('SB.app.state.store.get().seed === 9')
     # copy and paste round trip
-    pg.click('[data-a=copy]')
+    pg.click('[data-f=copyall]')
     pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0", timeout=5000)
-    txt = pg.evaluate('SB.app.state.panel.lastCopied'); obj = json.loads(txt)
+    txt = pg.evaluate('SB.app.state.panel.lastCopied'); obj = json.loads(txt)['settings']  # 1.1.0: a labeled block { ctab, chart, name, kind, copied, settings }
     check('Copy settings gives flat JSON with every setting (%d keys)' % len(obj), len(obj) >= n and obj['seed'] == 9 and 'roughness' in obj and 'labelSize' in obj and isinstance(obj['catColors'], list), len(obj))
     clip = pg.evaluate('navigator.clipboard.readText()')
     check('the clipboard holds the same text', clip.replace('\r\n', '\n') == txt)
@@ -239,7 +239,7 @@ def sheet_and_shots(b):
 # ------------------------------------------------------------------ every setting changes the render
 
 FLIP_JS = """(cfg) => {
-  const st = SB.app.state, store = st.store, rows = store.rows.filter(r => r.type !== 'note');
+  const st = SB.app.state, store = st.store, rows = store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type));
   const byKey = {}; rows.forEach(r => byKey[r.key] = r);
   const optVals = r => (r.opts || []).map(o => Array.isArray(o) ? o[0] : o.value);
   const defaults = {}; rows.forEach(r => defaults[r.key] = JSON.parse(JSON.stringify(r.def)));
@@ -338,7 +338,7 @@ def flip_every_setting(b):
         if a == c:
             unchanged.append('%s (%s -> %r)' % (key, typ, v))
     check('EVERY setting changes the render when flipped (%d of %d flipped, each from a baseline that shows it)' % (stats['flipped'], len(keys)), not unchanged, 'NO CHANGE: ' + '; '.join(unchanged))
-    pg.evaluate("(() => { const st = SB.app.state.store, d = {}; st.rows.forEach(r => { if (r.type !== 'note') d[r.key] = JSON.parse(JSON.stringify(r.def)); }); st.setMany(Object.assign(d, { bgMode: 'custom', bgColor: '#081f33' })); })()")
+    pg.evaluate("(() => { const st = SB.app.state.store, d = {}; st.rows.forEach(r => { if (!['note', 'preview', 'action'].includes(r.type)) d[r.key] = JSON.parse(JSON.stringify(r.def)); }); st.setMany(Object.assign(d, { bgMode: 'custom', bgColor: '#081f33' })); })()")
     pg.evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
     cs = pg.evaluate(CENTERS)
     pg.mouse.move(*cs['mark'], steps=2)
