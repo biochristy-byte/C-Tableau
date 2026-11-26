@@ -81,9 +81,9 @@ def main():
                 page.click('[data-a=inc][data-k=levels]')
                 page.wait_for_timeout(500)
                 check(f'[{name}] a visitor stepper click works on the stand-in', int(page.get_attribute('#dl-root', 'data-bands')) >= 3 and not errs, str(errs[:2]))
-                page.click('[data-a=copy]')
+                page.click('[data-f=copyall]')
                 page.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0 || document.querySelector('.cp-status').textContent.indexOf('clipboard') > 0", timeout=5000)
-                copied = json.loads(page.evaluate('DL.app.state.panel.lastCopied'))
+                copied = json.loads(page.evaluate('DL.app.state.panel.lastCopied'))['settings']
                 check(f'[{name}] Copy settings gives the flat JSON the Viz pages flow reads ({len(copied)} keys)', len(copied) >= 90 and copied['levels'] == page.evaluate('DL.app.state.store.get().levels') and 'multi' in copied and 'labelSize' in copied)
                 page.click('[data-a=close]')
                 band = page.locator('path.dl-band').nth(3).bounding_box()

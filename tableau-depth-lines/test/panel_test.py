@@ -129,7 +129,7 @@ def panel_behaviour(b):
     check('gear opens the panel inside the frame', pg.is_visible('.cp-panel') and inside(pg.evaluate(RECT, '.cp-panel'), f))
     tabs = pg.evaluate("[...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check('tabs: 7 chart tabs, the nine standard ones, Panel (%d)' % len(tabs), len(tabs) >= MIN_TABS and tabs[:7] == ['Contours', 'Bands', 'Points', 'Category', 'Axes', 'Grid', 'Legend'] and 'Fields' in tabs and 'Number format' in tabs, str(tabs))
-    n = pg.evaluate("DL.app.state.store.rows.filter(r => r.type !== 'note').length")
+    n = pg.evaluate("DL.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check('at least 40 settings (%d)' % n, n >= 40)
     stats['settings'] = n
     # drag clamps to the frame
@@ -172,9 +172,9 @@ def panel_behaviour(b):
     pg.wait_for_function('DL.app.state.store.get().levels === 4')
     check('a typed value draws 4 bands per group', pg.locator('path.dl-band[data-g="0"]').count() == 4)
     # copy and paste round trip
-    pg.click('[data-a=copy]')
+    pg.click('[data-f=copyall]')
     pg.wait_for_function("document.querySelector('.cp-status').textContent.indexOf('Copied') === 0", timeout=5000)
-    txt = pg.evaluate('DL.app.state.panel.lastCopied'); obj = json.loads(txt)
+    txt = pg.evaluate('DL.app.state.panel.lastCopied'); obj = json.loads(txt)['settings']  # 1.1.0: a labeled block { ctab, chart, name, kind, copied, settings }
     check('Copy settings gives flat JSON with every setting (%d keys)' % len(obj), len(obj) >= n and obj['levels'] == 4 and 'bandwidth' in obj and 'labelSize' in obj and isinstance(obj['catColors'], list), len(obj))
     clip = pg.evaluate('navigator.clipboard.readText()')
     check('the clipboard holds the same text', clip.replace('\r\n', '\n') == txt)
@@ -229,7 +229,7 @@ def sheet_and_shots(b):
 # ------------------------------------------------------------------ every setting changes the render
 
 FLIP_JS = """(cfg) => {
-  const st = DL.app.state, store = st.store, rows = store.rows.filter(r => r.type !== 'note');
+  const st = DL.app.state, store = st.store, rows = store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type));
   const byKey = {}; rows.forEach(r => byKey[r.key] = r);
   const optVals = r => (r.opts || []).map(o => Array.isArray(o) ? o[0] : o.value);
   const defaults = {}; rows.forEach(r => defaults[r.key] = JSON.parse(JSON.stringify(r.def)));

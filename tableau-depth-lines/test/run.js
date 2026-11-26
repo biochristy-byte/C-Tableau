@@ -80,7 +80,7 @@ eq('settings clamp levels to 24', co('levels', '999'), 24);
 eq('settings clamp bandwidth to 0.5', co('bandwidth', '0'), 0.5);
 eq('settings keep a valid hex color', co('bgColor', '#abcdef'), '#abcdef');
 eq('settings reject a bad hex', co('bgColor', 'zzz'), undefined);
-ok('no row is a slider', S.prepared.rows.every(r => ['check', 'number', 'chips', 'select', 'color', 'text', 'font', 'palette', 'field', 'list', 'note'].includes(r.type)));
+ok('no row is a slider', S.prepared.rows.every(r => ['check', 'number', 'chips', 'select', 'color', 'text', 'font', 'palette', 'field', 'list', 'note', 'preview', 'action'].includes(r.type)));
 ok('every number row that carries text has a 14px floor', ['labelSize', 'valueLabelSize', 'tipSize', 'titleSize'].every(k => rowOf(k).min >= 14));
 const nSet = S.KEYS.length;
 ok('at least 40 settings (' + nSet + ')', nSet >= 40);

@@ -146,7 +146,9 @@
       state.panel.applyAppearance(state.renderer.chartBg, state.renderer.ink);
       state.panel.gear.style.display = s.showGear ? '' : 'none';
       state.panel.render();
+      try { state.panel.trace({ marks: state.model && state.model.points ? state.model.points.length : 0 }); } catch (e) { /* diagnostics only */ }
     }
+    diagOnEmpty(document.getElementById('dl-root'));
   }
   function onChange (keys) {
     if (keys.some(function (k) { return DATA_KEYS[k]; })) { state.model = buildModel(); state.renderer.clearSelection(); }
@@ -179,10 +181,47 @@
       });
     }
     void r;
-    return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {}, lists: { categories: items } };
+    return { columns: d ? d.raw.columns : [], numericColumns: d ? d.numeric : [], auto: d ? d.auto : {}, lists: { categories: items }, data: diagData(d), tokens: diagTokens() };
+  }
+
+  /* What the diagnostics report and the title placeholders see. Cheap, and never throws. */
+  function diagData (d) {
+    try {
+      if (!d || !d.raw) return { rows: 0, fields: [], sample: [] };
+      var rows = d.raw.rows, cols = d.raw.columns;
+      var fields = cols.map(function (c) {
+        var t = 'text';
+        for (var i = 0; i < rows.length; i++) { var v = rows[i][c]; if (v === null || v === undefined) continue; t = typeof v === 'number' ? 'number' : (v instanceof Date ? 'date' : typeof v === 'boolean' ? 'boolean' : 'text'); break; }
+        return { name: c, type: t };
+      });
+      var sample = rows.slice(0, 4).map(function (r) { var o = {}; cols.forEach(function (c) { o[c] = r[c] === undefined ? null : r[c]; }); return o; });
+      return { rows: rows.length, fields: fields, sample: sample };
+    } catch (e) { return { rows: 0, fields: [], sample: [] }; }
+  }
+  function diagTokens () {
+    try {
+      var pts = state.model && state.model.points; if (!pts || !pts.length) return {};
+      var by = {}, total = 0, top = '', topV = -Infinity;
+      pts.forEach(function (p) { total += p.w; if (p.cat) { by[p.cat] = (by[p.cat] || 0) + p.w; if (by[p.cat] > topV) { topV = by[p.cat]; top = p.cat; } } });
+      var out = { total: total.toLocaleString('en-US', { maximumFractionDigits: 1 }) };
+      if (top) out.top = top;
+      return out;
+    } catch (e) { return {}; }
+  }
+  /* A Copy diagnostics button on the blank screen. One per empty box; a redraw rebuilds the box. */
+  function diagOnEmpty (root) {
+    try {
+      var e = root && root.querySelector('.dl-empty');
+      if (e && !e.querySelector('.cp-diagwrap')) CP.diagButton(e, { panel: state.panel });
+    } catch (x) { log('diag button failed', x); }
   }
 
   /* ---------------------------------------------------------------- boot */
+
+  function scheduleRedraw () {
+    if (state.resizeTimer) clearTimeout(state.resizeTimer);
+    state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);
+  }
 
   function mount (ws) {
     state.worksheet = ws;
@@ -192,11 +231,10 @@
     migrateLegacy(state.store, st);
     var root = document.getElementById('dl-root');
     state.renderer = new global.DL.Renderer(root);
-    state.panel = CP.create(root, { title: 'Depth Lines settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
-    global.addEventListener('resize', function () {
-      if (state.resizeTimer) clearTimeout(state.resizeTimer);
-      state.resizeTimer = setTimeout(function () { state.resizeTimer = null; redraw(); }, 60);
-    });
+    state.panel = CP.create(root, { title: 'Depth Lines settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX, version: '1.0.0',
+      /* Pinned to the side the panel pulls the chart in from the right; window resize does not fire, so say so. */
+      onLayout: function () { if (state.model) scheduleRedraw(); } });
+    global.addEventListener('resize', scheduleRedraw);
     var T = global.tableau.TableauEventType || {};
     [T.SummaryDataChanged, T.FilterChanged, T.ParameterChanged, T.WorksheetFormattingChanged].forEach(function (evt) {
       if (!evt || !ws.addEventListener) return;
@@ -220,7 +258,7 @@
     }).catch(function (e) {
       log('initializeAsync failed', e);
       var root = document.getElementById('dl-root');
-      if (root) root.innerHTML = '<div class="dl-empty">This extension could not start. Check the browser console.</div>';
+      if (root) { root.innerHTML = '<div class="dl-empty">This extension could not start. Check the browser console.</div>'; diagOnEmpty(root); }
     });
   }
 
