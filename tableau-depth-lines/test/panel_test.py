@@ -170,6 +170,7 @@ def panel_behaviour(b):
     check('the change is saved to Tableau settings as the string "9" under depthlines.', pg.evaluate("DL_MOCK.settings.getAll()['depthlines.levels']") == '9')
     pg.fill('input[data-k=levels]', '4'); pg.press('input[data-k=levels]', 'Enter')
     pg.wait_for_function('DL.app.state.store.get().levels === 4')
+    pg.wait_for_function('''document.querySelectorAll('path.dl-band[data-g="0"]').length === 4''', timeout=4000)  # the store updates before the redraw lands
     check('a typed value draws 4 bands per group', pg.locator('path.dl-band[data-g="0"]').count() == 4)
     # copy and paste round trip
     pg.click('[data-f=copyall]')
