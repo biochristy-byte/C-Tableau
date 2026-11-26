@@ -212,6 +212,44 @@ failed render is a plain grey placeholder, and that workbook's `1.png` is 1 x 1 
 If you publish a test workbook to try this, **hide it from your profile right away** (and
 delete it after): a public test shows up in your gallery.
 
+**Second proof, 11/26/2026 (The Reef Gardeners, a scroll story with an animated WebGL
+ocean):** the card rendered on the **first** publish. What the page did:
+
+- **Every outside file is built into the page, scripts too, not just fonts.** We downloaded
+  d3 once, checked it against the SRI hash cdnjs publishes, and put it inline. The build
+  goes RED on any `<script src=`, any `<link href="http...">` or any `url(http`.
+- **The still is an `<img>` over the whole page.** A one-line script at the top of `<body>`
+  adds a `bot` class when `navigator.webdriver === true` and the URL has no `live=1`, and CSS
+  shows the image (`position: fixed; inset: 0; object-fit: cover`) only under `.bot`. The
+  page also turns motion off for that class.
+- **The frame loop has to stop.** Our loop kept calling `requestAnimationFrame` with motion
+  off because a timer flag stayed true, so it redrew 60 times a second forever. That is
+  exactly what keeps a screenshot from settling. Test it: in an automated browser without
+  `live=1`, count frames for 1.5 s. It must be 0.
+
+### WebGL looks broken in Tableau Desktop, and works on Tableau Public
+
+If your page draws with **WebGL** (a 3D scene, a shader background), **Tableau Desktop's
+Web Page object shows it without the WebGL part**. Ours showed a flat blue gradient where
+the sunset ocean should be. This is not a sign it will fail on Tableau Public.
+
+- **Why:** Tableau Desktop shows web pages in its own built-in browser (QtWebEngine), and
+  it starts that browser with `--use-gl=disabled` and `--disable-gpu-compositing`. So
+  `canvas.getContext('webgl')` returns `null` there. You can see the flags yourself while a
+  workbook with a Web Page object is open (PowerShell):
+  `Get-CimInstance Win32_Process -Filter "Name='QtWebEngineProcess.exe'" | Select CommandLine`
+- **On Tableau Public's website** the Web Page object is an ordinary `<iframe>` in the
+  viewer's own browser, with `sandbox="allow-downloads allow-forms allow-modals
+  allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox
+  allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation"`
+  (read from a live view 11/26/2026). WebGL runs there.
+- **Check it before you publish:** open any published Tableau Public view in your browser,
+  and in the developer console add an iframe with that same `sandbox` value pointing at
+  your page, full screen. You see what a viewer will see. Ours showed the live sunset,
+  and the published view matched.
+- **Optional:** if you want Desktop's preview to look right too, draw a still image when
+  `getContext('webgl')` returns `null` instead of leaving the background bare.
+
 ## 7. Link it back
 
 If your site has a viz gallery, add the Tableau Public link to the viz's card so people
@@ -309,4 +347,6 @@ thumbnail" above).
 | Viewers stuck on slow Pages playback | Pages speed cannot be set or saved | Animate in the hosted page instead |
 | Frame test said a letterboxed page overflowed | It measured the SVG box, not the drawing | Measure with `getScreenCTM()` |
 | A claude.ai Artifact URL shows blank or refused in a Web Page object | claude.ai sends `frame-ancestors 'self'`, so only claude.ai itself may frame it | Host the same HTML on your own site (or a viz page) and put that URL in the object |
+| WebGL background missing in Tableau Desktop (flat color where the 3D scene should be) | Desktop's built-in browser runs with `--use-gl=disabled`, so `getContext('webgl')` is null | Nothing to fix for Tableau Public: the published view runs in the viewer's browser, where WebGL works. Check in a browser (see "WebGL looks broken in Tableau Desktop") |
+| Gallery card never settles even with fonts inlined | An outside `<script src>` (d3 from a CDN), or a frame loop that keeps running with motion off | Inline every script; stop `requestAnimationFrame` when nothing moves, and test 0 frames in 1.5 s for `navigator.webdriver` |
 | A full-screen scroll-snap story does not snap | `overflow-x: hidden` on `body` makes body a scroll container, which silently kills `scroll-snap-type` on `html` | Use `overflow-x: clip` on `body` (it clips without creating a scroll container) |
