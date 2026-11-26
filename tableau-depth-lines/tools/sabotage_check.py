@@ -18,7 +18,7 @@ SABOTAGES = [
     ('hover is pushed to Tableau even when the setting is off', 'src/js/depth-lines.js', b'if (!ws || !s.hoverOn || !s.hoverPush || id === lastHover) return;', b'if (!ws || id === lastHover) return;', [PANEL + ['--only', 'flip']]),
     ('old fontSize key no longer read as a fallback', 'src/js/settings.js', b'{ labelSize: n, titleSize: Math.round(n * 1.3) }', b'{ labelSize: 14, titleSize: 18 }', [['node', 'test/run.js'], PANEL + ['--only', 'legacy']]),
     ('panel no longer clamps to the frame (vendored copy)', 'lib/ctab-panel/ctab-panel.js', b'return { x: Math.round(Math.max(0, Math.min(hs.w - w, x))), y: Math.round(Math.max(0, Math.min(hs.h - h, y))) };', b'return { x: Math.round(x), y: Math.round(y) };', [PANEL + ['--only', 'panel']]),
-    ('the vendored panel drifts from shared/ (one byte changed)', 'lib/ctab-panel/ctab-panel.js', b"var VERSION = '1.0.0';", b"var VERSION = '1.0.1';", [[PY, '../shared/ctab-panel/sync_check.py', '--root', '..']]),
+    ('the vendored panel drifts from shared/ (one byte changed)', 'lib/ctab-panel/ctab-panel.js', b"var VERSION = '1.1.0';", b"var VERSION = '1.1.1';", [[PY, '../shared/ctab-panel/sync_check.py', '--root', '..']]),
     ('three standard tabs dropped (the panel is no longer the standard set)', 'src/js/settings.js', b'var std = CP.standard({', b"var std = CP.standard({ skip: ['tooltip', 'animation', 'numbers'],", [['node', 'test/run.js']]),
 ]
 SEL = [a for a in sys.argv[1:]]
