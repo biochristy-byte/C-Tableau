@@ -127,3 +127,20 @@ Sabotage (src, test and tools sha256 identical before and after; git status unch
 - tide-lines 13 of 13 RED
 - STILL OWED: reef (tools/sabotage.py), schools (tools/sabotage.py), sketchbook (tools/sabotage_check.py), depth-lines (tools/sabotage_check.py), settings-panel (test/sabotage.py). The chain was stopped by PID after tide-lines so the hub could build from a clean tree. Run them one at a time after the hub ships.
 - The radar and schools-era commit messages lack a blank line before the trailers.
+
+## Sabotage proofs owed, run 11/25-26 (g10)
+Each ran alone through the turnstile. `git status --short` empty before and after; sha256 of every src/, test/ and tools/ file identical before and after (logs in the session scratchpad g10/, *.sha.before and *.sha.after).
+
+| Extension | Result | Restored | Gates after |
+|---|---|---|---|
+| reef | 21 of 21 RED | byte-exact, yes | run.js 192, render 1,639, settings 91, standin 96, all GREEN |
+| schools | 24 of 24 RED | byte-exact, yes (46 files) | run.js 218, render, settings 89, standin 111, all GREEN |
+| sketchbook | 12 of 12 RED | yes | all gates GREEN |
+| depth-lines | 11 of 11 RED | yes | all gates GREEN |
+| settings-panel | 20 of 20 RED | yes | unit 71 checks, browser 116 of 116, GREEN |
+
+Test and tool fixes (the first full runs found these; every one was a stale or flaky check, not a gate without teeth)
+- reef 08de618 and schools 119062c: the "text drops to 13px" sabotage looked for a stale 14px `.cp-help` line (BROKEN, proved nothing). It now plants 13px over the shipped 1em rule and render_test goes RED (reef `--only 14`, schools `--only 13px`). reef also gained an `--only N` flag.
+- sketchbook c53243f and depth-lines b670592: the vendored-panel drift sabotage needle was VERSION 1.0.0; the panel is 1.1.0 (FAIL inverted before).
+- sketchbook 115df72 and depth-lines 09a97c5: panel_test read the sketch signature (sketchbook, typed seed) or band count (depth-lines, typed value) right after the store changed, before the redraw landed. The unmodified tree went RED in 3 of 4 and 2 of 3 solo runs. Now it waits for the redraw; 3 and 4 solo runs GREEN.
+- reef run 1 also showed several panel sabotages going RED by Playwright timeout rather than a named assertion (drag clamp, minimize). They are RED; a sharper assertion is a possible follow-up.
