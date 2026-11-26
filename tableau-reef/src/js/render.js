@@ -298,6 +298,15 @@
     var th = this.th = resolveTheme(s, model.worksheetBg);
     var root = this.host;
     var stack = CP.fontStack(s.font), wt = s.labelWeight === 'normal' ? 400 : 600;
+    /* The bundled Inter and Poppins load on first use. Text measured before they arrive uses fallback widths, so wait once per stack and draw again. */
+    this._fontWait = this._fontWait || {};
+    if (!this._fontWait[stack] && document.fonts && document.fonts.load) {
+      var fl = ['400 14px ' + stack, '600 14px ' + stack], me = this;
+      if (fl.some(function (f) { return !document.fonts.check(f); })) {
+        this._fontWait[stack] = true;
+        Promise.all(fl.map(function (f) { return document.fonts.load(f); })).then(function () { me.draw(me.model, me.s); }, function () {});
+      }
+    }
     this.font = wt + ' ' + Math.max(14, s.fontSize) + 'px ' + stack;
     this.measureCache = {};
     var vars = { '--rf-bg': th.bg, '--rf-ink': th.ink, '--rf-chip-bg': th.chipBg, '--rf-chip-ink': th.chipInk, '--rf-chip-line': th.chipLine, '--rf-font': stack,

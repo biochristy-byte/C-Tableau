@@ -120,6 +120,8 @@
     ['tl', 'tr', 'bl', 'br'].forEach(function (c) { root.classList.toggle('gc-' + c, state.settings.gearCorner === c); });
     var th = state.renderer.th;
     if (state.panel && th) { state.panel.applyAppearance(th.clear ? (th.dark ? '#0d2b45' : '#ffffff') : th.bg, th.ink); }
+    diagOnEmpty();
+    if (state.panel) { try { state.panel.trace({ marks: state.model && state.model.rows ? state.model.rows.length : 0 }); } catch (e) { /* diagnostics only */ } }
   }
 
   /* One reader at a time, and the last request always wins. */
@@ -131,7 +133,7 @@
     var done = function () { busy = false; if (queued) { queued = false; return refresh(); } };
     return loadData().then(redraw, function (e) {
       log('data refresh failed', e); state.data = { rows: [], columns: [], enc: {}, bg: null };
-      state.model = { rows: [], emptyMessage: 'Could not read data from this worksheet.' }; state.renderer.draw(state.model, state.settings);
+      state.model = { rows: [], emptyMessage: 'Could not read data from this worksheet.' }; state.renderer.draw(state.model, state.settings); diagOnEmpty();
     }).then(done, done);
   }
 
@@ -140,7 +142,42 @@
     var numeric = d ? d.columns.filter(function (c) { return isNum(d.rows, c); }) : [];
     return { columns: d ? d.columns : [], numericColumns: numeric,
       auto: { fieldLevel1: d && d.enc.level1, fieldLevel2: d && d.enc.level2, fieldLevel3: d && d.enc.level3, fieldSize: d && d.enc.size },
-      lists: { categories: state.renderer ? state.renderer.catItems() : [] } };
+      lists: { categories: state.renderer ? state.renderer.catItems() : [] }, data: diagData(), tokens: diagTokens() };
+  }
+
+  /* What the diagnostics report and the title placeholders see. Cheap, and never throws. */
+  function diagData() {
+    try {
+      var d = state.data;
+      if (!d) return { rows: 0, fields: [], sample: [] };
+      var rows = d.rows, cols = d.columns;
+      var fields = cols.map(function (c) {
+        var t = 'text';
+        for (var i = 0; i < rows.length; i++) { var v = rows[i][c]; if (v === null || v === undefined) continue; t = typeof v === 'number' ? 'number' : (v instanceof Date ? 'date' : typeof v === 'boolean' ? 'boolean' : 'text'); break; }
+        return { name: c, type: t };
+      });
+      var sample = rows.slice(0, 4).map(function (r) { var o = {}; cols.forEach(function (c) { o[c] = r[c] === undefined ? null : r[c]; }); return o; });
+      return { rows: rows.length, fields: fields, sample: sample };
+    } catch (e) { return { rows: 0, fields: [], sample: [] }; }
+  }
+  function diagTokens() {
+    try {
+      var rows = state.model && state.model.rows; if (!rows || !rows.length) return {};
+      var by = {}, total = 0, top = '', topV = -Infinity;
+      rows.forEach(function (r) {
+        if (!isFinite(r.value) || r.value <= 0) return;
+        var k = r.path && r.path.length ? String(r.path[0]) : "(all)";
+        total += r.value; by[k] = (by[k] || 0) + r.value; if (by[k] > topV) { topV = by[k]; top = k; }
+      });
+      return topV === -Infinity ? {} : { top: top, total: total.toLocaleString('en-US', { maximumFractionDigits: 1 }) };
+    } catch (e) { return {}; }
+  }
+  /* A Copy diagnostics button on the blank screen. The message box is rewritten on every draw, so one at a time. */
+  function diagOnEmpty() {
+    try {
+      var e = state.renderer && state.renderer.empty;
+      if (e && e.style.display !== 'none' && !e.querySelector('.cp-diagwrap')) CP.diagButton(e, { panel: state.panel });
+    } catch (x) { log('diag button failed', x); }
   }
 
   function mount(ws) {
@@ -150,7 +187,7 @@
     state.store.load(); state.settings = state.store.get();
     var root = document.getElementById('rf-root'), chart = document.getElementById('rf-chart');
     state.renderer = new RF.Renderer(chart, { onSelect: pushSelect, onHover: pushHover });
-    state.panel = CP.create(root, { title: 'Reef settings', schema: SET.schema, store: state.store, prefix: PREFIX, state: state.store.panelState, info: info });
+    state.panel = CP.create(root, { title: 'Reef settings', schema: SET.schema, store: state.store, prefix: PREFIX, state: state.store.panelState, info: info, version: '1.0.0' });
     var t = null, again = function () { clearTimeout(t); t = setTimeout(redraw, 60); };
     global.addEventListener('resize', again);
     if (global.ResizeObserver) new ResizeObserver(again).observe(chart);
@@ -170,7 +207,7 @@
       return mount(wc.worksheet);
     }).catch(function (e) {
       log('initializeAsync failed', e);
-      var c = document.getElementById('rf-chart'); if (c) { c.textContent = ''; var d = document.createElement('div'); d.className = 'rf-empty'; d.textContent = 'Reef could not start. Check the browser console.'; c.appendChild(d); }
+      var c = document.getElementById('rf-chart'); if (c) { c.textContent = ''; var d = document.createElement('div'); d.className = 'rf-empty'; d.textContent = 'Reef could not start. Check the browser console.'; c.appendChild(d); try { CP.diagButton(d, { panel: state.panel }); } catch (x) { /* no panel yet */ } }
     });
   }
 

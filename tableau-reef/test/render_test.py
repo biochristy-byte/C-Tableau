@@ -193,7 +193,7 @@ with sync_playwright() as p:
     check('the gear opens the floating panel', page.is_visible('.cp-panel') and page.evaluate("() => !document.querySelector('.cp-panel').hidden"))
     tabs = page.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check('14 tabs plus Panel: Colors, Packing, Depth, Zoom, Rings, Labels, Legend, Number format, Tooltip, Fonts, Background, Animation, Interaction, Fields', len(tabs) == 15 and tabs[:2] == ['Colors', 'Packing'] and 'Fields' in tabs and tabs[-1] == 'Panel', tabs)
-    nset = page.evaluate("() => RF.app.state.store.rows.filter(r => r.type !== 'note').length")
+    nset = page.evaluate("() => RF.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check('at least 40 settings (%d)' % nset, nset >= 40)
     ranges = 0
     for tid in page.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.dataset.t)"):
@@ -238,9 +238,9 @@ with sync_playwright() as p:
     page.click(".cp-tab[data-t='colors']"); page.select_option('select[data-k=palette]', 'sunset'); page.wait_for_timeout(300)
     check('the palette select re-colours and saves reef.palette', page.evaluate("() => RF_MOCK.settings.get('reef.palette')") == 'sunset' and page.evaluate("() => RF.app.state.renderer.root.children[0].el.getAttribute('fill')") in ('#e8873a', '#f08f8f', '#f2b84b', '#c79bf2'))
     # copy and paste round trip
-    page.click('[data-a=copy]')
+    page.click('[data-f=copyall]')
     page.wait_for_function("() => document.querySelector('.cp-status').textContent.indexOf('Copied') === 0", timeout=5000)
-    copied = json.loads(page.evaluate("() => RF.app.state.panel.lastCopied"))
+    copied = json.loads(page.evaluate("() => RF.app.state.panel.lastCopied"))["settings"]
     check('Copy settings makes flat JSON with every setting (%d keys)' % len(copied), len(copied) == nset and copied['gap'] == 18 and copied['palette'] == 'sunset', len(copied))
     page.select_option('select[data-k=palette]', 'kelp'); page.click(".cp-tab[data-t='packing']"); page.fill('input[data-k=gap]', '3'); page.press('input[data-k=gap]', 'Enter'); page.wait_for_timeout(500)
     check('the settings really changed before the paste', page.evaluate("() => RF.app.state.store.get().palette") == 'kelp' and page.evaluate("() => RF.app.state.store.get().gap") == 3)

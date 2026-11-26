@@ -39,6 +39,7 @@ FLIP = {'colorField': 'Census region', 'fieldLevel1': 'Census region', 'fieldLev
 PRE = {'numThousands': {'numCompact': False}, 'rampName': {'colorMode': 'field', 'colorField': 'Age-adjusted death rate'}, 'colorField': {'colorMode': 'field'},
        'singleColor': {'colorMode': 'single'}, 'depthTint': {}, 'zoomEase': {'zoomMs': 1200}, 'selRing': {'zoomOnClick': False}, 'dimOthers': {'zoomOnClick': False},
        'selectEnabled': {'zoomOnClick': False}, 'multiSel': {'zoomOnClick': False}, 'zoomLeaf': {}, 'titleText': {'showTitle': True}}
+WIDE = {'showValues', 'numDecimals', 'numCompact'}
 BOOT = {'intro', 'animMs', 'animEase'}
 CLICKS = {'zoomOnClick', 'zoomLeaf', 'clickOut', 'escUp', 'zoomMs', 'zoomEase', 'dimOthers', 'selRing', 'selectEnabled', 'hoverPush', 'multiSel'}
 
@@ -168,7 +169,7 @@ def probe(pg, key, cur_apply):
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx, pg = newpage(b, 'fresh=1&fixture=causes&bg=ffffff')
-    rows = pg.evaluate("() => RF.app.state.store.rows.filter(r => r.type !== 'note').map(r => ({ key: r.key, type: r.type, tab: r.tab, opts: r.opts, min: r.min, max: r.max, when: r.when || null, def: r.def }))")
+    rows = pg.evaluate("() => RF.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).map(r => ({ key: r.key, type: r.type, tab: r.tab, opts: r.opts, min: r.min, max: r.max, when: r.when || null, def: r.def }))")
     byk = {r['key']: r for r in rows}
     first_top = pg.evaluate("() => RF.app.state.renderer.catItems()[0].key")
     print('Reef settings gate: flipping %d settings on %d tabs' % (len(rows), len({r['tab'] for r in rows})))
@@ -197,12 +198,14 @@ with sync_playwright() as p:
                     apply(pg, {k: fv}); c = probe(pg, k, None)
                     ok = a != c; detail = (a, c)
                 else:
+                    if k in WIDE: pg.set_viewport_size({'width': 1800, 'height': 1100}); settle(pg, 500)   # Inter is wider: a name plus its value only fits on a big circle
                     a = pg.evaluate(SIG)
                     check_changed = pg.evaluate("(a) => { const o = {}; o[a[0]] = a[1]; return RF.app.state.store.setMany(o).length; }", [k, fv])
                     settle(pg, 220)
                     c = pg.evaluate(SIG)
                     ok = a != c and check_changed >= 1
                     detail = 'store changed %d' % check_changed if a == c else ''
+                    if k in WIDE: pg.set_viewport_size({'width': 900, 'height': 560}); settle(pg, 500)
         except Exception as e:
             ok = False; detail = 'EXC ' + str(e)[:160]
         examined.append(k)
