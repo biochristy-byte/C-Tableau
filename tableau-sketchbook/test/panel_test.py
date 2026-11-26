@@ -174,6 +174,7 @@ def panel_behaviour(b):
     check('stepping back redraws the IDENTICAL sketch (seeded)', pg.evaluate(SIG) == s0)
     pg.fill('input[data-k=seed]', '7'); pg.press('input[data-k=seed]', 'Enter')
     pg.wait_for_function('SB.app.state.store.get().seed === 7')
+    pg.wait_for_timeout(300)  # the store updates before the redraw lands; sample after the screen settles
     check('a typed seed redraws a different sketch', pg.evaluate(SIG) != s0)
     pg.fill('input[data-k=seed]', '42'); pg.press('input[data-k=seed]', 'Enter')
     pg.wait_for_function('SB.app.state.store.get().seed === 42')
