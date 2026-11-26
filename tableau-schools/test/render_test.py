@@ -257,7 +257,7 @@ with sync_playwright() as p:
     check('the gear opens the floating panel', page.is_visible('.cp-panel') and page.evaluate("() => !document.querySelector('.cp-panel').hidden"))
     tabs = page.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     check('15 tabs plus Panel: Colors, Cluster layout, Collisions, Size scale, Circles, Labels, Cluster labels, Legend, Number format, Tooltip, Fonts, Background, Animation, Interaction, Fields', len(tabs) == 16 and tabs[:2] == ['Colors', 'Cluster layout'] and 'Fields' in tabs and tabs[-1] == 'Panel', tabs)
-    nset = page.evaluate("() => SC.app.state.store.rows.filter(r => r.type !== 'note').length")
+    nset = page.evaluate("() => SC.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     check('at least 40 settings (%d)' % nset, nset >= 40)
     ranges = 0
     for tid in page.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.dataset.t)"):
@@ -302,9 +302,9 @@ with sync_playwright() as p:
     page.click(".cp-tab[data-t='colors']"); page.select_option('select[data-k=palette]', 'sunset'); page.wait_for_timeout(300)
     check('the palette select re-colours and saves schools.palette', page.evaluate("() => SC_MOCK.settings.get('schools.palette')") == 'sunset' and page.evaluate("() => SC.colors.palette('sunset').indexOf(SC.app.state.renderer.nodes[0].el.getAttribute('fill')) > -1"))
     # copy and paste round trip
-    page.click('[data-a=copy]')
+    page.click('[data-f=copyall]')
     page.wait_for_function("() => document.querySelector('.cp-status').textContent.indexOf('Copied') === 0", timeout=5000)
-    copied = json.loads(page.evaluate("() => SC.app.state.panel.lastCopied"))
+    copied = json.loads(page.evaluate("() => SC.app.state.panel.lastCopied"))["settings"]
     check('Copy settings makes flat JSON with every setting (%d keys)' % len(copied), len(copied) == nset and copied['pad'] == 18 and copied['palette'] == 'sunset', len(copied))
     page.select_option('select[data-k=palette]', 'kelp'); page.click(".cp-tab[data-t='collision']"); page.fill('input[data-k=pad]', '3'); page.press('input[data-k=pad]', 'Enter'); page.wait_for_timeout(1200)
     check('the settings really changed before the paste', page.evaluate("() => SC.app.state.store.get().palette") == 'kelp' and page.evaluate("() => SC.app.state.store.get().pad") == 3)

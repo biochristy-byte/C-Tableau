@@ -158,7 +158,7 @@ def probe(pg, key):
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx, pg = newpage(b, 'fresh=1&fixture=countries&bg=ffffff')
-    rows = pg.evaluate("() => SC.app.state.store.rows.filter(r => r.type !== 'note').map(r => ({ key: r.key, type: r.type, tab: r.tab, opts: r.opts, min: r.min, max: r.max, when: r.when || null, def: r.def }))")
+    rows = pg.evaluate("() => SC.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).map(r => ({ key: r.key, type: r.type, tab: r.tab, opts: r.opts, min: r.min, max: r.max, when: r.when || null, def: r.def }))")
     byk = {r['key']: r for r in rows}
     first_top = pg.evaluate("() => SC.app.state.renderer.catItems()[0].key")
     print('Schools settings gate: flipping %d settings on %d tabs' % (len(rows), len({r['tab'] for r in rows})))

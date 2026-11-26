@@ -274,6 +274,15 @@
     this.model = model; this.s = s;
     var th = this.th = resolveTheme(s, model.worksheetBg), root = this.host.parentNode;
     var stack = CP.fontStack(s.font), wt = s.labelWeight === 'normal' ? 400 : 600;
+    /* The bundled Inter and Poppins load on first use. Chips measured before they arrive use fallback widths, so wait once per stack and draw again. */
+    this._fontWait = this._fontWait || {};
+    if (!this._fontWait[stack] && document.fonts && document.fonts.load) {
+      var fl = ['400 14px ' + stack, '600 14px ' + stack], me = this;
+      if (fl.some(function (f) { return !document.fonts.check(f); })) {
+        this._fontWait[stack] = true;
+        Promise.all(fl.map(function (f) { return document.fonts.load(f); })).then(function () { me.draw(me.model, me.s); }, function () {});
+      }
+    }
     this.font = wt + ' ' + Math.max(14, s.fontSize) + 'px ' + stack; this.measureCache = {};
     var vars = { '--sc-bg': th.bg, '--sc-ink': th.ink, '--sc-chip-bg': th.chipBg, '--sc-chip-ink': th.chipInk, '--sc-chip-line': th.chipLine, '--sc-font': stack,
       '--sc-hover-ms': s.hoverMs + 'ms', '--sc-hover-ring': s.hoverRing + 'px', '--sc-sel-ring': s.selRing + 'px', '--sc-dim': String(s.dimOthers / 100), '--sc-seldim': String(s.selDim / 100),
