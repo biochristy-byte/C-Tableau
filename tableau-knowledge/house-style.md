@@ -34,7 +34,7 @@ The two styles in one line each:
 | # | Rule |
 |---|---|
 | 6 | Cap categorical color at 4 to 6 per view. More categories means a highlight or a set action, not more hues. |
-| 7 | Type hierarchy by size and greyscale only (`#000000 #333333 #555555 #757575 #898989`, 7 to 18 pt, 22 pt title) plus 1 or 2 semantic accents. Do not change fonts to add interest. |
+| 7 | Type hierarchy by size and greyscale only (`#000000 #333333 #555555` on white, 10 to 18 pt, 22 pt title) plus 1 or 2 semantic accents. Do not change fonts to add interest. The source workbooks also used `#757575` and `#898989` at 7 pt; those fail rules 34 and 35 (4.61:1 and 3.50:1 on white). `#555555` is the lightest step that clears 7:1 on white (7.46:1) and it already fails on a `#f5f5f5` card (6.84:1), so measure every step on its real ground. |
 | 8 | A full-bleed background image at zone 0 (`type-v2='bitmap'`, `w=h=100000`) is the highest-payoff single move, and it can be generated from Python. |
 | 9 | Panels are translucent fills over that art (8-digit hex such as `#f5f5f584`) with native Corner Radius (Layout pane, Tableau 2026.1 and later), set per corner. Adjoining zones take opposite corners so a split panel reads as one pill. |
 | 10 | Bake anything Tableau cannot render (script-font titles, signatures, icons) as a PNG image zone. Ship light and dark variants of each icon. |

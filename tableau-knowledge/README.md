@@ -63,6 +63,17 @@ tableau-knowledge/never-ctrl-s-on-public.md first. Text contrast is 7:1 minimum,
 no text under 10 pt. Never send Ctrl+S to Tableau Public. I click publish.
 ```
 
+## Give Tableau Studio the same rules
+
+Tableau Studio's agent starts with Tableau's own skills and no house rules.
+[`studio-skill/`](studio-skill/README.md) packages these files as two Studio skills,
+`/studiomind` (the base rules) and `/studiomind-audit` (a read-only check of a
+workbook), plus a Tableau expertise file. Build and install:
+
+```
+python tableau-knowledge/tools/make_studio_skill.py
+```
+
 ## How reliable is it
 
 Every XML fragment and trap was proved by loading a generated file into Tableau
