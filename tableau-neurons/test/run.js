@@ -294,12 +294,12 @@ section('schema: 40+ settings, 7+ tabs, steppers, chips, dropdowns only', 300, t
   keys.forEach(k => {
     const o = S.BY_KEY[k];
     types.add(o.type);
-    t.ok(['number', 'chips', 'select', 'check', 'color', 'text', 'font', 'palette', 'field', 'list'].indexOf(o.type) >= 0, k + ': control type ' + o.type + ' is allowed');
+    t.ok(['number', 'chips', 'select', 'check', 'color', 'text', 'font', 'palette', 'field', 'list', 'preview', 'action'].indexOf(o.type) >= 0, k + ': control type ' + o.type + ' is allowed');
     t.ok(k.indexOf('.') < 0, k + ': key has no dot (the Viz pages flow reads the last dot segment)');
     if (o.type === 'number') t.ok(o.min !== undefined && o.max !== undefined && o.step > 0, k + ': stepper has min, max and step');
     if (o.type === 'chips' || o.type === 'select') t.ok(o.opts.some(c => c.value === o.def), k + ': default is one of the choices');
-    t.ok(JSON.stringify(S.coerce(k, S.coerce(k, o.def))) === JSON.stringify(S.coerce(k, o.def)), k + ': coercion is idempotent');
-    t.ok(JSON.stringify(S.resolve({ [k]: CPlib.serialize(o, S.DEFAULTS[k]) })[k]) === JSON.stringify(S.DEFAULTS[k]), k + ': the default survives a string round trip');
+    if (o.type !== 'preview' && o.type !== 'action') t.ok(JSON.stringify(S.coerce(k, S.coerce(k, o.def))) === JSON.stringify(S.coerce(k, o.def)), k + ': coercion is idempotent');
+    if (o.type !== 'preview' && o.type !== 'action') t.ok(JSON.stringify(S.resolve({ [k]: CPlib.serialize(o, S.DEFAULTS[k]) })[k]) === JSON.stringify(S.DEFAULTS[k]), k + ': the default survives a string round trip');
   });
   t.ok(!types.has('slider') && !types.has('range'), 'no slider or range control type');
   t.ok(S.coerce('fontSize', 9) === 14 && S.coerce('fontSize', '3') === 14, 'text size cannot be set under 14');

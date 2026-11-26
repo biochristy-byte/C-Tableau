@@ -155,6 +155,16 @@
     this.settings = settings;
     this.hooks = hooks || this.hooks;
     this.model = model;
+    /* The bundled Inter and Poppins load on first use. Labels measured before they arrive use fallback widths, so wait once per stack and draw again. */
+    this._fontWait = this._fontWait || {};
+    var stackNow = settings.fontFamily;
+    if (!this._fontWait[stackNow] && document.fonts && document.fonts.load) {
+      var fl = ['400 14px ' + stackNow, '700 14px ' + stackNow], me = this;
+      if (fl.some(function (f) { return !document.fonts.check(f); })) {
+        this._fontWait[stackNow] = true;
+        Promise.all(fl.map(function (f) { return document.fonts.load(f); })).then(function () { measureCache = {}; me.draw(me.model, me.settings, me.hooks); }, function () {});
+      }
+    }
     var hw = Math.max(1, this.host.clientWidth), hh = Math.max(1, this.host.clientHeight);
     this.theme = pal.resolveTheme(settings, model.worksheetBg);
     var T = this.theme;

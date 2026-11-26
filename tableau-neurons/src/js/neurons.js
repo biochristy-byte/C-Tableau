@@ -209,6 +209,8 @@
     view.groupIndex = idx; view.groupItems = ov; view.manualOrder = merged.map(function (m) { return m.key; });
     view.draw(state.model, s, { onSelect: pushSelect, onHover: pushHover });
     if (state.panel && view.theme) { state.panel.applyAppearance(view.theme.bg, view.theme.ink); state.panel.render(); }
+    diagOnEmpty();
+    if (state.panel) { try { state.panel.trace({ marks: state.model && state.model.graph ? state.model.graph.nodes.length + state.model.graph.links.length : 0 }); } catch (e) { /* diagnostics only */ } }
   }
 
   function onChange (keys) {
@@ -243,7 +245,41 @@
     var m = state.model || {}, theme = state.view && state.view.theme;
     return { columns: m.columns || [], numericColumns: m.numeric || [],
       auto: { fieldGroup: m.names && m.names.group, fieldSource: m.names && m.names.source, fieldTarget: m.names && m.names.target, fieldWeight: m.names && m.names.weight },
-      lists: { categories: groupItemsFor(theme) } };
+      lists: { categories: groupItemsFor(theme) }, data: diagData(), tokens: diagTokens() };
+  }
+
+  /* What the diagnostics report and the title placeholders see. Cheap, and never throws. */
+  function diagData () {
+    try {
+      var d = state.raw && state.raw.data;
+      if (!d) return { rows: 0, fields: [], sample: [] };
+      var rows = d.rows, cols = d.columns;
+      var fields = cols.map(function (c) {
+        var t = 'text';
+        for (var i = 0; i < rows.length; i++) { var v = rows[i][c]; if (v === null || v === undefined) continue; t = typeof v === 'number' ? 'number' : (v instanceof Date ? 'date' : typeof v === 'boolean' ? 'boolean' : 'text'); break; }
+        return { name: c, type: t };
+      });
+      var sample = rows.slice(0, 4).map(function (r) { var o = {}; cols.forEach(function (c) { o[c] = r[c] === undefined ? null : r[c]; }); return o; });
+      return { rows: rows.length, fields: fields, sample: sample };
+    } catch (e) { return { rows: 0, fields: [], sample: [] }; }
+  }
+  function diagTokens () {
+    try {
+      var rows = state.model && state.model.rows; if (!rows || !rows.length) return {};
+      var by = {}, total = 0, top = '', topV = -Infinity;
+      rows.forEach(function (r) {
+        var w = typeof r.weight === 'number' && isFinite(r.weight) ? r.weight : 1, k = String(r.source);
+        total += w; by[k] = (by[k] || 0) + w; if (by[k] > topV) { topV = by[k]; top = k; }
+      });
+      return { top: top, total: total.toLocaleString('en-US', { maximumFractionDigits: 1 }) };
+    } catch (e) { return {}; }
+  }
+  /* A Copy diagnostics button on the blank screen; the box is rewritten on every draw, so one at a time. */
+  function diagOnEmpty () {
+    try {
+      var e = state.view && state.view.emptyEl;
+      if (e && !e.hidden && !e.querySelector('.cp-diagwrap')) CP.diagButton(e, { panel: state.panel });
+    } catch (x) { log('diag button failed', x); }
   }
 
   /* ----------------------------------------------------------------- boot */
@@ -262,7 +298,7 @@
       var ps = state.store.panelState, cur = ps.get() || {};
       if (lg.panel.theme && !cur.theme) { cur.theme = lg.panel.theme; ps.set(cur); }
     } catch (e) { log('legacy settings not carried', e); }
-    state.panel = CP.create(root, { title: 'Neurons settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX });
+    state.panel = CP.create(root, { title: 'Neurons settings', schema: SET.schema, store: state.store, info: info, state: state.store.panelState, prefix: PREFIX, version: '1.0.0' });
     state.panel.applyAppearance('#081f33', '#f3f5f7');
 
     /* Resize: the guard skips a callback whose size did not change, and the
@@ -299,7 +335,7 @@
     }).catch(function (e) {
       log('initializeAsync failed', e);
       var chart = document.getElementById('nx-chart');
-      if (chart) { chart.textContent = 'This extension could not start. Check the browser console for details.'; }
+      if (chart) { chart.textContent = 'This extension could not start. Check the browser console for details.'; try { CP.diagButton(chart, { panel: state.panel }); } catch (x) { /* no panel yet */ } }
     });
   }
 

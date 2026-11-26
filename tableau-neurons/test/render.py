@@ -387,7 +387,7 @@ def gate_d(b, base):
     g.ok(pg.is_visible(".cp-panel"), "the gear opens the panel")
     tabs = pg.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.textContent)")
     g.ok(tabs[:5] == ["Layout", "Nodes", "Links", "Hover", "Group arcs"] and "Fields" in tabs and "Colors" in tabs and len(tabs) >= 8, "tabs: %s" % tabs)
-    nset = pg.evaluate("() => NX.app.state.store.rows.filter(r => r.type !== 'note').length")
+    nset = pg.evaluate("() => NX.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).length")
     g.ok(nset >= 40, "%d settings (at least 40) over %d tabs" % (nset, len(tabs)))
     ranges, smalls, lows = 0, [], []
     for t in pg.evaluate("() => [...document.querySelectorAll('.cp-tab')].map(t => t.dataset.t)"):
@@ -451,17 +451,17 @@ def gate_d(b, base):
     # Copy, change, Paste: the round trip
     pg.click(".cp-tab[data-t='layout']")
     inp.fill("0.3"); inp.press("Enter"); pg.wait_for_timeout(300)
-    pg.click("[data-a=copy]")
+    pg.click("[data-f=copyall]")
     pg.wait_for_function("() => document.querySelector('.cp-status').textContent.indexOf('Copied') === 0 || document.querySelector('.cp-status').textContent.indexOf('clipboard') > 0", timeout=5000)
     txt = pg.evaluate("() => NX.app.state.panel.lastCopied")
-    obj = json.loads(txt)
-    nkeys = pg.evaluate("() => NX.settings.KEYS.length")
+    obj = json.loads(txt)["settings"]   # 1.1.0: a labeled block { ctab, chart, name, kind, copied, settings }
+    nkeys = pg.evaluate("() => NX.settings.KEYS.filter(k => { const r = NX.app.state.store.rows.find(x => x.key === k); return !r || !('preview' === r.type || 'action' === r.type); }).length")   # preview and action rows carry a key but no value
     g.ok(obj.get("beta") == 0.3 and obj.get("fontSize") == 14 and len(obj) == nkeys and all("." not in k for k in obj), "Copy settings gives flat dot-free JSON with all %d settings (%d in the block)" % (nkeys, len(obj)))
     try:
         clip = pg.evaluate("() => navigator.clipboard.readText()")
     except Exception:
         clip = ""
-    g.ok(clip == "" or json.loads(clip).get("beta") == 0.3, "the clipboard carries the same block")
+    g.ok(clip == "" or json.loads(clip)["settings"].get("beta") == 0.3, "the clipboard carries the same block")
     inp.fill("0.9"); inp.press("Enter"); pg.wait_for_timeout(300)
     pg.click("[data-a=paste]")
     pg.wait_for_selector("textarea[data-f=paste]")
@@ -518,7 +518,7 @@ def gate_d(b, base):
     st = pg.evaluate("() => NX.app.state.settings")
     g.ok(st["nodeSize"] == 7 and st["bgMode"] == "white" and st["showGroupNames"] is False and st["beta"] == 0.5, "an old workbook's keys are read on load")
     g.ok(pg.evaluate("() => +document.querySelector('.nx-dot').getAttribute('r')") == 7 and pg.evaluate("() => document.querySelectorAll('.nx-gname').length") == 0 and "Verdana" in pg.evaluate("() => document.querySelector('#nx-chart').style.fontFamily"), "and they draw: node size 7, no group names, Verdana")
-    g.ok(pg.evaluate("() => JSON.parse(NX_MOCK.settings.get('neurons._panel') || '{}').theme") == "dark", "the old panelTheme dark was carried into the new panel's saved state")
+    g.ok(pg.evaluate("() => JSON.parse(localStorage.getItem('ctab:neurons.panel') || '{}').theme") == "dark", "the old panelTheme dark was carried into the new panel's saved state")
     g.ok(not errs3, "legacy load: no console errors " + str(errs3[:2]))
     ctx.close()
     g.close()
@@ -585,7 +585,7 @@ def gate_g(b, base):
     errs = []
     ctx, pg = mock_page(b, base, 900, 600, errs)
     wait_idle(pg, 900)
-    rows = pg.evaluate("() => NX.app.state.store.rows.filter(r => r.type !== 'note').map(r => ({ key: r.key, type: r.type, min: r.min, max: r.max, def: NX.settings.DEFAULTS[r.key], opts: (r.opts || []).map(o => ({ value: o.value })) }))")
+    rows = pg.evaluate("() => NX.app.state.store.rows.filter(r => !['note', 'preview', 'action'].includes(r.type)).map(r => ({ key: r.key, type: r.type, min: r.min, max: r.max, def: NX.settings.DEFAULTS[r.key], opts: (r.opts || []).map(o => ({ value: o.value })) }))")
     g.ok(len(rows) >= 40, "%d settings to flip" % len(rows))
     first_group = pg.evaluate("() => NX.app.state.groupList[0]")
     setv = lambda k, v: pg.evaluate("([k, v]) => NX.app.state.store.set(k, v)", [k, v])
@@ -659,9 +659,11 @@ def gate_g(b, base):
             s1 = pg.evaluate(SIG)
             changed = s0["dom"] != s1["dom"] or s0["cv"] != s1["cv"]
             how = "svg/html" if s0["dom"] != s1["dom"] else "canvas"
-            setv(key, row["def"]); settle()
+            setv(key, row["def"]); settle(2500 if key == "beta" else 650)   # beta re-bundles every link; the restore needs longer than one settle
             s2 = pg.evaluate(SIG)
             g.ok(changed, "%s: flipping %r to %r changes the render (%s)" % (key, row["def"], alt, how))
+            _d = next((i for i, (x, y) in enumerate(zip(str(s0["dom"]), str(s2["dom"]))) if x != y), None)
+            if _d is not None: print("DIFF", key, repr(str(s0["dom"])[max(0,_d-80):_d+80]), "||", repr(str(s2["dom"])[max(0,_d-80):_d+80]))
             g.ok(s2["dom"] == s0["dom"] and s2["cv"] == s0["cv"], "%s: putting the default back restores the exact first render (control: the signature is stable)" % key)
             doc[key] = how; flipped.append(key)
         for k in pre:
