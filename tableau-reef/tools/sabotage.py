@@ -57,7 +57,7 @@ SABOTAGES = [
      "if (a === 'min') { ps.min = !ps.min;", "if (a === 'min') { ps.min = ps.min;",
      ['python', 'test/render_test.py']),
     ('panel: text drops to 13px (lib css copy)', 'lib/ctab-panel/ctab-panel.css',
-     ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 14px; }", ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 13px; }",
+     ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 1em; }", ".cp-help { grid-column: 1 / 3; color: var(--cp-muted); font-size: 13px; }",
      ['python', 'test/render_test.py']),
     ('panel: a setting change no longer re-renders the chart (onChange dropped)', 'src/js/app.js',
      "onChange: function () { redraw(); }, log: log });", "onChange: function () { }, log: log });",
@@ -97,6 +97,10 @@ def tree_hash():
         if q.is_file() and 'preview' not in q.parts and '__pycache__' not in q.parts and '.git' not in q.parts:
             h.update(str(q.relative_to(ROOT)).encode()); h.update(q.read_bytes())
     return h.hexdigest()
+ONLY = None
+if '--only' in sys.argv:
+    ONLY = int(sys.argv[sys.argv.index('--only') + 1])
+    SABOTAGES = [SABOTAGES[ONLY - 1]]
 before = tree_hash()
 problems = 0
 for label, rel, old, new, cmd in SABOTAGES:
