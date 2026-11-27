@@ -36,7 +36,10 @@ REFERENCES = [
     "viz-extensions.md", "reference/TABLEAU_MASTERY.md", "claude-command/chart-brainstorm.md",
     "claude-command/tableau-scrubs.md",
 ]
-SKILLS = ["studiomind", "studiomind-audit"]
+SKILLS = ["studiomind", "studiomind-audit", "studiomind-setup", "studiomind-polish"]
+PROFILE_TEMPLATES = ["profile-skill-template.md", "profile-knowledge-template.md"]
+NEVER_FIX = {"D1", "D2", "D3", "D4", "D5", "L1"}          # what the numbers mean, or moving sheets
+MIN_AUDIT_CHECKS = 14
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")          # Tableau's skill.schema.json
 DESC_MAX = 4096                                             # skill.schema.json maxLength
 DESC_SHORT = 500                                            # Skill Creator wants a short description
@@ -50,6 +53,7 @@ BANNED = ["honest", "frankly", "candidly", "truthfully", "obviously", "clearly",
           "of course", "needless to say"]
 PRIVATE = [r"[\w.+-]+@[\w-]+\.[\w.]+", r"[A-Za-z]:[\\/]Users[\\/]", r"\bC0[A-Z0-9]{8,}\b",
            r"\b(Chris|Christine|Christy|Celia|Kelsey|Fryar|Oehrke|Pregler|biochristy)\b"]
+REPO_URL = "https://github.com/biochristy-byte/C-Tableau/"
 
 
 def build(out: Path) -> None:
@@ -60,6 +64,10 @@ def build(out: Path) -> None:
         (dest / "scripts").mkdir(parents=True)
         shutil.copy2(SRC / name / "SKILL.md", dest / "SKILL.md")
         shutil.copy2(A11Y, dest / "scripts" / "a11y_check.py")
+    setup_refs = out / "skills" / "studiomind-setup" / "references"
+    setup_refs.mkdir()
+    for f in PROFILE_TEMPLATES:
+        shutil.copy2(SRC / "studiomind-setup" / "references" / f, setup_refs / f)
     refs = out / "skills" / "studiomind" / "references"
     refs.mkdir()
     for rel in REFERENCES:
@@ -76,7 +84,7 @@ def build(out: Path) -> None:
 
 def gate_line_endings(out: Path) -> list:
     files = [p for p in out.rglob("*") if p.suffix in (".md", ".py") and p.is_file()]
-    if len(files) < len(REFERENCES) + 7:
+    if len(files) < len(REFERENCES) + 2 * len(SKILLS) + len(PROFILE_TEMPLATES) + 3:
         return [f"line endings: only {len(files)} text files examined"]
     return [f"{p.relative_to(out).as_posix()}: has CRLF line endings"
             for p in files if b"\r" in p.read_bytes()]
@@ -96,6 +104,7 @@ def frontmatter(text: str) -> dict:
 def authored(out: Path) -> list:
     """Files this repo writes for Studio (references are gated by their own repo checks)."""
     return [out / "skills" / n / "SKILL.md" for n in SKILLS] + [
+        out / "skills" / "studiomind-setup" / "references" / f for f in PROFILE_TEMPLATES] + [
         out / "knowledge" / "studiomind-house-rules.md", out / "authoring-override-block.md",
         out / "README.md"]
 
@@ -136,22 +145,139 @@ def gate_files_named(out: Path) -> list:
     return errs
 
 
+def check_expertise(text: str, label: str) -> list:
+    errs = [f"{label}: missing heading {h!r}" for h in EXPERTISE_H2 if h not in text]
+    errs += [f"{label}: Scope Check missing {b!r}" for b in SCOPE_BULLETS if f"- {b}" not in text]
+    if not re.match(r"# \S", text):
+        errs.append(f"{label}: does not open with an H1 title")
+    if text.lstrip().startswith("---"):
+        errs.append(f"{label}: has frontmatter (Tableau expertise files take none)")
+    return errs
+
+
 def gate_expertise(out: Path) -> list:
     text = (out / "knowledge" / "studiomind-house-rules.md").read_text(encoding="utf-8")
-    errs = [f"expertise: missing heading {h!r}" for h in EXPERTISE_H2 if h not in text]
-    errs += [f"expertise: Scope Check missing {b!r}" for b in SCOPE_BULLETS if f"- {b}" not in text]
-    if not re.match(r"# \S", text):
-        errs.append("expertise: does not open with an H1 title")
-    if text.lstrip().startswith("---"):
-        errs.append("expertise: has frontmatter (Tableau expertise files take none)")
+    return check_expertise(text, "expertise")
+
+
+def section(text: str, heading: str) -> str:
+    """Body of a markdown section from its heading to the next heading of the same level."""
+    level = heading.split(" ")[0]
+    m = re.search(r"^" + re.escape(heading) + r"[^\n]*\n(.*?)(?=^" + level + r" |\Z)", text, re.S | re.M)
+    return m.group(1) if m else ""
+
+
+def profile_block(text: str):
+    starts, ends = text.count("<!-- profile:start -->"), text.count("<!-- profile:end -->")
+    if starts != 1 or ends != 1:
+        return None
+    return text.split("<!-- profile:start -->")[1].split("<!-- profile:end -->")[0]
+
+
+def gate_profile(out: Path) -> list:
+    """The profile setup writes: its templates, the two-copy rule, the load order, the refusal."""
+    errs = []
+    sk = out / "skills"
+    refs = sk / "studiomind-setup" / "references"
+    if (sk / "studiomind-profile").exists():
+        errs.append("package ships skills/studiomind-profile: reinstalling would overwrite the author's profile")
+    paths = [refs / f for f in PROFILE_TEMPLATES]
+    if not all(p.is_file() for p in paths):
+        return errs + ["profile templates missing from studiomind-setup/references"]
+    skill_t, know_t = (p.read_text(encoding="utf-8") for p in paths)
+    fm = frontmatter(skill_t)
+    if fm.get("name") != "studiomind-profile" or not NAME_RE.match(fm.get("name", "")):
+        errs.append(f"profile skill template: name {fm.get('name')!r} is not 'studiomind-profile'")
+    d = fm.get("description", "")
+    if not d or len(d) > DESC_SHORT:
+        errs.append(f"profile skill template: description length {len(d)} outside 1..{DESC_SHORT}")
+    for phrase in ("Load only when", "Do NOT trigger on any user request"):
+        if phrase not in d:
+            errs.append(f"profile skill template: description lacks {phrase!r}")
+    errs += check_expertise(know_t, "profile knowledge template")
+    a, b = profile_block(skill_t), profile_block(know_t)
+    if a is None or b is None:
+        errs.append("profile templates: each needs exactly one profile:start and one profile:end marker")
+    else:
+        if a != b:
+            errs.append("profile templates: the profile blocks differ, so the two copies would drift")
+        if len(re.findall(r"^- ", a, re.M)) < 10:
+            errs.append(f"profile templates: block has {len(re.findall(r'^- ', a, re.M))} fields, expected 10 or more")
+        if re.search(r"waiv", a, re.I):
+            errs.append("profile templates: the block stores a waiver; floors are waived per session only")
+    for name, t in (("skill", skill_t), ("knowledge", know_t)):
+        if "never changes StudioMind's hard rules" not in t:
+            errs.append(f"profile {name} template: lacks 'never changes StudioMind's hard rules'")
+    setup = (sk / "studiomind-setup" / "SKILL.md").read_text(encoding="utf-8")
+    for need in ("skills/studiomind-profile/SKILL.md", "knowledge/studiomind-profile.md",
+                 "/reload-skills", "Refuse a line that would weaken a hard rule",
+                 "never stores a waiver", "Call a value her default only if 2 or more dashboards"):
+        if need not in setup:
+            errs.append(f"studiomind-setup: lacks {need!r}")
+    start = section((sk / "studiomind" / "SKILL.md").read_text(encoding="utf-8"), "## 0. Start of session")
+    order = ["`studiomind-profile`", "knowledge/studiomind-profile.md", 'Search knowledge for "studiomind profile"']
+    pos = [start.find(s) for s in order]
+    if -1 in pos or pos != sorted(pos):
+        errs.append("studiomind: section 0 does not try skill, then path, then search for the profile")
+    if "studiomind-profile" not in (out / "authoring-override-block.md").read_text(encoding="utf-8"):
+        errs.append("override block: does not load studiomind-profile")
+    return errs
+
+
+def gate_polish(out: Path) -> list:
+    """Every audit check is either a fix polish may make or one it never makes, never both."""
+    row = re.compile(r"^\| ([ADIL]\d) \|", re.M)
+    audit = set(row.findall(section((out / "skills" / "studiomind-audit" / "SKILL.md").read_text(encoding="utf-8"), "## Step 3. Run the checks")))
+    if len(audit) < MIN_AUDIT_CHECKS:
+        return [f"polish: only {len(audit)} audit checks read, expected {MIN_AUDIT_CHECKS}"]
+    text = (out / "skills" / "studiomind-polish" / "SKILL.md").read_text(encoding="utf-8")
+    fix = set(row.findall(section(text, "## Fixes it may make")))
+    never = set(row.findall(section(text, "## Never fixed")))
+    errs = []
+    if fix & never:
+        errs.append(f"polish: {sorted(fix & never)} are in both the fix and never-fixed tables")
+    if fix & NEVER_FIX:
+        errs.append(f"polish: may fix {sorted(fix & NEVER_FIX)}, which change what the numbers mean")
+    if NEVER_FIX - never:
+        errs.append(f"polish: never-fixed table lacks {sorted(NEVER_FIX - never)}")
+    if audit - fix - never:
+        errs.append(f"polish: audit checks {sorted(audit - fix - never)} are in neither table")
+    for need in ("File > Save As", "One fix, one OK", "Count before and after every fix",
+                 "Re-run that one check", "Never delete a zone", "never remove or change one"):
+        if need not in text:
+            errs.append(f"polish: lacks {need!r}")
+    for tool in ("author-calc", "add-field"):
+        if tool in text:
+            errs.append(f"polish: names {tool}, but polish never edits calcs or fields")
+    return errs
+
+
+def gate_law(out: Path) -> list:
+    """Hard rules stay hard: the profile may change only the defaults."""
+    errs = []
+    sm = (out / "skills" / "studiomind" / "SKILL.md").read_text(encoding="utf-8")
+    talk = section(sm, "## 2. How you talk")
+    d, a = talk.find("Defaults (the profile can change these):"), talk.find("Always (hard rules):")
+    f = talk.find("No honesty or certainty filler")
+    if -1 in (d, a, f) or not d < a < f:
+        errs.append("studiomind: the certainty-filler rule is not under 'Always (hard rules)'")
+    if "Hard rules and defaults." not in sm:
+        errs.append("studiomind: no 'Hard rules and defaults' statement")
+    setup = section((out / "skills" / "studiomind-setup" / "SKILL.md").read_text(encoding="utf-8"), "## Hard constraints")
+    for need in ("truth in numbers", "safety", "7:1", "10 pt", "Color Blind", "proof before done", "certainty-filler"):
+        if need not in setup:
+            errs.append(f"studiomind-setup: hard constraints do not name {need!r} as a hard rule")
     return errs
 
 
 def gate_text(out: Path) -> list:
     errs = []
     for p in authored(out):
-        text = p.read_text(encoding="utf-8")
         rel = p.relative_to(out).as_posix()
+        if not p.is_file():
+            errs.append(f"{rel}: missing, so its text was not checked")
+            continue
+        text = p.read_text(encoding="utf-8")
         for d in DASHES:
             if d in text:
                 errs.append(f"{rel}: contains U+{ord(d):04X} dash")
@@ -162,8 +288,10 @@ def gate_text(out: Path) -> list:
         for w in BANNED:
             if re.search(r"\b" + w, scan, re.I):
                 errs.append(f"{rel}: uses banned word {w!r}")
+        # The repo's own public URL is the download link; any other use of the account name is not.
+        public = text.replace(REPO_URL, "")
         for pat in PRIVATE:
-            m = re.search(pat, text)
+            m = re.search(pat, public)
             if m:
                 errs.append(f"{rel}: private-looking text {m.group(0)!r}")
     return errs
@@ -186,7 +314,8 @@ def gate_a11y(out: Path) -> list:
 
 GATES = [("frontmatter", gate_frontmatter), ("files named", gate_files_named),
          ("expertise format", gate_expertise), ("text rules", gate_text),
-         ("a11y controls", gate_a11y), ("line endings", gate_line_endings)]
+         ("a11y controls", gate_a11y), ("line endings", gate_line_endings),
+         ("profile", gate_profile), ("polish limits", gate_polish), ("hard rules", gate_law)]
 
 
 def run_gates(out: Path, quiet: bool = False) -> dict:
@@ -213,6 +342,28 @@ def selftest() -> int:
     sm = lambda o: o / "skills" / "studiomind" / "SKILL.md"
     au = lambda o: o / "skills" / "studiomind-audit" / "SKILL.md"
     kn = lambda o: o / "knowledge" / "studiomind-house-rules.md"
+    su = lambda o: o / "skills" / "studiomind-setup" / "SKILL.md"
+    po = lambda o: o / "skills" / "studiomind-polish" / "SKILL.md"
+    pst = lambda o: o / "skills" / "studiomind-setup" / "references" / "profile-skill-template.md"
+    pkt = lambda o: o / "skills" / "studiomind-setup" / "references" / "profile-knowledge-template.md"
+
+    def ship_profile(o):
+        d = o / "skills" / "studiomind-profile"
+        d.mkdir()
+        shutil.copy2(pst(o), d / "SKILL.md")
+
+    def d1_becomes_fixable(o):
+        # The original defect shape: polish rewriting a rate formula.
+        edit(po(o), "| D1 | Rate math changes the number readers see | The current formula, the `SUM([a]) / SUM([b])` rewrite, and the reason |\n", "")
+        edit(po(o), "| A1 | Set the text color", "| D1 | Rewrite the rate as `SUM([a]) / SUM([b])` | none |\n| A1 | Set the text color")
+
+    def filler_becomes_taste(o):
+        text = sm(o).read_text(encoding="utf-8")
+        filler = re.search(r"- No honesty or certainty filler:.*?State the thing\.\n", text, re.S).group(0)
+        text = text.replace(filler, "").replace("Always (hard rules):\n", "Always (hard rules):\n", 1)
+        text = text.replace("Defaults (the profile can change these):\n", "Defaults (the profile can change these):\n" + filler, 1)
+        sm(o).write_text(text, encoding="utf-8", newline="\n")
+
     cases = [
         ("frontmatter", "name differs from folder", lambda o: edit(sm(o), "name: studiomind", "name: StudioMind")),
         ("frontmatter", "no Do NOT boundary", lambda o: edit(au(o), "Do NOT trigger", "Skip")),
@@ -224,8 +375,25 @@ def selftest() -> int:
         ("text rules", "banned word", lambda o: edit(au(o), "You never change", "You clearly never change")),
         ("text rules", "email address", lambda o: edit(kn(o), "## Implementation", "## Implementation\n\nmail someone@example.com")),
         ("text rules", "personal name", lambda o: edit(sm(o), "A base layer", "Celia's base layer")),
+        ("text rules", "account name off the URL", lambda o: edit(o / "README.md", "no idea\nwho you are", "no idea\nwho biochristy is")),
         ("line endings", "CRLF in a SKILL.md", lambda o: sm(o).write_bytes(sm(o).read_bytes().replace(b"\n", b"\r\n"))),
         ("a11y controls", "contrast script broken", lambda o: (au(o).parent / "scripts" / "a11y_check.py").write_text("import sys; print('PASS 21.00:1'); sys.exit(0)\n", newline="\n")),
+        ("frontmatter", "polish has no boundary", lambda o: edit(po(o), "Do NOT trigger", "Skip")),
+        ("files named", "profile template missing", lambda o: pkt(o).unlink()),
+        ("profile", "profile skill renamed", lambda o: edit(pst(o), "name: studiomind-profile", "name: my-profile")),
+        ("profile", "profile auto-triggers", lambda o: edit(pst(o), " Do NOT trigger on any user request.", "")),
+        ("profile", "profile copies drift", lambda o: edit(pkt(o), "- Mode: {teach or do}", "- Mode: {do}")),
+        ("profile", "profile copy not expertise", lambda o: edit(pkt(o), "- Tags:", "- Labels:")),
+        ("profile", "package ships a profile", ship_profile),
+        ("profile", "load order loses search", lambda o: edit(sm(o), 'Search knowledge for "studiomind profile"', "Ask the author")),
+        ("profile", "remember never refuses", lambda o: edit(su(o), "Refuse a line that would weaken a hard rule", "Save any line the author gives")),
+        ("profile", "profile stores a waiver", lambda o: edit(pst(o), "- Rule from the author:", "- Contrast floor: waived\n- Rule from the author:")),
+        ("polish limits", "polish may fix rate math", d1_becomes_fixable),
+        ("polish limits", "filters left unclassified", lambda o: edit(po(o), "| D5 | Filters belong to the author; never remove or change one | The filter and the title that conflicts with it |\n", "")),
+        ("polish limits", "no Save As before fixing", lambda o: edit(po(o), "with File > Save As", "if they like")),
+        ("polish limits", "polish edits calcs", lambda o: edit(po(o), "| A2 | Raise the text", "| A2 | Use author-calc to raise the text")),
+        ("hard rules", "filler rule made taste", filler_becomes_taste),
+        ("hard rules", "setup drops the 7:1 floor", lambda o: edit(su(o), "(7:1 text contrast, ", "(text contrast, ")),
     ]
     tmp = Path(tempfile.mkdtemp(prefix="studiomind-selftest-"))
     try:

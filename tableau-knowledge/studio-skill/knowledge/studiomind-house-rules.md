@@ -61,6 +61,8 @@ Use when creating or reviewing any dashboard, any chart that will sit on one, or
 
 - The `studiomind` skill: full rules, story structure, safety and the reference library.
 - The `studiomind-audit` skill: a read-only check of a workbook against these rules.
+- The `studiomind-polish` skill: fixes the audit's mechanical items one at a time.
+- The `studiomind-setup` skill and the `studiomind-profile` it writes: this author's own defaults.
 
 ## Source and Confidence
 

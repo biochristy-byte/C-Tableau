@@ -25,9 +25,10 @@ skill, which Tableau marks as overridable.
 ```
 ## Before any authoring step
 
-Load the `studiomind` skill and follow it for the rest of this session. Its safety,
-truth-in-numbers and design rules apply to every change you make. Where it and this
-skill disagree on how to drive a tool, this skill wins.
+Load the `studiomind` skill, then the `studiomind-profile` skill if it exists, and follow
+them for the rest of this session. StudioMind's safety, truth-in-numbers and design rules
+apply to every change you make; the profile changes only its defaults. Where StudioMind
+and this skill disagree on how to drive a tool, this skill wins.
 ```
 
 ## After a Tableau Studio update

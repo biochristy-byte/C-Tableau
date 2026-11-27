@@ -1,6 +1,6 @@
 ---
 name: studiomind-audit
-description: "Read-only check of the open workbook against the StudioMind rules (contrast, type size, rate math, actions, layout), reported as PASS, FAIL or SKIP with counts. Trigger on '/studiomind-audit', 'audit this dashboard', 'review this dashboard', 'is this ready to share', 'run the accessibility check'. Do NOT trigger for: fixing what it finds, grading a skill (skill-grader-desktop), or data profiling (data-quality-review)."
+description: "Read-only check of the open workbook against the StudioMind rules (contrast, type size, rate math, actions, layout), reported as PASS, FAIL or SKIP with counts. Trigger on '/studiomind-audit', 'audit this dashboard', 'review this dashboard', 'is this ready to share', 'run the accessibility check'. Do NOT trigger for: fixing what it finds (studiomind-polish), grading a skill (skill-grader-desktop), or data profiling (data-quality-review)."
 ---
 
 # StudioMind audit
@@ -83,7 +83,8 @@ relative luminance for each pair and show both luminance values and the ratio.
 4. **Not seen:** anything the tools could not reach (unreachable sheets, default-styled
    text, basemap labels, Tableau's own UI chrome, sets whose members no tool can list).
 
-End by offering to hand the fix list to an authoring skill. Do not start fixing.
+End by offering `/studiomind-polish`, which fixes the mechanical items one at a time with
+the author's OK on each. Do not start fixing.
 
 ## Common mistakes
 

@@ -66,9 +66,13 @@ no text under 10 pt. Never send Ctrl+S to Tableau Public. I click publish.
 ## Give Tableau Studio the same rules
 
 Tableau Studio's agent starts with Tableau's own skills and no house rules.
-[`studio-skill/`](studio-skill/README.md) packages these files as two Studio skills,
-`/studiomind` (the base rules) and `/studiomind-audit` (a read-only check of a
-workbook), plus a Tableau expertise file. Build and install:
+[`studio-skill/`](studio-skill/README.md) packages these files as four Studio skills:
+`/studiomind` (the base rules), `/studiomind-setup` (learns your style and saves a
+profile), `/studiomind-audit` (a read-only check of a workbook) and `/studiomind-polish`
+(fixes the audit's mechanical items one at a time), plus a Tableau expertise file.
+Download the ready-made
+[`tableau-studio.zip`](https://github.com/biochristy-byte/C-Tableau/releases/download/studiomind-v1/tableau-studio.zip),
+or build it yourself:
 
 ```
 python tableau-knowledge/tools/make_studio_skill.py
