@@ -43,7 +43,7 @@ Do not ask what the workbook already shows. Call `get-workbook-inventory`, then
 | Palette | The named color palettes the views use |
 | Text grays | Each text color and the ground it sits on |
 
-- **Call a value her default only if 2 or more dashboards use it.** A value on one
+- **Call a value the author's default only if 2 or more dashboards use it.** A value on one
   dashboard is "seen on 1 dashboard", offered as a choice, not a finding.
 - **Floor guard:** never propose a value that breaks a floor. Compute each gray against
   its ground (`scripts/a11y_check.py --pair FG BG`, or the WCAG luminance formula with the

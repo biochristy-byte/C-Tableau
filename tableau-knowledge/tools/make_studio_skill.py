@@ -211,7 +211,7 @@ def gate_profile(out: Path) -> list:
     setup = (sk / "studiomind-setup" / "SKILL.md").read_text(encoding="utf-8")
     for need in ("skills/studiomind-profile/SKILL.md", "knowledge/studiomind-profile.md",
                  "/reload-skills", "Refuse a line that would weaken a hard rule",
-                 "never stores a waiver", "Call a value her default only if 2 or more dashboards"):
+                 "never stores a waiver", "Call a value the author's default only if 2 or more dashboards"):
         if need not in setup:
             errs.append(f"studiomind-setup: lacks {need!r}")
     start = section((sk / "studiomind" / "SKILL.md").read_text(encoding="utf-8"), "## 0. Start of session")
