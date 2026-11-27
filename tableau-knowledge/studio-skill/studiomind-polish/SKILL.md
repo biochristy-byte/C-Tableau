@@ -29,7 +29,11 @@ numbers mean goes back to the author.
    author's OK). Do not continue until the author decides.
 6. **Re-run that one check on that one item after each fix.** FAIL to PASS: next item.
    Still FAIL: stop that item and report what you measured.
-7. Never delete a zone, sheet, calc, filter, action or data source. Never save, publish
+7. **Layout fixes need the author's eyes.** Resizing reflows every tiled container, so
+   zones can clip or squash with every count unchanged. After an L2 fix, or an L3 fix that
+   changes the title band's height, ask the author: "Look at each dashboard now. If
+   anything clipped, use Edit > Undo." Report the fix only after they say it looks right.
+8. Never delete a zone, sheet, calc, filter, action or data source. Never save, publish
    or close the workbook.
 
 ## Fixes it may make
@@ -38,7 +42,7 @@ numbers mean goes back to the author.
 |---|---|---|
 | A1 | Set the text color to a darker or lighter step of the same hue that measures 7:1 or better on its ground, with the ratio shown | none |
 | A2 | Raise the text to 10 pt, legends to 11 pt | none |
-| A3 | Switch the view to a Tableau "Color Blind" palette, keeping the order of the colors | none |
+| A3 | Categorical color only: switch the view to a Tableau "Color Blind" palette, keeping the order of the colors, and show the old to new color for each member in the OK step. Never switch a sequential or diverging (continuous) color, and skip a view where the author set a color's meaning (red for loss): report those instead | none |
 | I1 | Rename the action to say what it does, set a filter action to clear with "Show all values", change Hover to Select | none |
 | L2 | Set Automatic or mismatched desktop dashboards to one fixed size: the profile's canvas, or the size most desktop dashboards already use | none |
 | L3 | Set the title's font, size, color and band to the treatment most dashboards already use | none |
@@ -63,10 +67,12 @@ you would suggest, and leave the decision and the change to the author.
 
 1. **Get the list.** Use this session's audit FAIL list. Split it into the fix table and
    the never-fixed table, and show both. Within the fix table, put accessibility first
-   (A1, A2, A3), then actions (I1), then layout (L2 to L5).
+   (A1, A2, A3), then actions (I1), then text (L4, L5), then L3. L2 runs last, because a
+   new size reflows the whole dashboard.
 2. **Save a copy** (constraint 2).
 3. **Fix loop:** for each item, show it (constraint 3), count (constraint 5), apply,
-   read back, count, re-check (constraint 6).
+   read back, count, re-check (constraint 6), and for L2 or a band-height L3, wait for
+   the author's look (constraint 7).
 4. **Report:**
    - Fixed: N of M, each with its before and after value.
    - Stopped: each item that did not reach PASS, with the measured value.

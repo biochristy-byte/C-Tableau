@@ -211,7 +211,9 @@ def gate_profile(out: Path) -> list:
     setup = (sk / "studiomind-setup" / "SKILL.md").read_text(encoding="utf-8")
     for need in ("skills/studiomind-profile/SKILL.md", "knowledge/studiomind-profile.md",
                  "/reload-skills", "Refuse a line that would weaken a hard rule",
-                 "never stores a waiver", "Call a value the author's default only if 2 or more dashboards"):
+                 "never stores a waiver", "Call a value the author's default only if 2 or more dashboards",
+                 "Carry every Remembered line over unchanged", "Never write a fresh profile over one you could not read",
+                 "write nothing until you have it"):
         if need not in setup:
             errs.append(f"studiomind-setup: lacks {need!r}")
     start = section((sk / "studiomind" / "SKILL.md").read_text(encoding="utf-8"), "## 0. Start of session")
@@ -243,7 +245,9 @@ def gate_polish(out: Path) -> list:
     if audit - fix - never:
         errs.append(f"polish: audit checks {sorted(audit - fix - never)} are in neither table")
     for need in ("File > Save As", "One fix, one OK", "Count before and after every fix",
-                 "Re-run that one check", "Never delete a zone", "never remove or change one"):
+                 "Re-run that one check", "Never delete a zone", "never remove or change one",
+                 "L2 runs last", "Report the fix only after they say it looks right",
+                 "Never switch a sequential or diverging (continuous) color"):
         if need not in text:
             errs.append(f"polish: lacks {need!r}")
     for tool in ("author-calc", "add-field"):
@@ -387,6 +391,11 @@ def selftest() -> int:
         ("profile", "package ships a profile", ship_profile),
         ("profile", "load order loses search", lambda o: edit(sm(o), 'Search knowledge for "studiomind profile"', "Ask the author")),
         ("profile", "remember never refuses", lambda o: edit(su(o), "Refuse a line that would weaken a hard rule", "Save any line the author gives")),
+        ("profile", "rerun wipes Remembered", lambda o: edit(su(o), "- Carry every Remembered line over unchanged.\n", "")),
+        ("profile", "remember reads blind", lambda o: edit(su(o), "and write nothing until you have it.", "and continue.")),
+        ("polish limits", "resize not last", lambda o: edit(po(o), "L2 runs last, because", "L2 may run anytime, because")),
+        ("polish limits", "resize skips the look", lambda o: edit(po(o), "Report the fix only after they say it looks right.", "Report the fix.")),
+        ("polish limits", "continuous color swapped", lambda o: edit(po(o), "Never switch a sequential or diverging (continuous) color, and skip", "Skip")),
         ("profile", "profile stores a waiver", lambda o: edit(pst(o), "- Rule from the author:", "- Contrast floor: waived\n- Rule from the author:")),
         ("polish limits", "polish may fix rate math", d1_becomes_fixable),
         ("polish limits", "filters left unclassified", lambda o: edit(po(o), "| D5 | Filters belong to the author; never remove or change one | The filter and the title that conflicts with it |\n", "")),

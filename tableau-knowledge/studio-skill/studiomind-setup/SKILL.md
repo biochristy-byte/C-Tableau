@@ -30,6 +30,18 @@ start of every session. Setup also handles "remember this".
    under its exact path, and tell the author to save them there. Never say the profile was
    saved when it was not.
 
+## Step 0. Check for an existing profile
+
+Look for the `studiomind-profile` skill, then the knowledge copy. If a profile exists,
+this run is an **update**, not a fresh setup:
+- Start from the existing profile, never from the blank templates.
+- In Step 2, show each default that would change as old value and new value, and
+  change only the ones the author says yes to.
+- Carry every Remembered line over unchanged.
+
+If a profile may exist but you cannot read it, ask the author to paste the profile
+block before you go on. Never write a fresh profile over one you could not read.
+
 ## Step 1. Read the workbook first
 
 Do not ask what the workbook already shows. Call `get-workbook-inventory`, then
@@ -59,7 +71,7 @@ Send one message with what you found, in a short table, then the talk defaults:
 
 > Your dashboards use 1200 x 800 (3 of 3), Lato (3 of 3), a navy title band (2 of 3) and
 > Color Blind (3 of 3). Make these your defaults?
-> Talk defaults: short bullets, no em dashes. Keep these?
+> I'll default to short bullets and no em dashes when I talk to you. Keep these?
 > Reply "yes", or name the one to change.
 
 Include every floor-guard finding from Step 1 in this message.
@@ -82,9 +94,10 @@ which rule it would break and why it stays, then offer the nearest default you c
 
 ## Step 4. Write the profile
 
-1. Fill `references/profile-skill-template.md` and
+1. **New profile:** fill `references/profile-skill-template.md` and
    `references/profile-knowledge-template.md`. Replace every `{...}` with the author's
-   value or "not set". The block between `<!-- profile:start -->` and
+   value or "not set". **Update:** edit the existing profile instead, changing only the
+   defaults the author approved and keeping every Remembered line. The block between `<!-- profile:start -->` and
    `<!-- profile:end -->` must be identical in both files.
 2. Show the filled profile block and wait for yes.
 3. Write both files (constraint 4), or print them (constraint 5).
@@ -96,7 +109,9 @@ which rule it would break and why it stays, then offer the nearest default you c
 When the author says "remember this" (or "remember that", "add to my profile"):
 
 1. **Read the current profile** (the `studiomind-profile` skill, or the knowledge copy).
-   No profile yet: offer setup first, or start a profile with just this line.
+   No profile yet: offer setup first, or start a profile with just this line. If a
+   profile may exist but you cannot read it, ask the author to paste the profile block,
+   and write nothing until you have it.
 2. **Write the preference as one line** and show it exactly as it will be saved, dated:
    `- 2026-12-01: Put the source credit bottom left on every dashboard.`
 3. **Check it against every existing line.** If it contradicts one, show both and ask
@@ -115,4 +130,5 @@ When the author says "remember this" (or "remember that", "add to my profile"):
 - Calling one dashboard's choice the author's style.
 - Copying a failing gray into the profile because the author uses it.
 - Writing one copy of the profile and not the other.
+- Running setup again from the blank templates, which erases every Remembered line.
 - Saying "saved" after printing a block the author has not saved yet.
