@@ -228,6 +228,24 @@ ocean):** the card rendered on the **first** publish. What the page did:
   exactly what keeps a screenshot from settling. Test it: in an automated browser without
   `live=1`, count frames for 1.5 s. It must be 0.
 
+#### On a C-Tableau viz page
+
+A viz page you host on C-Tableau (a Web Page object pointing at `https://c-tableau-hosted.netlify.app/v/<slug>/?embed=1`)
+gets the still from one command: `python ctab.py vizpage poster <slug> --capture`. Then
+republish the Tableau Public workbook with the same title (Yes to overwrite). The card
+updates about 2 minutes later.
+
+- `--capture` opens the live page in Playwright with `live=1` at 1280x790 (`--size WxH` to match
+  your dashboard), waits until the network is quiet and the picture has not changed for 2 s (cap 120 s),
+  refuses a picture that is mostly one color or mostly empty, then uploads it. No Playwright:
+  `pip install playwright` and `python -m playwright install chromium`, or make the picture yourself
+  and use `--image poster.png` (PNG or JPEG, up to 2 MB).
+- `vizpage status <slug>` shows `"poster": true`. `vizpage poster <slug> --remove` takes it off.
+- What the page does: to an automated browser (`navigator.webdriver` true, no `live=1`) it shows the
+  poster over the whole page, starts no data loads, fetches no tiles and runs no animation frames,
+  and it makes no request to another origin. A person always gets the live viz.
+- Rule 1 and rule 2 above are already handled by the page shell, so a viz page needs nothing else.
+
 ### WebGL looks broken in Tableau Desktop, and works on Tableau Public
 
 If your page draws with **WebGL** (a 3D scene, a shader background), **Tableau Desktop's

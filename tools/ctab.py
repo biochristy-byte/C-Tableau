@@ -19,6 +19,9 @@
         (tile pages: TILES_DIR is a ctab-tiles v1 package built by C-Tableau's tools/ctab_tiles.py; 300 MB and 20,000 files per package, 1 GB per account with the unlock)
     python ctab.py vizpage visibility SLUG public|private   (public = listed in the C-Tableau viz gallery; your link works either way)
     python ctab.py vizpage list | status SLUG | unpublish SLUG | publish-again SLUG | delete SLUG
+    python ctab.py vizpage poster SLUG --capture [--size 1280x790] [--accept-unsettled]    (open the live page in Playwright, wait until it settles, upload the picture)
+    python ctab.py vizpage poster SLUG --image poster.png                                (upload a PNG or JPEG you made, up to 2 MB)
+    python ctab.py vizpage poster SLUG --remove                                          (take the poster off; vizpage status shows "poster": true or false)
 
 Getting ctab.py without git (it is one file, Python 3 only):
     curl -O https://raw.githubusercontent.com/biochristy-byte/C-Tableau/main/tools/ctab.py
@@ -31,6 +34,12 @@ It is picked automatically when the folder has no .trex but has an index.html. B
 because the page is served from a sub-path. File names may use letters, numbers and . _ @ + - only (hashed names like index-3fA_b.js are fine);
 a name with a space, ~ $ [ ] ( ) = # % or any other character makes the upload stop and lists every such file.
 
+A poster is a still of your viz. Tableau Public makes a gallery card by screenshotting your page in a headless browser, and a page that draws a big map onto a
+canvas never settles, so the card comes out blank. With a poster set, an automated browser (navigator.webdriver true) sees the still over the whole page and the
+page starts no data loads; a person sees the live viz, and ?live=1 shows the live viz to your own test browser. After setting a poster, republish the Tableau Public
+workbook with the same title (answer Yes to overwrite); the card updates about 2 minutes later. --capture needs Playwright
+(pip install playwright, then python -m playwright install chromium). It refuses a picture that is mostly one color or mostly empty.
+
 A viz page is your extension plus your CSV, served at https://c-tableau-hosted.netlify.app/v/<slug>/?embed=1 for a Tableau Public Web Page object.
 The CSV is up to 5 MB. --map links an extension encoding id (see the .trex) to a CSV column; with no --map, columns whose name matches an encoding id are linked.
 
@@ -40,6 +49,7 @@ The key comes from CTAB_API_KEY, or else from the line CTAB_API_KEY=... in ~/.se
 A line CTAB_VIZPAGE_VISIBILITY=public in that file (or that environment variable) makes new viz pages public by default;
 --visibility still wins. Without it, new viz pages are private (link-only).
 """
+import base64
 import concurrent.futures
 import hashlib
 import json
@@ -504,10 +514,154 @@ def publish_tiles(slug, folder, create=None):
         raise
 
 
+POSTER_MAX = 2 * 1024 * 1024
+STATS_JS = """async ([b64, mime]) => {
+  const bmp = await createImageBitmap(await (await fetch('data:' + mime + ';base64,' + b64)).blob());
+  const c = document.createElement('canvas'); c.width = 160; c.height = 100;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(bmp, 0, 0, 160, 100);
+  const d = x.getImageData(0, 0, 160, 100).data, n = 160 * 100, m = new Map();
+  for (let i = 0; i < d.length; i += 4) { const k = (d[i] >> 4) * 256 + (d[i + 1] >> 4) * 16 + (d[i + 2] >> 4); m.set(k, (m.get(k) || 0) + 1); }
+  const counts = [...m.values()].sort((a, b) => b - a);
+  return { w: bmp.width, h: bmp.height, top: counts[0] / n, colors: counts.filter((v) => v / n >= 0.005).length };
+}"""
+
+
+def poster_kind(data):
+    if data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR':
+        return 'image/png'
+    if data[:3] == b'\xff\xd8\xff' and len(data) >= 100:
+        return 'image/jpeg'
+    return None
+
+
+def poster_blank(p, data, mime):
+    """None when the picture looks like a real viz, else the reason. Refuses a picture that is mostly one color (more than 92 percent in one 4-bit color bucket)
+    or has fewer than 6 colors that each cover at least half a percent. Decoded in Chromium (Playwright) so ctab.py needs no image library."""
+    b = p.chromium.launch()
+    try:
+        try:
+            st = b.new_page().evaluate(STATS_JS, [base64.b64encode(data).decode(), mime])
+        except Exception:
+            return 'the picture could not be decoded (a damaged or truncated file)'
+    finally:
+        b.close()
+    print(f'  picture {st["w"]}x{st["h"]}, biggest single color {st["top"] * 100:.1f}%, {st["colors"]} colors')
+    if st['top'] > 0.92:
+        return f'{st["top"] * 100:.0f}% of the picture is one color'
+    if st['colors'] < 6:
+        return f'only {st["colors"]} distinct colors, so it is mostly empty'
+    return None
+
+
+def poster_playwright():
+    try:
+        from playwright.sync_api import sync_playwright
+        return sync_playwright
+    except ImportError:
+        return None
+
+
+def poster_capture(slug, size, accept):
+    sp = poster_playwright()
+    if not sp:
+        raise CtabError('--capture needs Playwright. Install it with: pip install playwright   then: python -m playwright install chromium   (or make the picture yourself and use --image)')
+    w, h = size
+    page = call('GET', f'/vizpages/{slug}')
+    url = page['url'] + ('&' if '?' in page['url'] else '?') + 'live=1'
+    print(f'Opening {url} at {w}x{h} ...')
+    with sp() as p:
+        b = p.chromium.launch()
+        try:
+            pg = b.new_page(viewport={'width': w, 'height': h}, device_scale_factor=1)
+            pending = {'n': 0}
+            pg.on('request', lambda r: pending.__setitem__('n', pending['n'] + 1))
+            pg.on('requestfinished', lambda r: pending.__setitem__('n', pending['n'] - 1))
+            pg.on('requestfailed', lambda r: pending.__setitem__('n', pending['n'] - 1))
+            pg.goto(url, wait_until='load', timeout=120000)
+            t0, last, same_since, quiet_since, shot = time.time(), None, None, None, None
+            while True:
+                shot = pg.screenshot(type='png')
+                digest = hashlib.sha256(shot).hexdigest()
+                now = time.time()
+                if digest != last:
+                    last, same_since = digest, now
+                if pending['n'] > 0:
+                    quiet_since = None
+                elif quiet_since is None:
+                    quiet_since = now
+                if now - same_since >= 2.0 and quiet_since is not None and now - quiet_since >= 2.0:
+                    break
+                if now - t0 > 120:
+                    if not accept:
+                        raise CtabError('The page did not settle in 120 seconds (it kept loading or changing). Nothing was uploaded. Use --accept-unsettled to take the picture anyway.')
+                    print('  warning: the page did not settle in 120 seconds; using the last picture')
+                    break
+                time.sleep(0.5)
+            print(f'  settled after {time.time() - t0:.1f}s')
+            if len(shot) > POSTER_MAX:
+                shot = pg.screenshot(type='jpeg', quality=88)
+        finally:
+            b.close()
+    return shot
+
+
+def cmd_poster(rest):
+    if not rest or rest[0].startswith('-'):
+        print(__doc__); return 2
+    slug, opt, i, capture, remove, accept = rest[0], {}, 1, False, False, False
+    while i < len(rest):
+        k = rest[i]
+        if k in ('--image', '--size') and i + 1 < len(rest):
+            opt[k[2:]] = rest[i + 1]; i += 2
+        elif k == '--capture':
+            capture = True; i += 1
+        elif k == '--remove':
+            remove = True; i += 1
+        elif k == '--accept-unsettled':
+            accept = True; i += 1
+        else:
+            raise CtabError(f'Unknown or incomplete option: {k}')
+    if remove:
+        if capture or 'image' in opt:
+            raise CtabError('--remove stands alone.')
+        call('DELETE', f'/vizpages/{slug}/poster')
+        print('Poster removed.')
+        return 0
+    if capture == ('image' in opt):
+        raise CtabError('Give exactly one of --capture, --image FILE or --remove.')
+    m = re.fullmatch(r'(\d{3,4})x(\d{3,4})', opt.get('size', '1280x790'))
+    if not m:
+        raise CtabError('--size is WIDTHxHEIGHT, for example 1280x790.')
+    sp = poster_playwright()
+    if capture:
+        data = poster_capture(slug, (int(m.group(1)), int(m.group(2))), accept)
+    else:
+        data = Path(opt['image']).read_bytes()
+    mime = poster_kind(data)
+    if not mime:
+        raise CtabError('The poster must be a PNG or JPEG picture (the file itself is checked, not its name).')
+    if len(data) > POSTER_MAX:
+        raise CtabError(f'The poster is {len(data) / 1048576:.1f} MB; the limit is 2 MB. Save it as a JPEG or make it smaller.')
+    if sp:
+        with sp() as p:
+            why = poster_blank(p, data, mime)
+        if why:
+            raise CtabError(f'Refused: {why}. Nothing was uploaded.')
+    else:
+        print('  note: Playwright is not installed, so the picture was not checked for a blank page. Install it (pip install playwright) for that check.')
+    r = call('PUT', f'/vizpages/{slug}/poster', data=data, ctype=mime)
+    print(f'Poster set for {r["slug"]} ({len(data)} bytes, {mime}).')
+    print(r.get('poster_url') or '')
+    print('Now republish the Tableau Public workbook with the same title (Yes to overwrite). The card updates about 2 minutes later.')
+    return 0
+
+
 def cmd_vizpage(a):
     if not a:
         print(__doc__); return 2
     sub, rest = a[0], a[1:]
+    if sub == 'poster':
+        return cmd_poster(rest)
     if sub == 'list':
         for r in call('GET', '/vizpages')['vizpages']:
             print(f'{r["slug"]:30} {r["status"]:12} {r.get("visibility", ""):8} {r["rows"]} rows  {r["url"]}')
