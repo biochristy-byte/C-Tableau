@@ -1,0 +1,62 @@
+{
+  "com.datadivers.dashext.settingspanel": {
+    "folder": "tableau-settings-panel",
+    "owner": "Chris",
+    "port": 8777
+  },
+  "com.datadivers.vizext.depthlines": {
+    "folder": "tableau-depth-lines",
+    "owner": "Chris",
+    "port": 8772
+  },
+  "com.datadivers.vizext.gardenpetals": {
+    "folder": "tableau-garden-petals",
+    "owner": "Chris",
+    "port": 8767
+  },
+  "com.datadivers.vizext.lollipop": {
+    "folder": "tableau-lollipop",
+    "owner": "Chris",
+    "port": 8765
+  },
+  "com.datadivers.vizext.neurons": {
+    "folder": "tableau-neurons",
+    "owner": "Chris",
+    "port": 8774
+  },
+  "com.datadivers.vizext.panelchart": {
+    "folder": "tableau-panel-chart",
+    "owner": "Chris",
+    "port": 8778
+  },
+  "com.datadivers.vizext.radar": {
+    "folder": "tableau-radar",
+    "owner": "Chris",
+    "port": 8776
+  },
+  "com.datadivers.vizext.reef": {
+    "folder": "tableau-reef",
+    "owner": "Chris",
+    "port": 8770
+  },
+  "com.datadivers.vizext.schools": {
+    "folder": "tableau-schools",
+    "owner": "Chris",
+    "port": 8771
+  },
+  "com.datadivers.vizext.sketchbook": {
+    "folder": "tableau-sketchbook",
+    "owner": "Chris",
+    "port": 8773
+  },
+  "com.datadivers.vizext.tidelines": {
+    "folder": "tableau-tide-lines",
+    "owner": "Chris",
+    "port": 8775
+  },
+  "com.xeomatrix.vizext.rangedot": {
+    "folder": "tableau-range-dot",
+    "owner": "Celia",
+    "port": 21329
+  }
+}

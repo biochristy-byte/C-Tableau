@@ -33,3 +33,6 @@ KNOWLEDGE = C:/Users/<you>/C-Tableau/tableau-knowledge
 ## When we learn something new
 Add it to the matching file in KNOWLEDGE (new house rules continue the numbering),
 with where it came from, so next time starts from here.
+
+## Viz extension ports
+Never hand-pick a localhost port for a viz extension. Run `python tools/port.py <extension-id>` first and use the number it prints in the .trex, the dev server and the README. It records the port in `ports.json`; commit that file. `python tools/port.py --check` finds clashes.

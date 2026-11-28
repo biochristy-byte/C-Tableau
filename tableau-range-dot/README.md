@@ -22,7 +22,7 @@ node serve.js
 
 Or double-click `Start-RangeDot.bat` and leave the window open.
 
-Serves `http://localhost:8771/index.html`. No `npm install` is needed. **The server must be running before you load the .trex**, or Tableau shows "localhost refused to connect".
+Serves `http://localhost:21329/index.html`. No `npm install` is needed. **The server must be running before you load the .trex**, or Tableau shows "localhost refused to connect".
 
 In a Tableau worksheet (2024.2 or later): Marks card, mark type dropdown, **Viz Extensions**, **Add Extension**, **Access Local Viz Extensions**, pick `RangeDot.trex`. Copy it to `My Tableau Repository\Extensions\` if you want the file picker to open on it.
 
@@ -103,7 +103,7 @@ The title and subtitle can quote the chart, so a headline stays true when the da
 
 ## Browser preview (no Tableau)
 
-`http://localhost:8771/index.html?preview=1` loads `mock-tableau.js` with the sample data (fake people, one row per person per week, built by `sample-data/make_sample.py`). The default scenario is seeded to match the original mockup.
+`http://localhost:21329/index.html?preview=1` loads `mock-tableau.js` with the sample data (fake people, one row per person per week, built by `sample-data/make_sample.py`). The default scenario is seeded to match the original mockup.
 
 Scenarios: `&scenario=plain` (untouched defaults), `colormeasure`, `colorname`, `summary`, `minimal`, `nohighlight`, `uid`, `salary`, `formatted`, `dateobj`, `split`, `small`, `one`, `long`, `many`, plus `&slow=3000`, `&rename=3000` and `&fresh=1` to ignore saved settings.
 
@@ -125,7 +125,7 @@ Manifest edits (name, version, url, shelves): the same **Replace** picks them up
 
 - Viz extensions export blank to PDF and PowerPoint. Present live, or take screenshots ahead of time.
 - Tableau Public viewers cannot see a self-hosted extension.
-- A workbook stores the extension's address, not its code. Anyone opening it needs the server running at `localhost:8771`.
+- A workbook stores the extension's address, not its code. Anyone opening it needs the server running at `localhost:21329`.
 - A group of two or three members makes a thin range. The tooltip shows how many members each column has.
 - Dense charts (around 60 columns) thin out the category labels and drop the notes. The tooltip still carries both.
 

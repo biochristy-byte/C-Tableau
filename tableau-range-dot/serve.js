@@ -14,7 +14,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = Number(process.argv[2]) || 8771;
+const PORT = Number(process.argv[2]) || 21329;
 const ROOT = __dirname;
 
 const TYPES = {

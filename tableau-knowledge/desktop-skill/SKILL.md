@@ -21,7 +21,7 @@ Never answer a Tableau design or build question from general knowledge alone.
 | A themed or showpiece viz | `references/viz-of-the-day-patterns.md`, `references/iron-viz-design.md` |
 | An AI agent on a dashboard | `references/agent-business-preferences.md` |
 | .twb XML, generated workbooks | `references/xml-traps.md`, `references/buildout-pipeline.md`, `references/TABLEAU_REFERENCE.md` |
-| Viz extensions | `references/viz-extensions.md`, and `references/extension-on-tableau-public.md` to put one on Tableau Public or host it (c-tableau.netlify.app) |
+| Viz extensions | `references/viz-extensions.md` (its Ports section: never hand-pick a localhost port, run `python tools/port.py <extension-id>` first and use what it prints), and `references/extension-on-tableau-public.md` to put one on Tableau Public or host it (c-tableau.netlify.app) |
 | Data prep before Tableau | `references/tableau-scrubs.md` (run it as a team of analysts) |
 | Learning from a talk or making a tutorial video | `references/narration-and-handoff.md` |
 

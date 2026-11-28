@@ -75,6 +75,10 @@ Open Claude Code in your Tableau folder and paste one of these:
    fool the eye.
 3. **Grain first.** Before any chart, say what one row is. Most wrong numbers start there.
 
+## Ports for viz extensions
+
+Each viz extension runs a small local server, and its `.trex` file points at that server's port. Two extensions on one port break each other. Never pick a port by hand. Tell Claude to run `python tools/port.py <extension-id>` first and use the number it prints (it saves it in `ports.json`, so commit that file). `python tools/port.py --check` finds clashes; `python tools/port.py --apply <extension-id> <folder>` moves a folder to its registered port.
+
 ## 7. Where everything is
 
 | Folder | What is inside |

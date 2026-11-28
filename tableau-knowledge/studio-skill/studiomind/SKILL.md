@@ -209,5 +209,5 @@ follow this file instead. Their design, data and story rules apply as written.
 | Checking work before it ships | `references/workflow-and-qa.md`, `references/gate-designs.md` |
 | A themed or showpiece viz | `references/viz-of-the-day-patterns.md`, `references/iron-viz-design.md` |
 | An AI agent on a dashboard (business preferences) | `references/agent-business-preferences.md` |
-| A viz extension | `references/viz-extensions.md` |
+| A viz extension | `references/viz-extensions.md` (never hand-pick a localhost port: run `python tools/port.py <extension-id>` first and use what it prints) |
 | Saving or publishing in Tableau Public | `references/never-ctrl-s-on-public.md` |

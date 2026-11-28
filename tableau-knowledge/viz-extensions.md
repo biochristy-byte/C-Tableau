@@ -89,6 +89,15 @@ saw, show the original author, agree the credit line ("Inspired by <title> by
 <author>") and put it in the README, the example README and the submission text.
 Do not ship the rebuild without credit (house rule 14 covers the caption).
 
+## Ports: never hand-pick one
+
+Every viz extension's `.trex` points at `http://localhost:<port>/...`, so two extensions on one port cannot both run (this happened on 11/27/2026: Schools and Range Dot both on 8771). The registry is `ports.json` at the repo root.
+
+1. Before you write a `.trex` or a dev server, run `python tools/port.py <extension-id>` (for example `com.yourname.vizext.dotplot`). It prints the port to use, assigning a free one and saving it to `ports.json` if the id is new. Commit `ports.json` with the extension.
+2. Use exactly that number in the `.trex`, the dev server (`serve.js`, `Start-*.ps1`, `package.json`) and the README. Do not pick 8765, 8771 or any number from another extension's folder.
+3. To fix a folder that is on the wrong port: `python tools/port.py --apply <extension-id> <folder>`. Then remove and re-add the extension in Tableau, because a workbook stores the address.
+4. `python tools/port.py --check` lists any two extensions on one port and any `.trex` that disagrees with the registry. `python tools/test_port.py` proves the tool works.
+
 ## Build with a mock first
 
 Both extensions ship a `dev/` mock of the Extensions API so most work happens in a
