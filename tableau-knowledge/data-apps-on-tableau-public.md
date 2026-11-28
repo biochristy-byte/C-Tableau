@@ -261,6 +261,25 @@ so a cell on the page holds exactly the rows the app counts for it. Do not hand-
 this with another tool or a spreadsheet: ties and negative values land in different
 cells.
 
+**Rollups (format 1.1, on by default).** For every level the build also writes smaller
+tile sets that drop dimensions and add up the counts: for three dims, the cell alone,
+each dim alone, and each pair. A query that never names a dropped dim gets the same
+answer from a rollup, and the page picks the cheapest one that holds every dim the
+query names. For Andy Holt's UK Crime map at the default cell (0.05), that means
+loading the `Reported by` rollup instead of every month and crime type.
+
+- `--rollups auto` (default) writes every proper subset of `--dims` when there are at
+  most 4 dims. `--rollups none` writes a 1.0 package. `--rollups "{};Crime type+Reported by"`
+  writes only the sets you name (`{}` is the cell-only set, `+` joins dims).
+- A rollup uses a coarser tile than its level (the level tile doubled up to 4 times,
+  while its fullest tile stays at or under `--rollup-tile-rows`, default 50,000 rows), so
+  the package stays under 20,000 files. `--rollup-tile-rows 0` keeps the level's grid.
+- In auto mode a set holding more than `--rollup-max-share` (default 0.75) of its
+  level's rows is skipped, since it saves too little. Sets that would pass 20,000 files
+  are skipped with a printed note.
+- Rollups take extra L folder numbers (`L7`, `L8`, ...) and are listed under each level
+  in the manifest. A page running the older engine ignores them and still works.
+
 **3. Check it.**
 
 ```
@@ -268,7 +287,8 @@ python -P tools/ctab_tiles.py check tiles/
 ```
 
 It re-reads every file and must print `GREEN`. It proves each level's counts add up to
-the source row count, every row sits in the right tile, no file passes 4 MB, and prints
+the source row count, every rollup holds exactly its level's count in every cell, every
+row sits in the right tile, no file passes 4 MB, and prints
 a size table (median, 95th percentile, largest tile, total MB). If it reports a tile
 over 4 MB, rebuild with a smaller tile for that level or a smaller `--detail-tile`.
 One very dense cell (central London in the full UK Crime data: 777,607 crimes in one

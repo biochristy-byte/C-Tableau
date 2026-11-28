@@ -12,11 +12,14 @@ Needs: pip install duckdb.  Format contract: see docs "Big data apps: tile pages
 Rounding: bins are ROUND(x / s) with JavaScript Math.round semantics (half up toward +infinity),
 evaluated as x / s in float64, exactly as the viz page's stand-in (vds.js) evaluates ROUND([f] / c).
 """
-import argparse, glob, gzip, json, math, os, re, shutil, statistics, sys, tempfile, time
+import argparse, glob, gzip, itertools, json, math, os, re, shutil, statistics, sys, tempfile, time
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 
-TOOL = "ctab_tiles.py 1.0"
+TOOL = "ctab_tiles.py 1.1"
+FORMAT_MINOR = 1                   # 1.1: per-level rollups (levels[i].rollups); a 1.0 reader ignores them
+MAX_DIRS = 100                     # the upload API accepts L0..L99 (paths L[0-9]{1,2}/...), so rollup sets take the free L numbers
+ROLLUP_KMAX = 4                    # a rollup tile is the level tile x 2^k, k <= 4
 MAX_TILE_BYTES = 4 * 1024 * 1024   # C-Tableau's per-object limit (raised from 2 MB on 11/27/2026)
 MAX_PACKAGE_BYTES = 300 * 1024 * 1024
 MAX_FILES = 20000
@@ -77,6 +80,119 @@ def expand_inputs(items):
 
 def sizes_summary(sizes):
     return len(sizes), sum(sizes.values())
+
+
+def make_writer(con, out, sizes):
+    """write_tile(rel, cols, rows) writes one gzip tile and records its size; stream(sql, key_n, cols, prefix) runs an ORDER BY tx,ty
+    query whose first two columns are the tile key and writes one file per tile. Returns (write_tile, stream)."""
+    def write_tile(rel, cols_, rows):
+        path = os.path.join(out, rel + ".json.gz")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        payload = json.dumps({"cols": cols_, "rows": rows}, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        with open(path, "wb") as fh:
+            with gzip.GzipFile(fileobj=fh, mode="wb", compresslevel=6, mtime=0) as gz:
+                gz.write(payload)
+        sizes[rel] = os.path.getsize(path)
+
+    def stream(sql, key_n, cols_, prefix):
+        cur = con.execute(sql)
+        cur_key, buf, ntiles, nrows = None, [], 0, 0
+        while True:
+            chunk = cur.fetchmany(200000)
+            if not chunk:
+                break
+            for r in chunk:
+                k = (r[0], r[1])
+                if k != cur_key:
+                    if buf:
+                        write_tile(f"{prefix}/{cur_key[0]}_{cur_key[1]}", cols_, buf); ntiles += 1
+                    cur_key, buf = k, []
+                buf.append(list(r[2:]))
+                nrows += 1
+        if buf:
+            write_tile(f"{prefix}/{cur_key[0]}_{cur_key[1]}", cols_, buf); ntiles += 1
+        return ntiles, nrows
+    return write_tile, stream
+
+
+def rollup_plan(spec, captions):
+    """The dim subsets to roll up, as tuples of captions in manifest order. spec: "auto" (every proper subset when there are at most
+    4 dims, fewest dims first), "none", or sets separated by ";" with dims joined by "+" and "{}" for the cell-only set."""
+    spec = (spec or "auto").strip()
+    if spec == "none":
+        return []
+    if spec == "auto":
+        if len(captions) > 4:
+            print(f"rollups: {len(captions)} dims is more than 4, so no automatic rollups (name the sets with --rollups)", flush=True)
+            return []
+        out = []
+        for r in range(len(captions)):
+            for combo in itertools.combinations(captions, r):
+                out.append(tuple(combo))
+        return out
+    out = []
+    for part in spec.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        names = [] if part == "{}" else [x.strip() for x in part.split("+") if x.strip()]
+        bad = [x for x in names if x not in captions]
+        if bad:
+            sys.exit(f"ERROR: --rollups names {bad}, which are not in --dims")
+        t = tuple(c for c in captions if c in names)
+        if len(t) == len(captions):
+            sys.exit("ERROR: a rollup must drop at least one dim (that set is the level itself)")
+        if t not in out:
+            out.append(t)
+    return out
+
+
+def _num(x):
+    return int(x) if float(x) == int(x) else float(repr(float(x)))
+
+
+def build_rollups(con, level_meta, dims, sets, lat, lon, stream, sizes, explicit=False, tile_rows=50000, max_share=0.75):
+    """For every level i (table lv<i>: clat, clon, d0.., n), write each rollup set as its own tile set: the level's rows grouped by the kept
+    dims with n summed, so every cell keeps its exact count over any filter on the kept dims. A set takes the next free L number (the
+    upload API accepts L0..L99). Its tile is the level tile x 2^k, the coarsest k <= ROLLUP_KMAX whose fullest tile holds at most
+    tile_rows rows (0: the level's own grid), which keeps the file count low (Andy's package already holds 12,896 of the 20,000 files).
+    In auto mode a set holding more than max_share of the level's rows is skipped: it would save too little to earn its files.
+    Sets that would pass MAX_FILES or L99 are skipped with a note. Each kept set is listed in level_meta[i]["rollups"]."""
+    caps = [d["caption"] for d in dims]
+    next_dir = len(level_meta)
+    for lv in level_meta:
+        i, s, tl = lv["i"], float(lv["s"]), float(lv["tile"])
+        base_rows = con.execute(f"SELECT count(*) FROM lv{i}").fetchone()[0]
+        for keep in sets:
+            kc = [f"d{caps.index(c)}" for c in keep]
+            ksel = "".join(", " + c for c in kc)
+            con.execute("DROP TABLE IF EXISTS ru")
+            con.execute(f"CREATE TABLE ru AS SELECT clat, clon{ksel}, sum(n)::BIGINT AS n FROM lv{i} GROUP BY ALL")
+            nr = con.execute("SELECT count(*) FROM ru").fetchone()[0]
+            label = "+".join(keep) or "{}"
+            if not explicit and base_rows and nr > max_share * base_rows:
+                print(f"  rollup L{i} [{label}]: {nr:,} rows is over {max_share:.0%} of the level's {base_rows:,}; skipped", flush=True)
+                continue
+            k = 0
+            if tile_rows and tile_rows > 0:
+                for kk in range(ROLLUP_KMAX, -1, -1):
+                    T = tl * (2 ** kk)
+                    mx = con.execute(f"SELECT coalesce(max(c), 0) FROM (SELECT count(*) AS c FROM ru GROUP BY floor(clon / {T!r}::DOUBLE), floor(clat / {T!r}::DOUBLE))").fetchone()[0]
+                    if mx <= tile_rows or kk == 0:
+                        k = kk
+                        break
+            T = _num(tl * (2 ** k))
+            nfiles = con.execute(f"SELECT count(*) FROM (SELECT DISTINCT floor(clon / {float(T)!r}::DOUBLE), floor(clat / {float(T)!r}::DOUBLE) FROM ru)").fetchone()[0]
+            if next_dir >= MAX_DIRS or len(sizes) + 1 + nfiles > MAX_FILES:
+                print(f"  rollup L{i} [{label}]: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1}", flush=True)
+                continue
+            d = f"L{next_dir}"
+            next_dir += 1
+            nt, _ = stream(f"SELECT floor(clon / {float(T)!r}::DOUBLE)::BIGINT AS tx, floor(clat / {float(T)!r}::DOUBLE)::BIGINT AS ty, clat, clon{ksel}, n FROM ru ORDER BY ALL",
+                           2, [lat, lon] + list(keep) + ["__n"], d)
+            lv.setdefault("rollups", []).append({"dir": d, "dims": list(keep), "tile": T, "rows": nr})
+            print(f"  rollup L{i} [{label}] -> {d}: {nr:,} rows ({(nr / base_rows if base_rows else 0):.1%} of the level), {nt} tiles of {T} deg", flush=True)
+        con.execute("DROP TABLE IF EXISTS ru")
 
 
 def cmd_build(a):
@@ -167,34 +283,7 @@ def cmd_build(a):
     sizes = {}
     stats = {}
 
-    def write_tile(rel, cols_, rows):
-        path = os.path.join(out, rel + ".json.gz")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        payload = json.dumps({"cols": cols_, "rows": rows}, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-        with open(path, "wb") as fh:
-            with gzip.GzipFile(fileobj=fh, mode="wb", compresslevel=6, mtime=0) as gz:
-                gz.write(payload)
-        sizes[rel] = os.path.getsize(path)
-
-    def stream(sql, key_n, cols_, prefix):
-        """Run an ORDER BY tx,ty query; the first two columns are the tile key. Write one file per tile."""
-        cur = con.execute(sql)
-        cur_key, buf, ntiles, nrows = None, [], 0, 0
-        while True:
-            chunk = cur.fetchmany(200000)
-            if not chunk:
-                break
-            for r in chunk:
-                k = (r[0], r[1])
-                if k != cur_key:
-                    if buf:
-                        write_tile(f"{prefix}/{cur_key[0]}_{cur_key[1]}", cols_, buf); ntiles += 1
-                    cur_key, buf = k, []
-                buf.append(list(r[2:]))
-                nrows += 1
-        if buf:
-            write_tile(f"{prefix}/{cur_key[0]}_{cur_key[1]}", cols_, buf); ntiles += 1
-        return ntiles, nrows
+    write_tile, stream = make_writer(con, out, sizes)
 
     # null rows: aggregated over the dims only
     dsel = ", ".join(dcols)
@@ -207,10 +296,11 @@ def cmd_build(a):
     for i, s in enumerate(levels_s):
         tl = tile_for.get(s, a.tile)
         lb, ob = bin_sql("lat", s, a.round_mode), bin_sql("lon", s, a.round_mode)
-        sql = (f"WITH g AS (SELECT {lb} AS la, {ob} AS lo{(', ' + dsel) if dcols else ''}, count(*) AS n FROM src "
-               f"WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY ALL), "
-               f"c AS (SELECT round(la * {s!r}::DOUBLE, 10) AS clat, round(lo * {s!r}::DOUBLE, 10) AS clon{(', ' + dsel) if dcols else ''}, n FROM g) "
-               f"SELECT floor(clon / {tl!r}::DOUBLE)::BIGINT AS tx, floor(clat / {tl!r}::DOUBLE)::BIGINT AS ty, clat, clon{(', ' + dsel) if dcols else ''}, n FROM c ORDER BY ALL")
+        # the level is kept as a table (lv<i>) so its rollups are re-aggregated from exactly these rows
+        con.execute(f"CREATE TABLE lv{i} AS WITH g AS (SELECT {lb} AS la, {ob} AS lo{(', ' + dsel) if dcols else ''}, count(*) AS n FROM src "
+                    f"WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY ALL) "
+                    f"SELECT round(la * {s!r}::DOUBLE, 10) AS clat, round(lo * {s!r}::DOUBLE, 10) AS clon{(', ' + dsel) if dcols else ''}, n FROM g")
+        sql = (f"SELECT floor(clon / {tl!r}::DOUBLE)::BIGINT AS tx, floor(clat / {tl!r}::DOUBLE)::BIGINT AS ty, clat, clon{(', ' + dsel) if dcols else ''}, n FROM lv{i} ORDER BY ALL")
         t1 = time.time()
         nt, nr = stream(sql, 2, col_names, f"L{i}")
         level_meta.append({"i": i, "s": s if s != int(s) else int(s), "tile": tl if tl != int(tl) else int(tl)})
@@ -227,8 +317,13 @@ def cmd_build(a):
     stats["D"] = (nt, nr)
     print(f"detail: {nr:,} rows, {nt} tiles, {time.time()-t1:.0f}s", flush=True)
 
+    # rollups: per level, tile sets that drop dims (summing __n), so a query that never names a dim loads far fewer bytes
+    rollup_sets = rollup_plan(a.rollups, [d["caption"] for d in dims])
+    build_rollups(con, level_meta, dims, rollup_sets, a.lat, a.lon, stream, sizes, explicit=a.rollups not in ("auto", "none"),
+                  tile_rows=a.rollup_tile_rows, max_share=a.rollup_max_share)
+
     b = con.execute("SELECT min(lat), min(lon), max(lat), max(lon) FROM src WHERE lat IS NOT NULL AND lon IS NOT NULL").fetchone()
-    manifest = {"format": "ctab-tiles", "version": 1, "datasource": a.datasource, "lat": a.lat, "lon": a.lon,
+    manifest = {"format": "ctab-tiles", "version": 1, "minor": FORMAT_MINOR, "datasource": a.datasource, "lat": a.lat, "lon": a.lon,
                 "dims": dims, "detail_dims": detail_dims, "levels": level_meta,
                 "detail": {"tile": dt if dt != int(dt) else int(dt)}, "rows": total,
                 "bounds": [fnum(x) for x in b] if b[0] is not None else None,
@@ -254,14 +349,15 @@ def _check_file(args):
     path = os.path.join(root, rel.replace("/", os.sep) + ".json.gz")
     errs, sumn, nrows = [], 0, 0
     ext = [None, None, None, None]  # minlat minlon maxlat maxlon (detail)
+    cells = {} if kind == "L" else None   # (lat, lon) -> sum(__n): a rollup must hold exactly its level's count in every cell
     size = os.path.getsize(path)
     try:
         with gzip.open(path, "rb") as fh:
             doc = json.loads(fh.read().decode("utf-8"))
     except Exception as e:
-        return rel, size, 0, 0, [f"{rel}: does not parse ({e})"], ext
+        return rel, size, 0, 0, [f"{rel}: does not parse ({e})"], ext, cells
     if not isinstance(doc, dict) or doc.get("cols") != expect_cols or not isinstance(doc.get("rows"), list):
-        return rel, size, 0, 0, [f"{rel}: cols are {doc.get('cols') if isinstance(doc, dict) else '?'}, expected {expect_cols}"], ext
+        return rel, size, 0, 0, [f"{rel}: cols are {doc.get('cols') if isinstance(doc, dict) else '?'}, expected {expect_cols}"], ext, cells
     if size > MAX_TILE_BYTES:
         errs.append(f"{rel}: {size/1048576:.2f} MB exceeds the 4 MB per-object limit")
     m = TILE_FILE_RE.match(os.path.basename(path)) if kind != "null" else None
@@ -293,6 +389,7 @@ def _check_file(args):
             ba, bo = js_round(la / s), js_round(lo / s)
             if round(ba * s, 10) != la or round(bo * s, 10) != lo:
                 errs.append(f"{rel}: ({la},{lo}) is not a cell centre of s={s}"); continue
+            cells[(la, lo)] = cells.get((la, lo), 0) + n
         if math.floor(lo / tile) != tx or math.floor(la / tile) != ty:
             errs.append(f"{rel}: row ({la},{lo}) belongs to another tile")
         if kind == "D":
@@ -300,7 +397,7 @@ def _check_file(args):
             ext[1] = lo if ext[1] is None or lo < ext[1] else ext[1]
             ext[2] = la if ext[2] is None or la > ext[2] else ext[2]
             ext[3] = lo if ext[3] is None or lo > ext[3] else ext[3]
-    return rel, size, nrows, sumn, errs, ext
+    return rel, size, nrows, sumn, errs, ext, cells
 
 
 def cmd_check(a):
@@ -316,7 +413,7 @@ def cmd_check(a):
     if not os.path.isfile(mp):
         print("RED: no manifest.json"); return 1
     man = json.load(open(mp, encoding="utf-8"))
-    chk(man.get("format") == "ctab-tiles" and man.get("version") == 1, "manifest format/version")
+    chk(man.get("format") == "ctab-tiles" and man.get("version") == 1 and man.get("minor", 0) in (0, 1), "manifest format/version (1.0 or 1.1)")
     for key in ("datasource", "lat", "lon", "dims", "detail_dims", "levels", "detail", "rows", "bounds", "built", "tool"):
         chk(key in man, f"manifest has {key}")
     levels = man["levels"]
@@ -329,6 +426,16 @@ def cmd_check(a):
     dcols = [man["lat"], man["lon"]] + [d["caption"] for d in dims + ddims] + ["__n"]
     dim_types = [d["type"] for d in dims]
     ddim_types = dim_types + ["STRING"] * len(ddims)
+    # rollup sets (format 1.1): dir -> (level, kept dims, tile). Each is a proper subset of the dims, in manifest order, on its own L number.
+    rolls, dim_caps = {}, [d["caption"] for d in dims]
+    for lv in levels:
+        for ru in lv.get("rollups") or []:
+            d, keep = ru.get("dir"), ru.get("dims")
+            ok = (isinstance(d, str) and re.fullmatch(r"L\d{1,2}", d) and int(d[1:]) >= len(levels) and d not in rolls and isinstance(keep, list)
+                  and keep == [c for c in dim_caps if c in keep] and len(keep) < len(dim_caps) and isinstance(ru.get("tile"), (int, float)) and ru["tile"] > 0)
+            chk(ok, f"rollup {d} of L{lv['i']} is well formed", str(ru)[:120])
+            if ok:
+                rolls[d] = (lv, keep, float(ru["tile"]))
 
     # inventory: every file on disk is a known tile, and every manifest size matches
     on_disk = {}
@@ -349,6 +456,10 @@ def cmd_check(a):
             jobs.append((root, base, "null", None, None, None, cols, len(dims), dim_types, man["lat"], man["lon"]))
         elif d == "D" and TILE_FILE_RE.match(fn):
             jobs.append((root, base, "D", None, None, man["detail"]["tile"], dcols, len(dims), ddim_types, man["lat"], man["lon"]))
+        elif d in rolls and TILE_FILE_RE.match(fn):
+            lv, keep, rt = rolls[d]
+            jobs.append((root, base, "L", lv["i"], float(lv["s"]), rt, [man["lat"], man["lon"]] + keep + ["__n"], len(keep),
+                         [dim_types[dim_caps.index(c)] for c in keep], man["lat"], man["lon"]))
         elif re.fullmatch(r"L\d+", d) and TILE_FILE_RE.match(fn) and int(d[1:]) < len(levels):
             lv = levels[int(d[1:])]
             jobs.append((root, base, "L", lv["i"], float(lv["s"]), float(lv["tile"]), cols, len(dims), dim_types, man["lat"], man["lon"]))
@@ -367,11 +478,16 @@ def cmd_check(a):
 
     per = {}  # group -> dict
     errors = []
+    keep_cells = {f"L{lv['i']}" for lv, _, _ in rolls.values()} | set(rolls)
     with ProcessPoolExecutor(max_workers=min(16, os.cpu_count() or 4)) as ex:
-        for rel, size, nrows, sumn, errs, ext in ex.map(_check_file, jobs, chunksize=16):
+        for rel, size, nrows, sumn, errs, ext, cells in ex.map(_check_file, jobs, chunksize=16):
             g = rel.split("/")[0]
-            p = per.setdefault(g, {"sizes": [], "rows": 0, "n": 0, "ext": [None] * 4})
+            p = per.setdefault(g, {"sizes": [], "rows": 0, "n": 0, "ext": [None] * 4, "cells": {}})
             p["sizes"].append(size); p["rows"] += nrows; p["n"] += sumn
+            if cells and g in keep_cells:
+                pc = p["cells"]
+                for ck, cn in cells.items():
+                    pc[ck] = pc.get(ck, 0) + cn
             if g == "D":
                 for k in range(4):
                     if ext[k] is not None:
@@ -384,6 +500,10 @@ def cmd_check(a):
         g = f"L{lv['i']}"
         n = per.get(g, {"n": 0})["n"]
         chk(n + null_n == man["rows"], f"{g}: sum(__n) {n:,} + null {null_n:,} == rows {man['rows']:,}")
+    for d, (lv, keep, rt) in sorted(rolls.items(), key=lambda kv: int(kv[0][1:])):
+        rp, lp = per.get(d, {"n": 0, "cells": {}}), per.get(f"L{lv['i']}", {"cells": {}})
+        chk(rp["n"] + null_n == man["rows"], f"{d} (L{lv['i']} rollup [{'+'.join(keep) or '{}'}]): sum(__n) {rp['n']:,} + null {null_n:,} == rows {man['rows']:,}")
+        chk(rp["cells"] == lp["cells"], f"{d}: every cell holds exactly L{lv['i']}'s count", f"{len(rp['cells']):,} cells vs {len(lp['cells']):,}")
     dn = per.get("D", {"n": 0})["n"]
     chk(dn + null_n == man["rows"], f"D: sum(__n) {dn:,} + null {null_n:,} == rows {man['rows']:,}")
     if man["bounds"] and "D" in per:
@@ -393,7 +513,7 @@ def cmd_check(a):
     # size table
     print(f"\n{'group':<10}{'tiles':>7}{'rows':>13}{'median KB':>11}{'p95 KB':>9}{'max KB':>9}{'total MB':>10}")
     allb = 0
-    order = ["null"] + [f"L{l['i']}" for l in levels] + ["D"]
+    order = ["null"] + [f"L{l['i']}" for l in levels] + sorted(rolls, key=lambda d: int(d[1:])) + ["D"]
     for g in order:
         p = per.get(g)
         if not p:
@@ -401,7 +521,7 @@ def cmd_check(a):
         kb = sorted(x / 1024 for x in p["sizes"])
         p95 = kb[min(len(kb) - 1, math.ceil(0.95 * len(kb)) - 1)]
         tot = sum(p["sizes"]); allb += tot
-        label = g if not g.startswith("L") else f"{g} s={levels[int(g[1:])]['s']}"
+        label = g if not g.startswith("L") else (f"{g} s={levels[int(g[1:])]['s']}" if g not in rolls else f"{g} <L{rolls[g][0]['i']}")
         print(f"{label:<10}{len(kb):>7}{p['rows']:>13,}{statistics.median(kb):>11.1f}{p95:>9.1f}{kb[-1]:>9.1f}{tot/1048576:>10.2f}")
     print(f"{'TOTAL':<10}{sum(len(p['sizes']) for p in per.values()):>7}{'':>13}{'':>11}{'':>9}{'':>9}{allb/1048576:>10.2f}")
     bad = [r for r in results if not r[0]]
@@ -424,6 +544,9 @@ def main():
     b.add_argument("--tile-for-level", default="")
     b.add_argument("--detail-tile", type=float, default=0.1)
     b.add_argument("--month-floor", default=None)
+    b.add_argument("--rollups", default="auto", help='auto (every proper subset of --dims, up to 4 dims), none, or sets like "{};Reported by;Crime type+Reported by"')
+    b.add_argument("--rollup-tile-rows", type=int, default=50000, help="most rows per rollup tile when picking its grid (0: the level's own grid)")
+    b.add_argument("--rollup-max-share", type=float, default=0.75, help="auto mode skips a rollup holding more than this share of its level's rows")
     b.add_argument("--round-mode", choices=["js", "half-even"], default="js", help="js is correct; half-even exists only so the self-test can prove it goes RED")
     b.add_argument("--out", required=True)
     c = sub.add_parser("check")

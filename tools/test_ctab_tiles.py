@@ -135,7 +135,7 @@ def main():
         common = ["--datasource", "Test Crime", "--lat", "Latitude", "--lon", "Longitude",
                   "--dims", "Month:date,Crime type,Reported by", "--detail", "LSOA name,Location",
                   "--levels", ",".join(str(x) for x in S), "--tile-for-level", "0.025=0.25,0.01=0.25",
-                  "--detail-tile", "0.5", "--month-floor", "Month"]
+                  "--detail-tile", "0.5", "--month-floor", "Month", "--rollup-max-share", "1"]
         out = os.path.join(tmp, "tiles")
         r = run("build", "--input", src, *common, "--out", out)
         ck(r.returncode == 0, "build exits 0" + ("" if r.returncode == 0 else ": " + r.stderr[-300:] + r.stdout[-300:]))
@@ -147,7 +147,7 @@ def main():
         man = T.man
         ck(man["rows"] == 50000 and man["datasource"] == "Test Crime", "manifest rows and datasource")
         ck(man["dims"][0] == {"caption": "Month", "type": "DATE"}, "manifest dims typed")
-        ck(man["levels"][6] == {"i": 6, "s": 0.01, "tile": 0.25} and man["levels"][0]["tile"] == 1, "manifest levels and tile overrides")
+        ck({k: man["levels"][6][k] for k in ("i", "s", "tile")} == {"i": 6, "s": 0.01, "tile": 0.25} and man["levels"][0]["tile"] == 1, "manifest levels and tile overrides")
 
         withxy = [x for x in raw if x["lat"] is not None and x["lon"] is not None]
         nullrows = [x for x in raw if x["lat"] is None or x["lon"] is None]
@@ -240,6 +240,69 @@ def main():
         same = all(open(os.path.join(dp, g), "rb").read() == open(os.path.join(out2, os.path.relpath(os.path.join(dp, g), out)), "rb").read()
                    for dp, _, fs in os.walk(out) for g in fs if g != "manifest.json")
         ck(same, "a second build is byte-identical (deterministic tiles)")
+
+        # 8c. rollups (format 1.1): every listed set equals its level re-aggregated over the kept dims, and the raw rows at that grain
+        caps = [d["caption"] for d in man["dims"]]
+        ck(man.get("minor") == 1, "manifest says format 1.1 (minor 1)")
+        nroll = 0
+        for i, s in enumerate(S):
+            lv = man["levels"][i]
+            rl = lv.get("rollups") or []
+            ck(any(r["dims"] == [] for r in rl) and any(r["dims"] == ["Reported by"] for r in rl),
+               f"L{i} has the cell-only and the Reported-by rollups ({len(rl)} sets: {[('+'.join(r['dims']) or '{}') for r in rl]})")
+            full = T.level_rows(i)
+            for ru in rl:
+                keep = ru["dims"]
+                want = Counter()
+                for x in full:
+                    want[(x["Latitude"], x["Longitude"]) + tuple(x[c] for c in keep)] += x["__n"]
+                rawc = Counter((round(js_round(x["lat"] / s) * s, 10), round(js_round(x["lon"] / s) * s, 10)) + tuple(x[c] for c in keep) for x in withxy)
+                got = Counter()
+                for rel in T.files(ru["dir"], ru["tile"]):
+                    for x in T.read(rel):
+                        k = (x["Latitude"], x["Longitude"]) + tuple(x[c] for c in keep)
+                        ck_dup = k in got
+                        got[k] += x["__n"]
+                        if ck_dup:
+                            got[("DUPLICATE",) + k] += 1
+                ok = got == want == rawc and set(T.read(T.files(ru["dir"], ru["tile"])[0])[0]) == {"Latitude", "Longitude", *keep, "__n"}
+                ck(ok, f"L{i} rollup {ru['dir']} [{'+'.join(keep) or '{}'}] tile {ru['tile']}: {len(got):,} rows equal the level re-aggregated and the raw rows")
+                nroll += 1
+        ck(nroll >= 49, f"all 49 rollup sets (7 levels x 7 proper subsets) were compared ({nroll})")
+        ck(set(json.dumps(sorted(r["dims"])) for r in man["levels"][4]["rollups"]) >= {"[]", '["Reported by"]', '["Crime type", "Reported by"]', '["Month", "Reported by"]'},
+           "L4 carries the sets the map, totals, bars and timeline need")
+        # sabotage: drop one row from one rollup tile -> check RED; a tampered count -> RED
+        for what in ("drop", "tamper"):
+            d = os.path.join(tmp, "r_" + what)
+            shutil.copytree(out, d)
+            ru = man["levels"][4]["rollups"][1]
+            fp = os.path.join(d, ru["dir"], sorted(os.listdir(os.path.join(d, ru["dir"])))[0])
+            doc = json.loads(gzip.open(fp, "rb").read().decode("utf-8"))
+            if what == "drop":
+                doc["rows"].pop()
+            else:
+                doc["rows"][0][-1] += 1
+            with gzip.open(fp, "wb") as g:
+                g.write(json.dumps(doc).encode("utf-8"))
+            sz = json.load(open(os.path.join(d, "manifest.json"), encoding="utf-8"))
+            sz["sizes"][os.path.relpath(fp, d).replace(os.sep, "/")[:-8]] = os.path.getsize(fp)
+            json.dump(sz, open(os.path.join(d, "manifest.json"), "w", encoding="utf-8"))
+            r = run("check", d)
+            ck(r.returncode != 0 and "RED" in r.stdout and ru["dir"] in r.stdout, f"SABOTAGE a rollup tile that {'drops a row' if what == 'drop' else 'over-counts'} makes check RED")
+        # --rollups none: a 1.0-shaped package (no rollups listed, no extra L folders); --rollup-tile-rows 0: the level's own grid; explicit sets
+        o3 = os.path.join(tmp, "tiles_norollup")
+        r = run("build", "--input", src, *common, "--rollups", "none", "--out", o3)
+        m3 = json.load(open(os.path.join(o3, "manifest.json"), encoding="utf-8")) if r.returncode == 0 else {}
+        ck(r.returncode == 0 and not any(l.get("rollups") for l in m3.get("levels", [])) and sorted(x for x in os.listdir(o3) if x.startswith("L")) == [f"L{i}" for i in range(7)],
+           "--rollups none builds no rollup sets")
+        o4 = os.path.join(tmp, "tiles_explicit")
+        r = run("build", "--input", src, *common, "--rollups", "{};Crime type+Reported by", "--rollup-tile-rows", "0", "--out", o4)
+        m4 = json.load(open(os.path.join(o4, "manifest.json"), encoding="utf-8")) if r.returncode == 0 else {}
+        r2 = run("check", o4) if r.returncode == 0 else r
+        ck(r.returncode == 0 and r2.returncode == 0 and all([x["dims"] for x in l["rollups"]] == [[], ["Crime type", "Reported by"]] and all(x["tile"] == l["tile"] for x in l["rollups"]) for l in m4["levels"]),
+           "--rollups with two named sets and --rollup-tile-rows 0: exactly those sets on each level's own grid, check GREEN")
+        r = run("build", "--input", src, *common, "--rollups", "Month+Crime type+Reported by", "--out", os.path.join(tmp, "t_r_bad"))
+        ck(r.returncode != 0 and "drop at least one dim" in (r.stderr + r.stdout), "a rollup that keeps every dim is refused")
 
         # 9. rounding vs JS Math.round on edge values
         rounding_vs_node(tmp)
