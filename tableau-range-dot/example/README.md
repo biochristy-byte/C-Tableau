@@ -8,7 +8,7 @@ One dashboard that uses Range Dot: a person's weekly load against the range of t
 2. Open `Dot Plot - Capacity Planning.twbx` in Tableau Desktop 2026.3 or later. Allow the extension when Tableau asks.
 3. Pick a person in **Select Resource**. The chart, the title and the notes follow.
 
-The workbook loads the extension from `http://localhost:8771/index.html`, so the server has to be running first.
+The workbook loads the extension from `http://localhost:21329/index.html`, so the server has to be running first.
 
 ## What is in it
 

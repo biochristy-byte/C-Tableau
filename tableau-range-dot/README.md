@@ -140,7 +140,7 @@ Fixed in 1.1.1, from the review in `docs/REVIEW-celia-pr1.md`. Checked in the br
 - **A malformed web address no longer stops the server.** It answers 400 and keeps running.
 - **Dotfiles and dot folders are not served,** and the folder check compares against the folder plus a separator.
 
-Still open from that review: port 8771 is also `tableau-schools`, and Tableau's library is not vendored.
+Still open from that review: Tableau's library is not vendored. (The port clash with `tableau-schools` is fixed: Range Dot now uses 21329, assigned by `tools/port.py`.)
 
 What Tableau confirmed:
 
