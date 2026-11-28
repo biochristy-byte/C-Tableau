@@ -33,6 +33,11 @@ C-Tableau files in its place:
 - `/_vz/vds.js` runs each query in the browser over that CSV. It returns the VDS shape,
   `{ data: [rows] }`. Each row is keyed by `fieldAlias`, else `FUNC(Caption)` (for
   example `SUM(Sales)`), else the caption.
+- Dates come back the way Tableau sends them. A raw date field is `YYYY-MM-DD`. A
+  `TRUNC_YEAR` to `TRUNC_DAY` value is a datetime with no time zone,
+  `YYYY-MM-DDT00:00:00`, as Tableau's `DATETRUNC` returns. `new Date()` reads that as
+  local time, so a month stays in its month for a viewer west of UTC. A bare
+  `YYYY-MM-DD` would be read as UTC midnight and slip back a month in the Americas.
 
 The Marks card calls keep working on the same page, so one page can serve either kind.
 
@@ -61,7 +66,8 @@ Seventeen query shapes are also checked cell by cell against pandas.
    app uses more than one source, add one CSV per extra source under **More data
    sources**. Name each file like its source: `Returns.csv` becomes `Returns`. You can add up to 7.
 4. **Preview and publish.** Publish turns on once all three preview sizes draw with no
-   errors. Then follow section 5 of
+   errors. A data app is a fixed-size dashboard, so sideways scroll at the narrow size is
+   noted, not blocked: size the Web Page object to the app's full width. Then follow section 5 of
    [`extension-on-tableau-public.md`](extension-on-tableau-public.md): Web Page object,
    keep `?embed=1`, and File > Save to Tableau Public As (never Ctrl+S).
 
