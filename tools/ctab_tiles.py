@@ -232,32 +232,33 @@ def build_drollups(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, 
     caps = [d["caption"] for d in dims]
     next_dir = next_free_dir(level_meta)
     sets = [()] + [(c,) for c in caps]
-    for lv in level_meta:
+    # priority order under the L99 and MAX_FILES caps: every level's {E} set first (it answers the unfiltered panel at any cell size),
+    # then {E} + one dim, dim by dim across all levels, so a cap trims the rarer filtered sets evenly instead of starving the finest levels
+    jobs = [(keep, lv, j, dd) for keep in sets for lv in level_meta for j, dd in enumerate(detail_dims)]
+    for keep, lv, j, dd in jobs:
         i, s, tl = lv["i"], float(lv["s"]), float(lv["tile"])
         lb, ob = bin_sql("lat", s, round_mode), bin_sql("lon", s, round_mode)
-        for j, dd in enumerate(detail_dims):
-            for keep in sets:
-                kc = [f"d{caps.index(c)}" for c in keep]
-                ksel = "".join(", " + c for c in kc)
-                con.execute("DROP TABLE IF EXISTS dr")
-                con.execute(f"CREATE TABLE dr AS WITH g AS (SELECT {lb} AS la, {ob} AS lo{ksel}, e{j}, sum(n)::BIGINT AS n FROM dtab GROUP BY ALL) "
-                            f"SELECT round(la * {s!r}::DOUBLE, 10) AS clat, round(lo * {s!r}::DOUBLE, 10) AS clon{ksel}, e{j}, n FROM g")
-                nr = con.execute("SELECT count(*) FROM dr").fetchone()[0]
-                label = "+".join(list(keep) + [dd["caption"]])
-                if d_rows and nr > max_share * d_rows:
-                    print(f"  drollup L{i} [{label}]: {nr:,} rows is over {max_share:.0%} of the detail's {d_rows:,}; skipped", flush=True)
-                    continue
-                T, nfiles = pick_grid(con, "dr", tl, tile_rows)
-                if next_dir >= MAX_DIRS or len(sizes) + 1 + nfiles > MAX_FILES:
-                    print(f"  drollup L{i} [{label}]: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1}", flush=True)
-                    continue
-                d = f"L{next_dir}"
-                next_dir += 1
-                nt, _ = stream(f"SELECT floor(clon / {float(T)!r}::DOUBLE)::BIGINT AS tx, floor(clat / {float(T)!r}::DOUBLE)::BIGINT AS ty, clat, clon{ksel}, e{j}, n FROM dr ORDER BY ALL",
-                               2, [lat, lon] + list(keep) + [dd["caption"], "__n"], d)
-                lv.setdefault("drollups", []).append({"dir": d, "dims": list(keep), "detail": [dd["caption"]], "tile": T, "rows": nr})
-                print(f"  drollup L{i} [{label}] -> {d}: {nr:,} rows ({(nr / d_rows if d_rows else 0):.1%} of the detail), {nt} tiles of {T} deg", flush=True)
+        kc = [f"d{caps.index(c)}" for c in keep]
+        ksel = "".join(", " + c for c in kc)
         con.execute("DROP TABLE IF EXISTS dr")
+        con.execute(f"CREATE TABLE dr AS WITH g AS (SELECT {lb} AS la, {ob} AS lo{ksel}, e{j}, sum(n)::BIGINT AS n FROM dtab GROUP BY ALL) "
+                    f"SELECT round(la * {s!r}::DOUBLE, 10) AS clat, round(lo * {s!r}::DOUBLE, 10) AS clon{ksel}, e{j}, n FROM g")
+        nr = con.execute("SELECT count(*) FROM dr").fetchone()[0]
+        label = "+".join(list(keep) + [dd["caption"]])
+        if d_rows and nr > max_share * d_rows:
+            print(f"  drollup L{i} [{label}]: {nr:,} rows is over {max_share:.0%} of the detail's {d_rows:,}; skipped", flush=True)
+            continue
+        T, nfiles = pick_grid(con, "dr", tl, tile_rows)
+        if next_dir >= MAX_DIRS or len(sizes) + 1 + nfiles > MAX_FILES:
+            print(f"  drollup L{i} [{label}]: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1}", flush=True)
+            continue
+        d = f"L{next_dir}"
+        next_dir += 1
+        nt, _ = stream(f"SELECT floor(clon / {float(T)!r}::DOUBLE)::BIGINT AS tx, floor(clat / {float(T)!r}::DOUBLE)::BIGINT AS ty, clat, clon{ksel}, e{j}, n FROM dr ORDER BY ALL",
+                       2, [lat, lon] + list(keep) + [dd["caption"], "__n"], d)
+        lv.setdefault("drollups", []).append({"dir": d, "dims": list(keep), "detail": [dd["caption"]], "tile": T, "rows": nr})
+        print(f"  drollup L{i} [{label}] -> {d}: {nr:,} rows ({(nr / d_rows if d_rows else 0):.1%} of the detail), {nt} tiles of {T} deg", flush=True)
+    con.execute("DROP TABLE IF EXISTS dr")
 
 
 def build_edges(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, round_mode, col_names, tol=EDGE_TOL, drop_neg=False):
@@ -279,7 +280,8 @@ def build_edges(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, rou
             lv["edges"] = {"rows": 0}
             print(f"  edges L{i}: none", flush=True)
             continue
-        if next_dir >= MAX_DIRS or len(sizes) + 1 + nr * 2 > MAX_FILES:
+        nfiles = con.execute(f"SELECT count(*) FROM (SELECT DISTINCT floor(round(lo * {s!r}::DOUBLE, 10) / {tl!r}::DOUBLE), floor(round(la * {s!r}::DOUBLE, 10) / {tl!r}::DOUBLE) FROM ed)").fetchone()[0]
+        if next_dir >= MAX_DIRS or len(sizes) + 1 + nfiles > MAX_FILES:   # both halves of a pair are keyed by the centre, so files = centre tiles
             print(f"  edges L{i}: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1} (this level keeps answering boxes from detail tiles)", flush=True)
             continue
         c = f"round(la * {s!r}::DOUBLE, 10)", f"round(lo * {s!r}::DOUBLE, 10)"
