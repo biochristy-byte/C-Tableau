@@ -538,6 +538,8 @@ def cmd_vizpage(a):
             if need not in opt:
                 raise CtabError(f'--{need} is required.')
         d = csv_data(opt['csv'])
+        if not maps and 'datasource' in opt and d.get('columns'):   # a data app reads queries, not encodings: the server still wants one mapping
+            maps = {'field': d['columns'][0]}
         body = {'name': opt['name'], 'extension': opt['extension'], 'mapping': maps, **d}
         # Tableau data apps: --datasource names the main CSV's data source as the app looks it up; each --source CSV is one more
         # data source, named by its file name (Returns.csv -> "Returns").

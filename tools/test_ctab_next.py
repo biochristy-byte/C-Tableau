@@ -87,6 +87,14 @@ def serve(site):
     return srv
 
 
+EXTRACT_JS = '''() => ({
+          regions: [...document.querySelectorAll('#regions tr')].map(r => ({region: r.dataset.region, sales: +r.dataset.sales, disc: +r.dataset.disc, qty: +r.dataset.qty})),
+          lines: [...document.querySelectorAll('#lines tr')].map(r => ({region: r.dataset.lregion, sales: +r.dataset.lsales, n: +r.dataset.lcount})),
+          sample: document.querySelector('#sample') ? +document.querySelector('#sample').dataset.count : null,
+          firstDate: document.querySelector('#sample') ? document.querySelector('#sample').dataset.firstDate : null,
+          err: document.querySelector('#err') ? document.querySelector('#err').textContent : null})'''
+
+
 def draw(url):
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
@@ -99,12 +107,7 @@ def draw(url):
             pg.wait_for_selector('body[data-drawn="1"], #err', timeout=20000)
         except Exception as e:
             errs.append('timeout: ' + str(e)[:80])
-        got = pg.evaluate('''() => ({
-          regions: [...document.querySelectorAll('#regions tr')].map(r => ({region: r.dataset.region, sales: +r.dataset.sales, disc: +r.dataset.disc, qty: +r.dataset.qty})),
-          lines: [...document.querySelectorAll('#lines tr')].map(r => ({region: r.dataset.lregion, sales: +r.dataset.lsales, n: +r.dataset.lcount})),
-          sample: document.querySelector('#sample') ? +document.querySelector('#sample').dataset.count : null,
-          firstDate: document.querySelector('#sample') ? document.querySelector('#sample').dataset.firstDate : null,
-          err: document.querySelector('#err') ? document.querySelector('#err').textContent : null})''')
+        got = pg.evaluate(EXTRACT_JS)
         b.close()
     got['pageerrors'] = errs
     return got

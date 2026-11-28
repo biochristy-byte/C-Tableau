@@ -161,8 +161,38 @@ space or any of `~ $ [ ] ( ) = # %` stops the upload and lists every such file s
 rename it in the build config. Types outside html, js, mjs, css, json, svg, images,
 fonts, csv, txt, map, md (for example `.wasm`) are left out and reported.
 
-A Next build's DATA calls (how it reaches its data) are a separate question. We answer it
-per app once we see its code; this upload only gets the build onto C-Tableau.
+A Next app's data calls are handled by the next section.
+
+## Tableau Next source to a viz page (`ctab_next.py`)
+
+Tableau Next compiles data apps on Salesforce's servers, so an author holds only the
+SOURCE: `src/app.spec.json` (semantic queries), a React page that calls
+`useQuery("<query id>")` from `@analytics/data-app-sdk/react`, plain JS and CSS. That SDK is
+not on npm, so `tools/ctab_next.py` builds the source against our own shim. The author's
+Claude does every step on the author's machine with the author's key; the skill is
+`skills/tableau-next-to-ctableau/SKILL.md`. Shapes and sources:
+[`tableau-next-data-apps.md`](tableau-next-data-apps.md).
+
+```
+python tools/ctab_next.py build SRC_DIR --out OUT_DIR --csv data.csv [--entry src/pages/X.tsx]
+python tools/ctab_next.py check OUT_DIR [--csv data.csv]
+python tools/ctab.py upload OUT_DIR --app
+python tools/ctab.py vizpage publish --name "My App" --extension ID --csv data.csv --datasource "<sourceName>" --slug my-app
+```
+
+- Needs Node 18+. esbuild (pinned 0.25.5) runs through `npx`; React 18.3.1 installs into `~/.ctab-next-cache`. SRC_DIR is never changed.
+- `useQuery(id)` runs the spec's query on the viz page's own rows through the stand-in:
+  fields without `aggregation` are group-by dimensions, with it (`sum avg count countd min max median`)
+  measures; `in` / `notIn` / `equals` / `gte` / `lte` / `between` filters; `limit`. Rows come back keyed by `alias`.
+- The semantic names (`Orders.Sub_Category7`) are matched to CSV headers (`Sub-Category`) by dropping the
+  object prefix and trailing digits and ignoring case, spaces, dashes and underscores. The table is printed
+  and written to `OUT_DIR/ctab-fields.json`; an unmatched or ambiguous field stops the build (RED).
+- `check` refuses `.ts/.tsx`, absolute paths, remote script URLs and anything `ctab.py upload` would refuse, and
+  reports how many files it examined (RED below 2).
+- Proof: `python tools/test_ctab_next.py` (21 checks, Playwright, sums and averages compared with Python, and a
+  sabotage where the shim ignores filters must go RED).
+- Plain legacy JS that sets globals must do so on `window` (`window.LL = ...`): the bundler wraps every file in a
+  function scope, so a bare top-level `var LL` is not global.
 
 ## When your data is too big for a viz page
 
