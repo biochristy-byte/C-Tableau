@@ -20,7 +20,7 @@
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const NAME = 'Range Dot';
   const SLUG = 'range-dot';
-  const VERSION = '1.1.0';
+  const VERSION = '1.1.1';
 
   // =========================================================================
   // PART 1: WHAT THE CHART IS
@@ -46,7 +46,7 @@
   const EXTRAS = [
     { key: 'highlight', label: 'Highlight (the dot)', any: true, re: /highlight|selected|select|focus|spotlight|is[ _]?me|flag|chosen/i },
     { key: 'name', label: 'Member name', re: /name|label/i },
-    { key: 'note', label: 'Category note', any: true, re: /note|capacity|cap|availab|annotation|comment|caption/i },
+    { key: 'note', label: 'Category note', any: true, re: /note|capacity|\bcap\b|availab|annotation|comment|caption/i },
     { key: 'order', label: 'Sort order', numeric: true, re: /order|rank|sort|sequence|position/i },
     { key: 'low', label: 'Range low', numeric: true, re: /\bmin|minimum|lowest|\blow\b|floor/i },
     { key: 'q1', label: 'Band low', numeric: true, re: /pct25|p25|q1\b|25th|lower quartile|first quartile/i },
