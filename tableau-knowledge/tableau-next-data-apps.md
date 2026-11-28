@@ -20,6 +20,8 @@ file does not list, `ctab_next.py` stops with a message naming it; post that mes
 ## Shapes seen in real source
 
 - `src/app.spec.json`: top level `name`, `label`, `filters: []`, `parameters: []`, `fieldLinks: []`, `queries`.
+- A second shape, seen in Celia's real app (11/28/2026): `{"specVersion": 1, "name", "label", "data": {"queries": [...], "filters": [], "parameters": [], "fieldLinks": []}}`. The queries sit under `data.queries`. `ctab_next.py` reads both shapes (`normalise_spec`), and `build` and `check` go RED when a spec holds 0 queries, so an empty build can't pass. A build that prints `queries []` means the tool missed the spec's shape: stop and report it, don't upload.
+- `ctab.py upload --app` names a Next build from the spec's `label` (then `name`), not from the folder, so a build in a folder like `app2` is listed under its real title.
 - One entry of `queries`: `{ id, query: { kind: "semantic", query: { sourceName, fields, filters, limit } }, options: { receiveFiltersFrom, receiveParamsFrom } }`.
   - `fields[]`: `{ field: "Orders.Sales1", alias: "sales", aggregation?: "sum" | "avg" | ... }`. No `aggregation` means a group-by dimension; with one, a measure.
   - `filters[]`: `{ field, filterType: "in", values: [...] }`.
