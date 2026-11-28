@@ -1,9 +1,4 @@
 {
-  "com.datadivers.dashext.settingspanel": {
-    "folder": "tableau-settings-panel",
-    "owner": "Chris",
-    "port": 8777
-  },
   "com.datadivers.vizext.depthlines": {
     "folder": "tableau-depth-lines",
     "owner": "Chris",
@@ -23,11 +18,6 @@
     "folder": "tableau-neurons",
     "owner": "Chris",
     "port": 8774
-  },
-  "com.datadivers.vizext.panelchart": {
-    "folder": "tableau-panel-chart",
-    "owner": "Chris",
-    "port": 8778
   },
   "com.datadivers.vizext.radar": {
     "folder": "tableau-radar",

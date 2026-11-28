@@ -21,7 +21,7 @@ def ok(name, cond):
 
 
 reg = port.load(REAL)
-ok("registry has at least 12 extensions (examined %d)" % len(reg), len(reg) >= 12)
+ok("registry has at least 10 extensions (examined %d)" % len(reg), len(reg) >= 10)
 
 # (a) registered ids return their current port, and the .trex on disk agrees
 for ext_id, v in reg.items():
