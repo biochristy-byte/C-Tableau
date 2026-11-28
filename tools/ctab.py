@@ -299,11 +299,17 @@ def app_meta(build_root, given):
     return nm, (ds.strip() or 'Tableau Next data app build')[:600]
 
 
-def make_trex(name, description, entry, ext_id):
+def bump_version(v):
+    """Next patch version: 1.0.0 -> 1.0.1; anything unparsable -> 1.0.1."""
+    m = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', str(v or '').strip())
+    return f'{m[1]}.{m[2]}.{int(m[3]) + 1}' if m else '1.0.1'
+
+
+def make_trex(name, description, entry, ext_id, version='1.0.0'):
     from xml.sax.saxutils import escape
     return ('<?xml version="1.0" encoding="utf-8"?>\n'
             '<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">\n'
-            f'  <dashboard-extension id="{escape(ext_id)}" extension-version="1.0.0">\n'
+            f'  <dashboard-extension id="{escape(ext_id)}" extension-version="{escape(version)}">\n'
             '    <default-locale>en_US</default-locale>\n'
             '    <name resource-id="name" />\n'
             f'    <description>{escape(description)}</description>\n'
@@ -315,7 +321,7 @@ def make_trex(name, description, entry, ext_id):
             '</manifest>\n')
 
 
-def read_app_folder(folder):
+def read_app_folder(folder, version='1.0.0'):
     """A compiled build with no .trex: find its index.html, check the names, add a generated app.trex. Returns (root, files, skipped)."""
     import tempfile, uuid
     b = find_build_root(folder)
@@ -339,7 +345,7 @@ def read_app_folder(folder):
     name, desc = app_meta(root, folder)
     ext_id = 'ctab-app-' + uuid.uuid4().hex[:16]
     tf = Path(tempfile.mkdtemp(prefix='ctab_trex_')) / 'app.trex'
-    tf.write_text(make_trex(name, desc, 'index.html', ext_id), encoding='utf-8')
+    tf.write_text(make_trex(name, desc, 'index.html', ext_id, version), encoding='utf-8')
     files.append({'path': 'app.trex', 'size': tf.stat().st_size, 'file': tf})
     html = (root / 'index.html').read_text(encoding='utf-8', errors='replace')
     if re.search(r'''(?:src|href)\s*=\s*["']/(?!/)''', html):
@@ -364,7 +370,11 @@ def cmd_upload(folder, visibility='private', ext_id=None, app=False):
             print('  --app: a .trex is already in the folder, so it is used as is.')
         root, files, skipped = read_folder(folder)
     elif app or find_build_root(folder) is not None:
-        root, files, skipped = read_app_folder(folder)
+        ver = '1.0.0'
+        if ext_id:  # a new version of a generated-manifest app: the next patch after the live one, so the list tells versions apart
+            cur = call('GET', f'/extensions/{ext_id}')
+            ver = bump_version(cur.get('version') if isinstance(cur, dict) else None)
+        root, files, skipped = read_app_folder(folder, ver)
     else:
         root, files, skipped = read_folder(folder)  # no .trex and no index.html: read_manifest refuses with the full message
     m = read_manifest(files)
