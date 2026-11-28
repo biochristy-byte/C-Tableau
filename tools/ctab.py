@@ -37,6 +37,8 @@ The CSV is up to 5 MB. --map links an extension encoding id (see the .trex) to a
 Each file can be at most 4 MB over the API (300 files and 30 MB in all). Files upload one at a time with a progress count.
 FOLDER is the folder your dev server serves as its root: it holds your .trex and the page the .trex points to.
 The key comes from CTAB_API_KEY, or else from the line CTAB_API_KEY=... in ~/.secrets/ctab.env. It is never printed.
+A line CTAB_VIZPAGE_VISIBILITY=public in that file (or that environment variable) makes new viz pages public by default;
+--visibility still wins. Without it, new viz pages are private (link-only).
 """
 import concurrent.futures
 import hashlib
@@ -65,19 +67,34 @@ class CtabError(Exception):
     pass
 
 
+def setting(name):
+    """A value from the environment, else from the line NAME=... in ~/.secrets/ctab.env, else ''."""
+    v = os.environ.get(name, '').strip()
+    if v:
+        return v
+    f = Path.home() / '.secrets' / 'ctab.env'
+    try:
+        for line in f.read_text(encoding='utf-8-sig').splitlines():
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                n, val = line.split('=', 1)
+                if n.strip() == name:
+                    v = val.strip().strip('"').strip("'").strip()
+    except OSError:
+        pass
+    return v
+
+
+def vizpage_default_visibility():
+    """CTAB_VIZPAGE_VISIBILITY=public in ~/.secrets/ctab.env makes new viz pages public unless --visibility says otherwise."""
+    v = setting('CTAB_VIZPAGE_VISIBILITY').lower()
+    if v and v not in ('public', 'private'):
+        raise CtabError('CTAB_VIZPAGE_VISIBILITY must be public or private.')
+    return v or 'private'
+
+
 def key():
-    k = os.environ.get('CTAB_API_KEY', '').strip()
-    if not k:
-        f = Path.home() / '.secrets' / 'ctab.env'
-        try:
-            for line in f.read_text(encoding='utf-8').splitlines():
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    n, v = line.split('=', 1)
-                    if n.strip() == 'CTAB_API_KEY':
-                        k = v.strip().strip('"').strip("'").strip()
-        except OSError:
-            pass
+    k = setting('CTAB_API_KEY')
     if not k:
         raise CtabError('Set the CTAB_API_KEY environment variable (or put CTAB_API_KEY=... in ~/.secrets/ctab.env). Create a key at https://c-tableau.netlify.app/account/#/keys.')
     return k
@@ -530,7 +547,7 @@ def cmd_vizpage(a):
             for need in ('name', 'extension'):
                 if need not in opt:
                     raise CtabError(f'--{need} is required.')
-            if opt.get('visibility', 'private') not in ('public', 'private'):
+            if opt.get('visibility', vizpage_default_visibility()) not in ('public', 'private'):
                 raise CtabError('--visibility must be public or private.')
             settings = {}
             if 'settings' in opt:
@@ -545,7 +562,7 @@ def cmd_vizpage(a):
             if not maps and fields and fields[0]:   # a page needs one mapping; with no --map, link the first dimension to itself
                 maps = {fields[0]: fields[0]}
             r = publish_tiles(slug, opt['tiles'], {'name': opt['name'], 'extension': opt['extension'], 'mapping': maps, 'settings': settings,
-                                                    'prefix': opt.get('prefix', ''), 'visibility': opt.get('visibility', 'private')})
+                                                    'prefix': opt.get('prefix', ''), 'visibility': opt.get('visibility', vizpage_default_visibility())})
             print(f'Published {r["slug"]}: {r.get("rows", 0)} rows in tiles, {r.get("visibility", "private")}')
             print('Paste this into a Tableau Web Page object:')
             print(r['url'])
@@ -570,11 +587,12 @@ def cmd_vizpage(a):
                 body['settings'] = json.loads(Path(opt['settings']).read_text(encoding='utf-8'))
             except ValueError:
                 raise CtabError('The settings file is not valid JSON.')
-        if opt.get('visibility', 'private') not in ('public', 'private'):
+        if opt.get('visibility', vizpage_default_visibility()) not in ('public', 'private'):
             raise CtabError('--visibility must be public or private.')
         for k in ('prefix', 'slug', 'visibility'):
             if k in opt:
                 body[k] = opt[k]
+        body.setdefault('visibility', vizpage_default_visibility())
         r = call('POST', '/vizpages', body)
         print(f'Published {r["slug"]}: {len(d["rows"])} rows, {r.get("visibility", "private")}')
         print('Paste this into a Tableau Web Page object:')
