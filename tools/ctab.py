@@ -13,6 +13,9 @@
     python ctab.py upload MyDataApp.twbx                     (a Tableau data app: its package is unpacked and uploaded)
     python ctab.py vizpage publish --name "My Viz" --extension EXT_ID --csv data.csv [--settings s.json] [--map enc=Column ...] [--prefix P] [--slug my-viz] [--visibility public|private]
         [--datasource "Sample - Superstore"] [--source Returns.csv ...]   (Tableau data apps: the data source name the app looks up, extra CSVs as extra data sources)
+    python ctab.py vizpage publish --name "Big Map" --extension EXT_ID --tiles TILES_DIR [--map enc=Field ...] [--settings s.json] [--slug big-map] [--visibility public|private]
+    python ctab.py vizpage publish-again SLUG --tiles TILES_DIR     (a new tile package for a tile page; the old one is deleted after the swap)
+        (tile pages: TILES_DIR is a ctab-tiles v1 package built by C-Tableau's tools/ctab_tiles.py; 300 MB and 20,000 files per package, 1 GB per account with the unlock)
     python ctab.py vizpage visibility SLUG public|private   (public = listed in the C-Tableau viz gallery; your link works either way)
     python ctab.py vizpage list | status SLUG | unpublish SLUG | publish-again SLUG | delete SLUG
 
@@ -23,8 +26,11 @@ Each file can be at most 4 MB over the API (300 files and 30 MB in all). Files u
 FOLDER is the folder your dev server serves as its root: it holds your .trex and the page the .trex points to.
 The key comes from CTAB_API_KEY, or else from the line CTAB_API_KEY=... in ~/.secrets/ctab.env. It is never printed.
 """
+import concurrent.futures
+import hashlib
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -254,6 +260,72 @@ def csv_data(path):
     return {'columns': cols, 'numeric': numeric, 'rows': out}
 
 
+TILE_PATH = re.compile(r'^(manifest[.]json|null/0[.]json[.]gz|L[0-9]{1,2}/-?[0-9]{1,6}_-?[0-9]{1,6}[.]json[.]gz|D/-?[0-9]{1,6}_-?[0-9]{1,6}[.]json[.]gz)$')
+
+
+def tile_files(folder):
+    root = Path(folder)
+    if not (root / 'manifest.json').is_file():
+        raise CtabError(f'{folder} has no manifest.json: it is not a ctab-tiles package. Build one with tools/ctab_tiles.py build.')
+    out = []
+    for f in sorted(root.rglob('*')):
+        if not f.is_file():
+            continue
+        rel = f.relative_to(root).as_posix()
+        if not TILE_PATH.match(rel):
+            continue
+        b = f.read_bytes()
+        out.append({'path': rel, 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()})
+    return root, out
+
+
+def put_tile(url, data, rel):
+    ctype = 'application/json' if rel.endswith('.json') else 'application/gzip'
+    last = None
+    for attempt in range(5):
+        req = urllib.request.Request(url, data=data, method='PUT', headers={'Content-Type': ctype, 'User-Agent': UA, 'x-upsert': 'true'})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                r.read()
+                return
+        except urllib.error.HTTPError as e:
+            last = f'HTTP {e.code} {e.read().decode(errors="replace")[:160]}'
+            if e.code in (400, 401, 403, 413):
+                break
+        except (urllib.error.URLError, OSError) as e:
+            last = str(e)
+        time.sleep(1.5 * (attempt + 1))
+    raise CtabError(f'Could not upload {rel}: {last}')
+
+
+def publish_tiles(slug, folder, create=None):
+    """begin -> sign (500 at a time) -> PUT every file (8 at a time, retried) -> commit. Returns the commit result."""
+    root, files = tile_files(folder)
+    manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
+    total = sum(f['bytes'] for f in files)
+    print(f'Tiles: {len(files)} files, {total / 1048576:.1f} MB', flush=True)
+    b = call('POST', f'/vizpages/{slug}/tiles/begin', {'manifest': manifest, 'files': files, 'create': create})
+    ver, slug = b['version'], b['slug']
+    done = 0
+    try:
+        for i in range(0, len(files), b.get('max_sign_batch', 500)):
+            batch = files[i:i + b.get('max_sign_batch', 500)]
+            urls = call('POST', f'/vizpages/{slug}/tiles/{ver}/sign', {'paths': [f['path'] for f in batch]})['urls']
+            with concurrent.futures.ThreadPoolExecutor(max_workers=b.get('upload_concurrency', 8)) as ex:
+                futs = [ex.submit(put_tile, urls[f['path']], (root / f['path']).read_bytes(), f['path']) for f in batch]
+                for fu in futs:
+                    fu.result()
+            done += len(batch)
+            print(f'  uploaded {done}/{len(files)}', flush=True)
+        return call('POST', f'/vizpages/{slug}/tiles/{ver}/commit', {})
+    except BaseException:
+        try:
+            call('DELETE', f'/vizpages/{slug}/tiles/{ver}')
+        except Exception:
+            pass
+        raise
+
+
 def cmd_vizpage(a):
     if not a:
         print(__doc__); return 2
@@ -261,6 +333,11 @@ def cmd_vizpage(a):
     if sub == 'list':
         for r in call('GET', '/vizpages')['vizpages']:
             print(f'{r["slug"]:30} {r["status"]:12} {r.get("visibility", ""):8} {r["rows"]} rows  {r["url"]}')
+        return 0
+    if sub == 'publish-again' and len(rest) == 3 and rest[1] == '--tiles':
+        r = publish_tiles(rest[0], rest[2])
+        print(f'Published a new tile package for {r["slug"]}')
+        print(r['url'])
         return 0
     if sub in ('status', 'unpublish', 'publish-again', 'delete') and len(rest) == 1:
         s = rest[0]
@@ -278,7 +355,7 @@ def cmd_vizpage(a):
         opt, maps, srcs, i = {}, {}, [], 0
         while i < len(rest):
             k = rest[i]
-            if k in ('--name', '--extension', '--csv', '--settings', '--prefix', '--slug', '--visibility', '--datasource') and i + 1 < len(rest):
+            if k in ('--name', '--extension', '--csv', '--tiles', '--settings', '--prefix', '--slug', '--visibility', '--datasource') and i + 1 < len(rest):
                 opt[k[2:]] = rest[i + 1]; i += 2
             elif k == '--source' and i + 1 < len(rest):
                 srcs.append(rest[i + 1]); i += 2
@@ -286,6 +363,32 @@ def cmd_vizpage(a):
                 e, c = rest[i + 1].split('=', 1); maps[e] = c; i += 2
             else:
                 raise CtabError(f'Unknown or incomplete option: {k}')
+        if 'tiles' in opt:
+            if 'csv' in opt or srcs:
+                raise CtabError('A page holds a CSV or a tile package, not both: use --tiles OR --csv.')
+            for need in ('name', 'extension'):
+                if need not in opt:
+                    raise CtabError(f'--{need} is required.')
+            if opt.get('visibility', 'private') not in ('public', 'private'):
+                raise CtabError('--visibility must be public or private.')
+            settings = {}
+            if 'settings' in opt:
+                try:
+                    settings = json.loads(Path(opt['settings']).read_text(encoding='utf-8'))
+                except ValueError:
+                    raise CtabError('The settings file is not valid JSON.')
+            slug = opt.get('slug') or re.sub(r'-+', '-', re.sub(r'[^a-z0-9]+', '-', opt['name'].lower())).strip('-')[:60]
+            mfp = Path(opt['tiles']) / 'manifest.json'
+            mf = json.loads(mfp.read_text(encoding='utf-8')) if mfp.is_file() else {}
+            fields = [d.get('caption') for d in (mf.get('dims') or []) + (mf.get('detail_dims') or [])] or [mf.get('lat')]
+            if not maps and fields and fields[0]:   # a page needs one mapping; with no --map, link the first dimension to itself
+                maps = {fields[0]: fields[0]}
+            r = publish_tiles(slug, opt['tiles'], {'name': opt['name'], 'extension': opt['extension'], 'mapping': maps, 'settings': settings,
+                                                    'prefix': opt.get('prefix', ''), 'visibility': opt.get('visibility', 'private')})
+            print(f'Published {r["slug"]}: {r.get("rows", 0)} rows in tiles, {r.get("visibility", "private")}')
+            print('Paste this into a Tableau Web Page object:')
+            print(r['url'])
+            return 0
         for need in ('name', 'extension', 'csv'):
             if need not in opt:
                 raise CtabError(f'--{need} is required.')
