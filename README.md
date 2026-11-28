@@ -27,6 +27,7 @@ plus two working extensions you can run. Free, MIT licensed.
 | Submit an extension to the Tableau Exchange | [`tableau-garden-petals/exchange/`](tableau-garden-petals/exchange/SUBMISSION.md): manifest, icon, screenshots, privacy policy, terms and the contributor email |
 | Share a Claude skill on the C-Tableau skills shelf | [`tableau-knowledge/sharing-skills-on-c-tableau.md`](tableau-knowledge/sharing-skills-on-c-tableau.md): what the upload page accepts, the packed-`.skill`-in-a-zip trap, a checklist for your Claude |
 | Pair a silent screen recording with a voiceover | [`narration-sync/`](narration-sync/SKILL.md), a Claude skill |
+| Add a settings gear to a Tableau extension (in-viz chart-type picker, or a dashboard parameter and filter gear with search, presets and reset) | [`skills/tableau-settings-gear/`](skills/tableau-settings-gear/SKILL.md), a Claude skill |
 | Use the tested scripts (build a `.twb`, check contrast, package a `.twbx`) | [`tableau-knowledge/tools/`](tableau-knowledge/tools/README.md) |
 | Stop a Tableau Public workbook from being published by accident | [`tableau-knowledge/never-ctrl-s-on-public.md`](tableau-knowledge/never-ctrl-s-on-public.md) |
 
