@@ -25,7 +25,7 @@ import ctab_next  # noqa: E402
 
 FIX = HERE / 'fixtures' / 'next-app'
 HUB = Path(os.environ.get('CTAB_HUB') or 'C:/Users/bioch/projects/viz-extensions-hub')
-MIN_CHECKS = 20
+MIN_CHECKS = 25
 RES = []
 
 
@@ -212,6 +212,29 @@ def main():
         short = tmp / 'short.csv'
         short.write_text(csvp.read_text(encoding='utf-8').replace('Sub-Category', 'Subcat'), encoding='utf-8')
         chk('build is RED when a field has no CSV column', ctab_next.main(['build', str(FIX), '--out', str(tmp / 'out2'), '--csv', str(short)]) == 1)
+        # Celia's real spec shape (specVersion 1): queries under data.queries. Must build with every query found.
+        base = json.loads((FIX / 'src' / 'app.spec.json').read_text(encoding='utf-8'))
+        nq0 = len(base['queries'])
+        nested = tmp / 'nested'
+        shutil.copytree(FIX, nested)
+        top = {k: v for k, v in base.items() if k not in ('queries', 'filters', 'parameters', 'fieldLinks')}
+        top['specVersion'] = 1
+        top['data'] = {'queries': base['queries'], 'filters': [], 'parameters': [], 'fieldLinks': []}
+        (nested / 'src' / 'app.spec.json').write_text(json.dumps(top), encoding='utf-8')
+        chk('fixture really has queries (control for the nested case)', nq0 >= 2, nq0)
+        rc3 = ctab_next.main(['build', str(nested), '--out', str(tmp / 'out3'), '--csv', str(csvp)])
+        built = ctab_next.normalise_spec(json.loads((tmp / 'out3' / 'app.spec.json').read_text(encoding='utf-8')))
+        chk('a data.queries spec builds GREEN with every query found', rc3 == 0 and len(built['queries']) == nq0, (rc3, len(built['queries'])))
+        fm3 = json.loads((tmp / 'out3' / 'ctab-fields.json').read_text(encoding='utf-8'))
+        chk('a data.queries spec maps the same fields as the flat one', fm3 == fm, (len(fm3), len(fm)))
+        noq = tmp / 'noq'
+        shutil.copytree(FIX, noq)
+        (noq / 'src' / 'app.spec.json').write_text(json.dumps({'name': 'x', 'data': {'filters': []}}), encoding='utf-8')
+        chk('build is RED on a spec with no queries anywhere', ctab_next.main(['build', str(noq), '--out', str(tmp / 'out4'), '--csv', str(csvp)]) == 1)
+        d = tmp / 'mut0'
+        shutil.copytree(out, d)
+        (d / 'app.spec.json').write_text(json.dumps({'name': 'x', 'queries': []}), encoding='utf-8')
+        chk('check is RED on a build whose spec holds 0 queries', ctab_next.check(d, csvp) == 1)
         # run in the browser
         site = tmp / 'site'
         stage(out, csvp, rows, site)

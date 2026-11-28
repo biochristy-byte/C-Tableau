@@ -75,7 +75,7 @@ function dataSource(name) {
 export function getSpec() { return spec; }
 export function runQuery(id) {
   if (cache[id]) return cache[id];
-  var entry = (spec.queries || []).filter(function (x) { return x.id === id; })[0];
+  var entry = (spec.queries || (spec.data && spec.data.queries) || []).filter(function (x) { return x.id === id; })[0];
   if (!entry) return (cache[id] = Promise.reject(new Error('C-Tableau: app.spec.json has no query with id "' + id + '".')));
   var q = entry.query && entry.query.query ? entry.query.query : entry.query;
   cache[id] = Promise.all([loadMap(), dataSource(q.sourceName)]).then(function (a) {

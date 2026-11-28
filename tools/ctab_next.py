@@ -74,6 +74,14 @@ def match_key(semantic):
     return [norm(base), norm(re.sub(r'[0-9]+$', '', base))]
 
 
+def normalise_spec(spec):
+    """Next specs seen so far keep queries at the top (fixture) or under data (Celia's real app, specVersion 1). Lift them to spec['queries']."""
+    if not isinstance(spec.get('queries'), list):
+        data = spec.get('data') if isinstance(spec.get('data'), dict) else {}
+        spec['queries'] = data.get('queries') if isinstance(data.get('queries'), list) else []
+    return spec
+
+
 def spec_fields(spec):
     seen = {}
     for q in spec.get('queries', []):
@@ -142,7 +150,9 @@ def build(src, out, entry_arg, csv_path, sabotage=False):
         spec_p = next(iter(src.rglob('app.spec.json')), None)
     if not spec_p:
         raise Fail('No app.spec.json found in SRC_DIR. A Tableau Next data app has one at src/app.spec.json.')
-    spec = json.loads(spec_p.read_text(encoding='utf-8'))
+    spec = normalise_spec(json.loads(spec_p.read_text(encoding='utf-8')))
+    if not spec['queries']:
+        raise Fail('RED: app.spec.json has no queries (looked at queries and data.queries). Post the top-level keys of app.spec.json.')
     page = find_entry(src, entry_arg)
     print(f'build: node {node}, spec {spec_p.relative_to(src)}, page {page.relative_to(src)}, queries {[q.get("id") for q in spec.get("queries", [])]}')
     fields = spec_fields(spec)
@@ -211,6 +221,12 @@ def check(out, csv_path=None):
         problems.append(f'RED: only {len(files)} files (a build has at least {MIN_FILES}); nothing real was examined.')
     if not (out / 'index.html').exists():
         problems.append('index.html is missing at the root.')
+    sp = out / 'app.spec.json'
+    if sp.exists():
+        nq = len(normalise_spec(json.loads(sp.read_text(encoding='utf-8')))['queries'])
+        print(f'check: app.spec.json holds {nq} queries')
+        if nq == 0:
+            problems.append('RED: app.spec.json holds 0 queries, so the app would find no data. Rebuild with the newest ctab_next.py.')
     total = 0
     for p in files:
         rel = p.relative_to(out).as_posix()
