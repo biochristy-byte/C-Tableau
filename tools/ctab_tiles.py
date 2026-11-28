@@ -347,6 +347,10 @@ def cmd_build(a):
     work = tempfile.mkdtemp(prefix="ctab_tiles_")
     con = duckdb.connect(os.path.join(work, "work.duckdb"))
     con.execute(f"SET temp_directory='{work.replace(chr(92), '/')}'")
+    # DuckDB's own default is 80% of the machine's RAM; a 60M-row build took 9 GB on a shared box on 11/28/2026. Cap it and let it
+    # spill to the work folder instead (same answers, a little slower).
+    if a.memory_limit and a.memory_limit.lower() != "none":
+        con.execute(f"SET memory_limit='{a.memory_limit}'")
     flist = "[" + ",".join("'" + f.replace("\\", "/").replace("'", "''") + "'" for f in files) + "]"
     if ext == {".csv"}:
         reader = f"read_csv({flist}, header=true, all_varchar=true, union_by_name=true, quote='\"', escape='\"')"
@@ -741,6 +745,7 @@ def main():
     b.add_argument("--edge-tol", type=float, default=EDGE_TOL, help="degrees from a cell boundary that make a raw row an edge row (the self-test sets 0 to prove it matters)")
     b.add_argument("--edge-drop-neg", action="store_true", help="self-test only: leave the -n half of every edge pair out (WRONG on purpose)")
     b.add_argument("--round-mode", choices=["js", "half-even"], default="js", help="js is correct; half-even exists only so the self-test can prove it goes RED")
+    b.add_argument("--memory-limit", default="4GB", help="DuckDB memory cap for the build, e.g. 4GB or 8GB (none: DuckDB's default of 80%% of RAM); past it DuckDB spills to disk")
     b.add_argument("--out", required=True)
     c = sub.add_parser("check")
     c.add_argument("dir")
