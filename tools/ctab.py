@@ -1,0 +1,365 @@
+#!/usr/bin/env python3
+"""ctab.py: upload and manage Tableau viz extensions on C-Tableau from the command line. Python 3 standard library only.
+
+    set CTAB_API_KEY=ctab_...                  (create one at https://c-tableau.netlify.app/account/#/keys)
+    python ctab.py me
+    python ctab.py upload FOLDER [--visibility public|private]
+    python ctab.py update ID FOLDER
+    python ctab.py list
+    python ctab.py status ID
+    python ctab.py visibility ID public|private
+    python ctab.py trex ID -o file.trex
+    python ctab.py remove ID
+    python ctab.py upload MyDataApp.twbx                     (a Tableau data app: its package is unpacked and uploaded)
+    python ctab.py vizpage publish --name "My Viz" --extension EXT_ID --csv data.csv [--settings s.json] [--map enc=Column ...] [--prefix P] [--slug my-viz] [--visibility public|private]
+        [--datasource "Sample - Superstore"] [--source Returns.csv ...]   (Tableau data apps: the data source name the app looks up, extra CSVs as extra data sources)
+    python ctab.py vizpage visibility SLUG public|private   (public = listed in the C-Tableau viz gallery; your link works either way)
+    python ctab.py vizpage list | status SLUG | unpublish SLUG | publish-again SLUG | delete SLUG
+
+A viz page is your extension plus your CSV, served at https://c-tableau-hosted.netlify.app/v/<slug>/?embed=1 for a Tableau Public Web Page object.
+The CSV is up to 5 MB. --map links an extension encoding id (see the .trex) to a CSV column; with no --map, columns whose name matches an encoding id are linked.
+
+Each file can be at most 4 MB over the API (300 files and 30 MB in all). Files upload one at a time with a progress count.
+FOLDER is the folder your dev server serves as its root: it holds your .trex and the page the .trex points to.
+The key comes from CTAB_API_KEY, or else from the line CTAB_API_KEY=... in ~/.secrets/ctab.env. It is never printed.
+"""
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+API = os.environ.get('CTAB_API_URL', 'https://c-tableau.netlify.app/api/v1').rstrip('/')
+OK_EXT = set('html htm js mjs css json svg png jpg jpeg gif webp ico woff woff2 ttf otf csv txt map trex md'.split())
+NAME_OK = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._@+/-')
+MIME = {'html': 'text/html', 'htm': 'text/html', 'js': 'application/javascript', 'mjs': 'application/javascript', 'css': 'text/css', 'json': 'application/json',
+        'svg': 'image/svg+xml', 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp', 'ico': 'image/x-icon',
+        'woff': 'font/woff', 'woff2': 'font/woff2', 'ttf': 'font/ttf', 'otf': 'font/otf', 'csv': 'text/csv', 'txt': 'text/plain', 'map': 'application/json',
+        'trex': 'application/xml', 'md': 'text/markdown'}
+UA = 'ctab-cli/1'
+
+
+class CtabError(Exception):
+    pass
+
+
+def key():
+    k = os.environ.get('CTAB_API_KEY', '').strip()
+    if not k:
+        f = Path.home() / '.secrets' / 'ctab.env'
+        try:
+            for line in f.read_text(encoding='utf-8').splitlines():
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    n, v = line.split('=', 1)
+                    if n.strip() == 'CTAB_API_KEY':
+                        k = v.strip().strip('"').strip("'").strip()
+        except OSError:
+            pass
+    if not k:
+        raise CtabError('Set the CTAB_API_KEY environment variable (or put CTAB_API_KEY=... in ~/.secrets/ctab.env). Create a key at https://c-tableau.netlify.app/account/#/keys.')
+    return k
+
+
+def call(method, path, body=None, raw=False, data=None, ctype='application/json', _tries=0):
+    if body is not None:
+        data = json.dumps(body).encode()
+    req = urllib.request.Request(API + path, data=data, method=method, headers={
+        'Authorization': 'Bearer ' + key(), 'Content-Type': ctype, 'User-Agent': UA})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            b = r.read()
+            return b if raw else (json.loads(b.decode()) if b else None)
+    except urllib.error.HTTPError as e:
+        txt = e.read().decode(errors='replace')
+        if e.code == 429 and _tries < 6 and '"rate_limited"' in txt:  # 120 requests per minute per key: wait and go on
+            wait = int(e.headers.get('Retry-After') or 30)
+            print(f'  rate limit reached, waiting {wait}s ...', file=sys.stderr, flush=True)
+            time.sleep(wait)
+            return call(method, path, None, raw, data, ctype, _tries + 1)
+        try:
+            j = json.loads(txt)
+            msg = f"{j.get('error', e.code)}: {j.get('message', '')}"
+        except Exception:
+            msg = f'HTTP {e.code} {txt[:200]}'
+        raise CtabError(msg)
+    except urllib.error.URLError as e:
+        raise CtabError(f'Could not reach {API}: {e.reason}')
+
+
+def local(tag):
+    return tag.rsplit('}', 1)[-1]
+
+
+def find_all(el, name):
+    return [x for x in el.iter() if local(x.tag) == name]
+
+
+def find(el, name):
+    r = find_all(el, name)
+    return r[0] if r else None
+
+
+def text(el):
+    return (el.text or '').strip() if el is not None else ''
+
+
+def read_folder(folder):
+    root = Path(folder).resolve()
+    if not root.is_dir():
+        raise CtabError(f'Not a folder: {folder}')
+    files, skipped = [], []
+    for p in sorted(root.rglob('*')):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(root).as_posix()
+        segs = rel.split('/')
+        if any(s.startswith('.') or s in ('node_modules', '__pycache__') for s in segs):
+            continue
+        if p.suffix.lower().lstrip('.') not in OK_EXT:
+            skipped.append(rel)
+            continue
+        if not all(c in NAME_OK for c in rel):
+            raise CtabError(f'File name not allowed (letters, numbers, dot, dash, underscore, no spaces): {rel}')
+        files.append({'path': rel, 'size': p.stat().st_size, 'file': p})
+    return root, files, skipped
+
+
+def read_manifest(files):
+    trexes = sorted((f for f in files if f['path'].lower().endswith('.trex')), key=lambda f: (f['path'].count('/'), f['path']))
+    if not trexes:
+        raise CtabError("No .trex manifest found. Include your extension's .trex file in the folder.")
+    tx = trexes[0]['file'].read_text(encoding='utf-8')
+    try:
+        doc = ET.fromstring(tx.encode('utf-8'))
+    except ET.ParseError as e:
+        raise CtabError(f'The manifest {trexes[0]["path"]} is not valid XML: {e}')
+    w, d = find(doc, 'worksheet-extension'), find(doc, 'dashboard-extension')
+    x = w if w is not None else d
+    if x is None:
+        raise CtabError('The manifest needs a worksheet-extension (viz extension) or dashboard-extension element.')
+    res = {r.get('id'): text(find(r, 'text')) for r in find_all(doc, 'resource')}
+    nm = find(x, 'name')
+    name = (res.get(nm.get('resource-id')) if nm is not None else '') or text(nm) or x.get('id') or ''
+    encs = []
+    for e in find_all(x, 'encoding'):
+        dn, tip, role = find(e, 'display-name'), find(e, 'tooltip'), text(find(e, 'role-type'))
+        encs.append({'name': text(dn) or res.get(dn.get('resource-id') if dn is not None else '', '') or e.get('id'),
+                     'role': 'Dimension' if 'dimension' in role else 'Measure',
+                     'tip': text(tip) or (res.get(tip.get('resource-id'), '') if tip is not None else '')})
+    if w is not None and not 1 <= len(encs) <= 4:
+        raise CtabError(f'A viz extension needs 1 to 4 encodings; the manifest has {len(encs)}.')
+    if find(x, 'min-api-version') is None:
+        raise CtabError('The manifest is missing min-api-version.')
+    url_el = find(find(x, 'source-location'), 'url') if find(x, 'source-location') is not None else None
+    entry = urllib.parse.unquote(urllib.parse.urlparse(text(url_el)).path.lstrip('/'))
+    if not entry or not any(f['path'] == entry for f in files):
+        raise CtabError(f'Your manifest points to "{entry}" but that file is not in the folder. Pass the folder your dev server serves as its root.')
+    return {'name': name[:60], 'description': text(find(x, 'description'))[:600], 'ext_id': x.get('id') or '',
+            'version': x.get('extension-version') or '1.0.0', 'entry_path': entry, 'encodings': encs}
+
+
+MAX_FILE = 4 * 1024 * 1024  # the API takes up to 4 MB per file; the web uploader takes larger ones
+
+
+def put_all(ext_id, files):
+    """Upload file by file through PUT /extensions/{id}/files/{path} (storage rules apply as for the web app)."""
+    n = len(files)
+    for i, f in enumerate(files, 1):
+        rel = '/'.join(urllib.parse.quote(seg) for seg in f['path'].split('/'))
+        call('PUT', f'/extensions/{ext_id}/files/{rel}', data=f['file'].read_bytes(), ctype='application/octet-stream')
+        print(f'  uploaded {i}/{n}  {f["path"]}', flush=True)
+
+
+def unpack_data_app(path):
+    """A Tableau data app ships as a .twbx (a zip): Packages/<package id>/content/... is the app and Packages/<id>/extensions/*.trex
+    its manifest, whose url is relative to content/. Lay that one package out as the app's own root in a temp folder; the workbook,
+    Data/ and Resources/ stay behind (the data goes on a viz page as a CSV)."""
+    import re, tempfile, zipfile
+    pkg = re.compile(r'^(?:[^/]+/)?Packages/([^/]+)/(content|extensions)/(.+)$')
+    with zipfile.ZipFile(path) as z:
+        found = {}
+        for n in z.namelist():
+            m = pkg.match(n)
+            if m and not n.endswith('/'):
+                found.setdefault(m.group(1), []).append((n, m.group(2), m.group(3)))
+        ids = [k for k, v in found.items() if any(kind == 'extensions' and rest.lower().endswith('.trex') for _, kind, rest in v)]
+        if not ids:
+            raise CtabError(f'{path} has no Packages/<id>/extensions/*.trex inside, so it is not a data app package. Pass the folder your extension serves instead.')
+        if len(ids) > 1:
+            raise CtabError(f'{path} holds {len(ids)} extension packages ({", ".join(ids)}). Upload one data app at a time.')
+        out = Path(tempfile.mkdtemp(prefix='ctab_dataapp_'))
+        for n, kind, rest in found[ids[0]]:
+            if kind == 'extensions' and not rest.lower().endswith('.trex'):
+                continue
+            rel = rest.split('/')[-1] if kind == 'extensions' else rest
+            if any(seg in ('', '.', '..') for seg in rel.split('/')):
+                raise CtabError(f'Unsafe path inside the package: {n}')
+            dest = out / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(z.read(n))
+        print(f'Data app package {ids[0]} unpacked from {Path(path).name}.')
+        return str(out)
+
+
+def cmd_upload(folder, visibility='private', ext_id=None):
+    if Path(folder).is_file() and Path(folder).suffix.lower() in ('.twbx', '.zip'):
+        folder = unpack_data_app(folder)
+    root, files, skipped = read_folder(folder)
+    m = read_manifest(files)
+    big = [f for f in files if f['size'] > MAX_FILE]
+    if big:
+        raise CtabError(f'{big[0]["path"]} is {big[0]["size"] / 1048576:.1f} MB. Over the API each file can be at most 4 MB; use the web uploader for bigger files.')
+    body = dict(m, visibility=visibility, files=[{'path': f['path'], 'size': f['size']} for f in files])
+    print(f'{len(files)} files, {sum(f["size"] for f in files) // 1024} KB, "{m["name"]}", opens {m["entry_path"]}' + (f' ({len(skipped)} files of other types skipped)' if skipped else ''))
+    if ext_id:
+        t = call('POST', f'/extensions/{ext_id}/versions', {k: body[k] for k in ('version', 'entry_path', 'encodings', 'files')})
+    else:
+        t = call('POST', '/extensions', body)
+    put_all(t['id'], files)
+    row = call('POST', f'/extensions/{t["id"]}/submit')
+    print(f'Submitted. id {t["id"]}  status {row["status"]}  visibility {row["visibility"]}')
+    print('It waits for approval. Check later with:  python ctab.py status ' + t['id'])
+
+
+def cmd_list():
+    rows = call('GET', '/extensions')['extensions']
+    if not rows:
+        print('No extensions yet.')
+    for r in rows:
+        print(f'{r["id"]}  {r["status"]:9} {r["visibility"]:8} v{r["version"]}  {r["name"]}' + (f'  (reason: {r["reject_reason"]})' if r.get('reject_reason') else ''))
+
+
+def csv_data(path):
+    import csv, re
+    num = re.compile(r'^-?\d+(\.\d+)?([eE][-+]?\d+)?$')
+    raw = Path(path).read_bytes()
+    if len(raw) > 5 * 1024 * 1024:
+        raise CtabError('The CSV is over 5 MB.')
+    rows = list(csv.reader(raw.decode('utf-8-sig').splitlines(), strict=False))
+    rows = [r for r in rows if r and any(c != '' for c in r)]
+    if len(rows) < 2:
+        raise CtabError('The CSV needs a header row and at least one data row.')
+    cols = [c.strip() for c in rows[0]]
+    if not all(cols) or len(set(cols)) != len(cols):
+        raise CtabError('Every column needs a unique name in the header row.')
+    body = [r + [''] * (len(cols) - len(r)) for r in rows[1:]]
+    numeric = [any(r[i].strip() for r in body) and all(r[i].strip() == '' or num.match(r[i].strip()) for r in body) for i in range(len(cols))]
+    out = [[(None if r[i].strip() == '' else float(r[i]) if numeric[i] else r[i]) if numeric[i] else r[i] for i in range(len(cols))] for r in body]
+    out = [[(int(v) if isinstance(v, float) and v.is_integer() else v) for v in r] for r in out]
+    return {'columns': cols, 'numeric': numeric, 'rows': out}
+
+
+def cmd_vizpage(a):
+    if not a:
+        print(__doc__); return 2
+    sub, rest = a[0], a[1:]
+    if sub == 'list':
+        for r in call('GET', '/vizpages')['vizpages']:
+            print(f'{r["slug"]:30} {r["status"]:12} {r.get("visibility", ""):8} {r["rows"]} rows  {r["url"]}')
+        return 0
+    if sub in ('status', 'unpublish', 'publish-again', 'delete') and len(rest) == 1:
+        s = rest[0]
+        if sub == 'status':
+            print(json.dumps(call('GET', f'/vizpages/{s}'), indent=2))
+        elif sub == 'delete':
+            call('DELETE', f'/vizpages/{s}'); print('Deleted.')
+        else:
+            r = call('PATCH', f'/vizpages/{s}', {'status': 'unpublished' if sub == 'unpublish' else 'live'}); print(f'{r["slug"]} is now {r["status"]}')
+        return 0
+    if sub == 'visibility' and len(rest) == 2 and rest[1] in ('public', 'private'):
+        r = call('PATCH', f'/vizpages/{rest[0]}', {'visibility': rest[1]}); print(f'{r["slug"]} is now {r["visibility"]}')
+        return 0
+    if sub == 'publish':
+        opt, maps, srcs, i = {}, {}, [], 0
+        while i < len(rest):
+            k = rest[i]
+            if k in ('--name', '--extension', '--csv', '--settings', '--prefix', '--slug', '--visibility', '--datasource') and i + 1 < len(rest):
+                opt[k[2:]] = rest[i + 1]; i += 2
+            elif k == '--source' and i + 1 < len(rest):
+                srcs.append(rest[i + 1]); i += 2
+            elif k == '--map' and i + 1 < len(rest) and '=' in rest[i + 1]:
+                e, c = rest[i + 1].split('=', 1); maps[e] = c; i += 2
+            else:
+                raise CtabError(f'Unknown or incomplete option: {k}')
+        for need in ('name', 'extension', 'csv'):
+            if need not in opt:
+                raise CtabError(f'--{need} is required.')
+        d = csv_data(opt['csv'])
+        body = {'name': opt['name'], 'extension': opt['extension'], 'mapping': maps, **d}
+        # Tableau data apps: --datasource names the main CSV's data source as the app looks it up; each --source CSV is one more
+        # data source, named by its file name (Returns.csv -> "Returns").
+        if 'datasource' in opt:
+            body['datasource'] = opt['datasource']
+        if len(srcs) > 7:
+            raise CtabError('Up to 7 --source CSVs.')
+        if srcs:
+            body['sources'] = [dict(csv_data(f), name=Path(f).stem[:100]) for f in srcs]
+        if 'settings' in opt:
+            try:
+                body['settings'] = json.loads(Path(opt['settings']).read_text(encoding='utf-8'))
+            except ValueError:
+                raise CtabError('The settings file is not valid JSON.')
+        if opt.get('visibility', 'private') not in ('public', 'private'):
+            raise CtabError('--visibility must be public or private.')
+        for k in ('prefix', 'slug', 'visibility'):
+            if k in opt:
+                body[k] = opt[k]
+        r = call('POST', '/vizpages', body)
+        print(f'Published {r["slug"]}: {len(d["rows"])} rows, {r.get("visibility", "private")}')
+        print('Paste this into a Tableau Web Page object:')
+        print(r['url'])
+        return 0
+    print(__doc__); return 2
+
+
+def main(argv):
+    if not argv or argv[0] in ('-h', '--help', 'help'):
+        print(__doc__)
+        return 0
+    c, a = argv[0], argv[1:]
+    if c == 'vizpage':
+        return cmd_vizpage(a)
+    out = None
+    if '-o' in a:
+        i = a.index('-o'); out = a[i + 1]; a = a[:i] + a[i + 2:]
+    vis = 'private'
+    if '--visibility' in a:
+        i = a.index('--visibility'); vis = a[i + 1]; a = a[:i] + a[i + 2:]
+    if c == 'me':
+        j = call('GET', '/me')
+        print(f'{j["email"]}: {j["quota"]["used"]} of {j["quota"]["limit"]} free extensions used' + ('; C-Tableau Unlimited is on' if j['unlocked'] else ''))
+    elif c == 'upload' and len(a) == 1:
+        cmd_upload(a[0], vis)
+    elif c == 'update' and len(a) == 2:
+        cmd_upload(a[1], vis, ext_id=a[0])
+    elif c == 'list':
+        cmd_list()
+    elif c == 'status' and len(a) == 1:
+        print(json.dumps(call('GET', f'/extensions/{a[0]}'), indent=2))
+    elif c == 'visibility' and len(a) == 2 and a[1] in ('public', 'private'):
+        r = call('PATCH', f'/extensions/{a[0]}', {'visibility': a[1]})
+        print(f'{r["name"]} is now {r["visibility"]}')
+    elif c == 'trex' and len(a) == 1:
+        data = call('GET', f'/extensions/{a[0]}/trex', raw=True)
+        Path(out or 'extension.trex').write_bytes(data)
+        print('Saved ' + (out or 'extension.trex') + '. It carries a link made for you and this extension: keep it to yourself.')
+    elif c == 'remove' and len(a) == 1:
+        call('DELETE', f'/extensions/{a[0]}')
+        print('Removed.')
+    else:
+        print(__doc__)
+        return 2
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except CtabError as e:
+        print('ctab: ' + str(e), file=sys.stderr)
+        sys.exit(1)

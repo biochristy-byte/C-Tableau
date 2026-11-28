@@ -114,6 +114,20 @@ issue #683), so a viz page is a handy place to debug a query.
   30 MB you may see in an error message is the page's budget across stored versions,
   not the data limit.)
 
+## Publish from the command line (for your Claude)
+
+`tools/ctab.py` in this repo uploads and publishes from your own account. It is
+standard-library Python only. Create an API key at
+https://c-tableau.netlify.app/account/#/keys and set it as `CTAB_API_KEY`.
+
+```
+python tools/ctab.py upload "My Data App.twbx" --visibility private
+python tools/ctab.py status ID                # wait for the review
+python tools/ctab.py vizpage publish --name "My App" --extension ID --csv data.csv     --datasource "Exact DS_NAME the app looks for" --slug my-app --visibility private
+```
+
+The page is then at `https://c-tableau-hosted.netlify.app/v/my-app/?embed=1`.
+
 ## When your data is too big for a viz page
 
 A data app does not hold data. It asks the data source a new question
