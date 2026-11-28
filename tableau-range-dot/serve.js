@@ -32,12 +32,18 @@ const TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let rel = decodeURIComponent(req.url.split('?')[0]);
+  // A malformed address must cost one request, not the server.
+  let rel;
+  try { rel = decodeURIComponent(req.url.split('?')[0]); }
+  catch (e) { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('Bad request'); return; }
   if (rel === '/') rel = '/index.html';
 
-  // Never serve anything outside this folder.
+  // Never serve anything outside this folder, and never a dotfile or dot folder.
   const full = path.join(ROOT, path.normalize(rel));
-  if (!full.startsWith(ROOT)) { res.writeHead(403); res.end('Forbidden'); return; }
+  if (!full.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end('Forbidden'); return; }
+  if (path.relative(ROOT, full).split(path.sep).some((part) => part.startsWith('.'))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return;
+  }
 
   fs.readFile(full, (err, data) => {
     if (err) {
@@ -65,7 +71,9 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-server.listen(PORT, () => {
+// This machine only. Without the address, Node listens on every network
+// interface and anyone on the same Wi-Fi could read this folder.
+server.listen(PORT, '127.0.0.1', () => {
   console.log('\n  Range Dot is being served.');
   console.log('\n      Tableau:  http://localhost:' + PORT + '/index.html');
   console.log('      Preview:  http://localhost:' + PORT + '/index.html?preview=1');

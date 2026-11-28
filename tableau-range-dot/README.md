@@ -109,7 +109,7 @@ Scenarios: `&scenario=plain` (untouched defaults), `colormeasure`, `colorname`, 
 
 ## Files
 
-`RangeDot.trex` (manifest), `index.html` (page, styles, panel markup), `viz.js` (all logic), `mock-tableau.js` (preview only), `serve.js` (the server), `Start-RangeDot.bat` (double-click launcher), `sample-data/`, `lib/` (Tableau's Extensions API library goes here, see `lib/README.md`), `assets/fonts/` (Poppins, bundled so the chart works offline; SIL Open Font License, text beside the fonts).
+`RangeDot.trex` (manifest), `index.html` (page, styles, panel markup), `viz.js` (all logic), `mock-tableau.js` (preview only), `serve.js` (the server), `Start-RangeDot.bat` (double-click launcher), `sample-data/`, `example/` (a workbook that uses the extension, see its README), `lib/` (Tableau's Extensions API library goes here, see `lib/README.md`), `assets/fonts/` (Poppins, bundled so the chart works offline; SIL Open Font License, text beside the fonts).
 
 ## Reload rule
 
@@ -131,7 +131,16 @@ Manifest edits (name, version, url, shelves): the same **Replace** picks them up
 
 ## Status
 
-Version 1.1.0, built 2026-11-24. **Confirmed inside Tableau Desktop 2026.3** on a workbook of demo data: one person's weekly load against the five people on their team, 10 weeks, 50 marks.
+Version 1.1.1, 2026-11-27 (1.1.0 was built 2026-11-24). **Confirmed inside Tableau Desktop 2026.3** on a workbook of demo data: one person's weekly load against the five people on their team, 10 weeks, 50 marks.
+
+Fixed in 1.1.1, from the review in `docs/REVIEW-celia-pr1.md`. Checked in the browser preview, not reloaded in Tableau yet:
+
+- **A field named exactly "Cap" now matches the note.** The pattern held two stray backspace bytes where a word boundary was meant. Fields with "capacity" or "available" in the name were not affected.
+- **`serve.js` listens on this machine only** (`127.0.0.1`). The address in the `.trex` stays `localhost`.
+- **A malformed web address no longer stops the server.** It answers 400 and keeps running.
+- **Dotfiles and dot folders are not served,** and the folder check compares against the folder plus a separator.
+
+Still open from that review: port 8771 is also `tableau-schools`, and Tableau's library is not vendored.
 
 What Tableau confirmed:
 
