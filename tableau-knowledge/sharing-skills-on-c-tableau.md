@@ -50,7 +50,12 @@ A `.skill` file is already a packed skill: it's a zip holding `<name>/SKILL.md` 
 
 **Fix:** upload the `.skill` file itself, in the file box, or upload the source folder. Never wrap a `.skill` in another zip.
 
-A page update that opens a zip holding one packed skill automatically is being built and tested. Until this note says it's live, use the fix above.
+Since 11/28/2026 the page handles these shapes itself:
+- A zip that holds exactly one `.skill` or `.zip` and no `SKILL.md` is opened one level, with a note saying so. Deeper nesting is refused with a message that says what to pick.
+- A packed copy sitting beside the real skill files is left out, with the note "Left out <name>: a packed copy of a skill".
+- A `SKILL.md` one folder down is used as the skill root, and any files outside that folder are listed as left out. Two candidate folders are refused by name.
+- If both pick boxes are filled, the page uses the one changed last and says which.
+Uploading the `.skill` itself or the source folder is still the cleanest route.
 
 ## Checklist for a Claude helping someone share a skill
 
