@@ -123,7 +123,7 @@ https://c-tableau.netlify.app/account/#/keys and set it as `CTAB_API_KEY`.
 ```
 python tools/ctab.py upload "My Data App.twbx" --visibility private
 python tools/ctab.py status ID                # wait for the review
-python tools/ctab.py vizpage publish --name "My App" --extension ID --csv data.csv     --datasource "Exact DS_NAME the app looks for" --slug my-app --visibility private
+python tools/ctab.py vizpage publish --name "My App" --extension ID --csv data.csv --datasource "Exact DS_NAME the app looks for" --slug my-app --visibility private
 ```
 
 The page is then at `https://c-tableau-hosted.netlify.app/v/my-app/?embed=1`.
