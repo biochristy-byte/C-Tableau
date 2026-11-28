@@ -95,7 +95,41 @@ Every total stayed at 59,481,019, and no request failed.
 - After a cell change, the app's side panel asks for the top 5 `Location` values and the `LSOA name` inside the selected cell. Those are detail fields. They exist only in the raw-row `D` tiles, so a 0.5 cell over London reads 29 to 41 MB of raw rows. Cell 1 settled in under 1 s on 2 MB in the same run. Why its side panel read so little is not checked yet.
 - A dragged box filters on raw latitude and longitude, so it also reads `D` tiles.
 
-**The next fix (not built yet).** Write detail rollups: for each level, the count per cell and `Location` (and per cell and `LSOA name`). The planner would then answer "top places in this cell" from one small set instead of every raw row under the cell.
+## The second fix: detail rollups and box edges (ctab_tiles 1.2)
+
+Both slow rows above are fixed in the builder and the page engine. Nothing in the app changes: same queries, same look, same answers.
+
+- **Detail rollups.** For each level, the builder also writes counts per cell, one detail field (`LSOA name` or `Location`) and a subset of the dims. "Top places in this cell" now reads one small set instead of every raw row under the cell.
+- **Box edges.** A dragged box snaps to cell boundaries, so a cell is inside the box exactly when its rows are. The one exception is a row sitting on a boundary, where float division can round it into the neighbouring cell (`51.505 / 0.01` is `5150.4999...`). For those rows the builder writes edge tiles: `+n` at the raw point and `-n` at the cell centre. The page then answers the box from the level plus those few rows. Andy has 259 edge rows at cell 1 and 10,008 at cell 0.01. Only COUNT queries take this path; anything else still reads raw rows.
+- **Budget order.** Rollups go first, then edges, then detail rollups smallest-first. A set larger than 5% of the detail rows is skipped (`--drollup-max-share 0.05`). A package may hold at most 20,000 files and 100 folders, and Andy's raw tiles alone use 9,187 of those files.
+- **The scope filter decides which detail rollups help.** Every query Andy's panel sends carries `[Reported by] <> 'British Transport Police'`. So only detail rollups that keep `Reported by` can answer it. Check what filters an app always sends before choosing `--detail` fields.
+- **Memory.** His first 1.2 build peaked at 9.15 GB of RAM. `--memory-limit` (default `4GB`) caps DuckDB and spills to disk instead.
+
+Andy's rebuild, from the folder that holds his data:
+
+```
+git pull
+python -P tools/ctab_tiles.py build --input andy_rows.parquet --datasource "UK Crime" --lat Latitude --lon Longitude --dims "Month:date,Crime type,Reported by" --detail "LSOA name,Location" --levels 1,0.5,0.25,0.1,0.05,0.025,0.01 --tile 1 --tile-for-level "0.1=0.5,0.05=0.5,0.025=0.25,0.01=0.1" --detail-tile 0.05 --memory-limit 4GB --out tiles12/
+python -P tools/ctab_tiles.py check tiles12/ --package-limit-mb 1024
+```
+
+It wrote 19,927 files, 501 MB, in 22 minutes, and `check` passed 294 of 294.
+
+### Measured locally (11/28/2026, 1.2 package and engine)
+
+Chromium, his live page HTML, the package served from disk, throttled to 40 Mbps, cold cache.
+
+| Step | 1.1 package, live engine | 1.2 package, new engine |
+|---|---|---|
+| First open | 5.4 to 5.7 s (6.3 MB) | 2.3 to 2.4 s (988 KB) |
+| Cell 1 | 19.7 s | 0.34 s |
+| Cell 0.5 | 9.1 s | 0.23 s |
+| Cell 0.1 | 3.1 s | 0.23 s |
+| Cell 0.01 | | 0.65 s |
+| Drag a box | 29.1 s | 0.83 s |
+| Zoom out, hover, click | | 0.10 to 0.13 s |
+
+**Exact on his real rows.** The new engine on the 1.2 package and the live engine on the raw `D` tiles answered 1,680 of the app's own query shapes at all 7 cell sizes: with no filter, one force, one crime type and one year. 336 of them were boxes whose edge runs through a real boundary row. All 1,680 matched. With the edge tiles removed, 6 of those 336 boxes went wrong, so the check can fail. 23 were TOP 1 ties, where the two engines named different members with the same count. Total 59,481,019 and box total 4,477,947 both matched.
 
 ## Tableau Next apps
 

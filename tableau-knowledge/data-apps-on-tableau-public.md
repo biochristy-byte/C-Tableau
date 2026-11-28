@@ -280,6 +280,23 @@ loading the `Reported by` rollup instead of every month and crime type.
 - Rollups take extra L folder numbers (`L7`, `L8`, ...) and are listed under each level
   in the manifest. A page running the older engine ignores them and still works.
 
+**Detail rollups and box edges (format 1.2, on when `--detail` is given).** Two more tile
+sets, so a side panel and a dragged box stop reading raw rows:
+
+- Detail rollups (`drollups` in the manifest): counts per cell, ONE `--detail` field and a
+  subset of `--dims`. A query like "top 5 Location in this cell" reads one of these.
+  They are built smallest-first, and a set over `--drollup-max-share` (default 0.05) of
+  the detail rows is skipped. Keep in the dims any field the app filters on in EVERY
+  query (Andy's panel always excludes one force, so only sets that keep `Reported by`
+  could answer it).
+- Edge tiles (`edges`): every raw row within 1e-7 of a cell boundary, written `+n` at its
+  raw point and `-n` at its cell centre. A COUNT query whose box sits on that level's cell
+  boundaries is then answered from the level plus these rows, exactly.
+- Build order is rollups, then edges, then detail rollups, so the 20,000-file and
+  100-folder limits starve the cheapest sets last.
+- `--memory-limit` (default `4GB`, `none` for DuckDB's own default) caps the build's RAM.
+  A 60-million-row build peaked at 9.15 GB without it.
+
 **3. Check it.**
 
 ```
