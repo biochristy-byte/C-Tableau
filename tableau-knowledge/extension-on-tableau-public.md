@@ -63,7 +63,7 @@ It prints the address to paste. `vizpage list`, `vizpage unpublish <slug>` and `
 
 ### What a viz page can run
 
-The page swaps Tableau's library for a read-only stand-in. It runs extensions that read one worksheet's summary data, their encodings and their own settings. It cannot run extensions that need filters, parameters, several worksheets, dialogs or dashboard objects, or that write back to the workbook. Settings a visitor changes last for that visit only.
+The page swaps Tableau's library for a read-only stand-in. It runs extensions that read one worksheet's summary data, their encodings and their own settings. It also runs Tableau **data apps** (`scaffold-data-app`, `getAllDataSourcesAsync` plus `queryAsync`): your CSV becomes the data source they query. See [`data-apps-on-tableau-public.md`](data-apps-on-tableau-public.md). It cannot run extensions that need workbook filters, parameters, several worksheets, dialogs or dashboard objects, or that write back to the workbook. Settings a visitor changes last for that visit only.
 
 Prefer full control, or your extension is not on C-Tableau? The script route below works for any extension.
 

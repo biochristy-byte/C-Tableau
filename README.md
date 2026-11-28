@@ -24,6 +24,7 @@ plus two working extensions you can run. Free, MIT licensed.
 | Chart anything with a full settings panel | [`tableau-panel-chart/`](tableau-panel-chart/README.md): a viz extension for bar, line, area and scatter where the floating ctab-panel is the feature |
 | Put every parameter, filter, highlight and preset in one floating gear on a dashboard | [`tableau-settings-panel/`](tableau-settings-panel/README.md): a dashboard extension, no network calls, presets saved in the workbook |
 | Show your own viz extension on Tableau Public (hosted page in a Web Page object) | [`tableau-knowledge/extension-on-tableau-public.md`](tableau-knowledge/extension-on-tableau-public.md): build, test, host, thumbnail, dashboard steps, publish |
+| Put a Tableau data app (`scaffold-data-app`, `queryAsync`) on Tableau Public | [`tableau-knowledge/data-apps-on-tableau-public.md`](tableau-knowledge/data-apps-on-tableau-public.md): upload the `.twbx`, give the viz page a CSV per data source, type the data source name. The app runs unchanged |
 | Host a viz extension online | **c-tableau.netlify.app**: 3 extensions free, then C-Tableau Unlimited for $2 once (unlimited hosting plus every public community extension) |
 | Submit an extension to the Tableau Exchange | [`tableau-garden-petals/exchange/`](tableau-garden-petals/exchange/SUBMISSION.md): manifest, icon, screenshots, privacy policy, terms and the contributor email |
 | Pair a silent screen recording with a voiceover | [`narration-sync/`](narration-sync/SKILL.md), a Claude skill |
