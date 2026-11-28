@@ -110,7 +110,35 @@ issue #683), so a viz page is a handy place to debug a query.
   app that `fetch()`es another site (its `requestedOrigins`) will be blocked.
 - Workbook parameters and filters, dialogs and writing back are not available. Settings
   a visitor changes last for that visit only.
-- Size: 5 MB per CSV and 8 MB for all of a page's data together once stored.
+- Size: 5 MB per CSV and 8 MB for all of a page's data together once stored. (The
+  30 MB you may see in an error message is the page's budget across stored versions,
+  not the data limit.)
+
+## When your data is too big for a viz page
+
+A data app does not hold data. It asks the data source a new question
+(`queryAsync`) every time the picture changes: on open, on each zoom or cell-size
+change, on each area or date selection, on each hover or click. In Desktop, Hyper
+answers. On a viz page, the stand-in answers in the visitor's browser from the page's
+data, so that data has to fit in the page.
+
+What we learned taking a 59M-row app (a UK police crime ridge plot) through this:
+
+- **Tableau Public would not hold it either.** Tableau Public caps a workbook at 15M
+  rows, and it only runs Exchange extensions listed for Public, so a custom data app
+  cannot read a Public workbook's extract. The data has to live with the viz page.
+- **Count what the app counts.** Read the app's queries before cutting data. An app
+  that counts with `COUNT(1)` counts rows, so a pre-summed CSV (one row per group with
+  a count column) gives wrong answers unless the app sums that column instead.
+- **Check every field the app touches**, not just the measures: bins built from
+  latitude/longitude, hover labels, filters on every query. A summary that drops one
+  of them breaks a feature silently.
+- **Cutting the extent changes the viz.** A few areas over a few months fits the 8 MB
+  limit but can gut an app built for a whole country. Ask the author before trimming.
+- **The next step is map tiles.** For an app whose every question is a count by map
+  area, the data can be split into small pre-counted tiles per cell size that the page
+  loads only for the area on screen. C-Tableau is building and measuring this (11/2026);
+  this section will say what shipped.
 
 ## Questions people ask
 
