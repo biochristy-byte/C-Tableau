@@ -272,16 +272,17 @@ def main():
         r = run("build", "--input", src, *common, "--out", data)
         ck(r.returncode != 0, "build refuses an output folder that holds other files")
 
-        # 13. a >2 MB tile is refused by check
+        # 13. a >4 MB tile is refused by check
         d = os.path.join(tmp, "t_big")
         shutil.copytree(out, d)
         fp = os.path.join(d, "L0", sorted(os.listdir(os.path.join(d, "L0")))[0])
         doc = json.loads(gzip.open(fp, "rb").read().decode("utf-8"))
         rnd = random.Random(1)
-        doc["rows"] = [[0.0, 0.0, "2024-01-01", "x%d" % rnd.getrandbits(40), "y%d" % rnd.getrandbits(40), 1] for _ in range(150000)]
+        doc["rows"] = [[0.0, 0.0, "2024-01-01", "x%d" % rnd.getrandbits(40), "y%d" % rnd.getrandbits(40), 1] for _ in range(400000)]
         gzip.open(fp, "wb").write(json.dumps(doc).encode("utf-8"))
+        ck(os.path.getsize(fp) > 4 * 1048576, "the oversized test tile is over 4 MB (%d bytes)" % os.path.getsize(fp))
         r = run("check", d)
-        ck(r.returncode != 0 and "exceeds the 2 MB" in r.stdout, "check refuses a tile over 2 MB")
+        ck(r.returncode != 0 and "exceeds the 4 MB" in r.stdout, "check refuses a tile over 4 MB")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -202,10 +202,15 @@ python -P tools/ctab_tiles.py check tiles/
 ```
 
 It re-reads every file and must print `GREEN`. It proves each level's counts add up to
-the source row count, every row sits in the right tile, no file passes 2 MB, and prints
+the source row count, every row sits in the right tile, no file passes 4 MB, and prints
 a size table (median, 95th percentile, largest tile, total MB). If it reports a tile
-over 2 MB, rebuild with a smaller tile for that level or a smaller `--detail-tile`. If
-the package is over 300 MB or 20,000 files, coarsen or drop the finest level.
+over 4 MB, rebuild with a smaller tile for that level or a smaller `--detail-tile`.
+One very dense cell (central London in the full UK Crime data: 777,607 crimes in one
+0.05-degree cell, a 2.1 MB tile) is why the limit is 4 MB, not 2 MB: shrinking the
+detail tile for the whole country to fit one city pushes the file count past 20,000.
+The default page limit is 300 MB and 20,000 files. If C-Tableau raised your account's
+limit (ask in your Claude room or open a GitHub issue), pass it to the check:
+`check tiles/ --package-limit-mb 1024`. Otherwise coarsen or drop the finest level.
 
 **4. Know what you ship.** The tiles are the data. A tile page is link-only like a
 private viz page, but anyone with the link can download the tiles, so build only from

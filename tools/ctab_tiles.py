@@ -17,7 +17,7 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 
 TOOL = "ctab_tiles.py 1.0"
-MAX_TILE_BYTES = 2 * 1024 * 1024
+MAX_TILE_BYTES = 4 * 1024 * 1024   # C-Tableau's per-object limit (raised from 2 MB on 11/27/2026)
 MAX_PACKAGE_BYTES = 300 * 1024 * 1024
 MAX_FILES = 20000
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -242,7 +242,7 @@ def cmd_build(a):
     print(f"built {nfiles} files, {nbytes/1048576:.1f} MB gzip in {time.time()-t0:.0f}s -> {out}")
     big = [k for k, v in sizes.items() if v > MAX_TILE_BYTES]
     if big:
-        print(f"WARNING: {len(big)} tiles exceed 2 MB (e.g. {big[0]}); rebuild with a smaller --tile-for-level / --detail-tile", file=sys.stderr)
+        print(f"WARNING: {len(big)} tiles exceed 4 MB (e.g. {big[0]}); rebuild with a smaller --tile-for-level / --detail-tile", file=sys.stderr)
     return 0
 
 
@@ -263,7 +263,7 @@ def _check_file(args):
     if not isinstance(doc, dict) or doc.get("cols") != expect_cols or not isinstance(doc.get("rows"), list):
         return rel, size, 0, 0, [f"{rel}: cols are {doc.get('cols') if isinstance(doc, dict) else '?'}, expected {expect_cols}"], ext
     if size > MAX_TILE_BYTES:
-        errs.append(f"{rel}: {size/1048576:.2f} MB exceeds the 2 MB per-object limit")
+        errs.append(f"{rel}: {size/1048576:.2f} MB exceeds the 4 MB per-object limit")
     m = TILE_FILE_RE.match(os.path.basename(path)) if kind != "null" else None
     tx = int(m.group(1)) if m else None
     ty = int(m.group(2)) if m else None
@@ -358,7 +358,9 @@ def cmd_check(a):
     chk("null/0.json.gz" in on_disk, "null/0.json.gz exists")
     chk(any(j[2] == "D" for j in jobs) or man["rows"] == 0, "detail tiles exist")
     chk(len(on_disk) + 1 <= MAX_FILES, f"file count {len(on_disk)+1} within {MAX_FILES}")
-    chk(sum(on_disk.values()) <= MAX_PACKAGE_BYTES, f"package {sum(on_disk.values())/1048576:.1f} MB within 300 MB")
+    lim = int(a.package_limit_mb * 1048576) if getattr(a, 'package_limit_mb', None) else MAX_PACKAGE_BYTES
+    chk(sum(on_disk.values()) <= lim, f"package {sum(on_disk.values())/1048576:.1f} MB within {lim/1048576:.0f} MB",
+        "(300 MB is the default per-page limit; if C-Tableau raised your account's limit, pass --package-limit-mb with it)")
     if "sizes" in man:
         chk(all(on_disk.get(k + ".json.gz") == v for k, v in man["sizes"].items()) and len(man["sizes"]) == len(on_disk),
             "manifest sizes match the files on disk")
@@ -426,6 +428,7 @@ def main():
     b.add_argument("--out", required=True)
     c = sub.add_parser("check")
     c.add_argument("dir")
+    c.add_argument("--package-limit-mb", type=float, default=None, help="your account's per-page tile limit if an admin raised it (default 300)")
     a = ap.parse_args()
     sys.exit(cmd_build(a) if a.cmd == "build" else cmd_check(a))
 
