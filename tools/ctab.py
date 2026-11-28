@@ -11,6 +11,7 @@
     python ctab.py trex ID -o file.trex
     python ctab.py remove ID
     python ctab.py upload MyDataApp.twbx                     (a Tableau data app: its package is unpacked and uploaded)
+    python ctab.py upload BUILD_FOLDER_OR_ZIP --app          (a compiled web app, e.g. a Tableau Next data app build: no .trex needed, one is generated)
     python ctab.py vizpage publish --name "My Viz" --extension EXT_ID --csv data.csv [--settings s.json] [--map enc=Column ...] [--prefix P] [--slug my-viz] [--visibility public|private]
         [--datasource "Sample - Superstore"] [--source Returns.csv ...]   (Tableau data apps: the data source name the app looks up, extra CSVs as extra data sources)
     python ctab.py vizpage publish --name "Big Map" --extension EXT_ID --tiles TILES_DIR [--map enc=Field ...] [--settings s.json] [--slug big-map] [--visibility public|private]
@@ -18,6 +19,17 @@
         (tile pages: TILES_DIR is a ctab-tiles v1 package built by C-Tableau's tools/ctab_tiles.py; 300 MB and 20,000 files per package, 1 GB per account with the unlock)
     python ctab.py vizpage visibility SLUG public|private   (public = listed in the C-Tableau viz gallery; your link works either way)
     python ctab.py vizpage list | status SLUG | unpublish SLUG | publish-again SLUG | delete SLUG
+
+Getting ctab.py without git (it is one file, Python 3 only):
+    curl -O https://raw.githubusercontent.com/biochristy-byte/C-Tableau/main/tools/ctab.py
+    Invoke-WebRequest -OutFile ctab.py https://raw.githubusercontent.com/biochristy-byte/C-Tableau/main/tools/ctab.py     (Windows PowerShell)
+
+--app (a compiled build, no .trex): FOLDER_OR_ZIP holds index.html at its root or one level down (dist/, build/, out/). ctab.py writes a
+dashboard-extension .trex whose page is that index.html (name from package.json displayName or name, else the folder name; a fresh id; no author,
+the server fills that from your account), uploads the build like any extension, and it waits PENDING under your account until an admin approves it.
+It is picked automatically when the folder has no .trex but has an index.html. Build with relative asset paths (Vite: base './', CRA: "homepage": ".")
+because the page is served from a sub-path. File names may use letters, numbers and . _ @ + - only (hashed names like index-3fA_b.js are fine);
+a name with a space, ~ $ [ ] ( ) = # % or any other character makes the upload stop and lists every such file.
 
 A viz page is your extension plus your CSV, served at https://c-tableau-hosted.netlify.app/v/<slug>/?embed=1 for a Tableau Public Web Page object.
 The CSV is up to 5 MB. --map links an extension encoding id (see the .trex) to a CSV column; with no --map, columns whose name matches an encoding id are linked.
@@ -138,7 +150,7 @@ def read_folder(folder):
 def read_manifest(files):
     trexes = sorted((f for f in files if f['path'].lower().endswith('.trex')), key=lambda f: (f['path'].count('/'), f['path']))
     if not trexes:
-        raise CtabError("No .trex manifest found. Include your extension's .trex file in the folder.")
+        raise CtabError("No .trex manifest found, and no index.html to build one from. Include your extension's .trex file in the folder, or pass a compiled web app build (a folder or .zip with index.html) with --app.")
     tx = trexes[0]['file'].read_text(encoding='utf-8')
     try:
         doc = ET.fromstring(tx.encode('utf-8'))
@@ -212,10 +224,143 @@ def unpack_data_app(path):
         return str(out)
 
 
-def cmd_upload(folder, visibility='private', ext_id=None):
+APP_DIRS = ('dist', 'build', 'out', 'www', 'public')
+
+
+def has_trex(folder):
+    root = Path(folder)
+    for p in root.rglob('*.trex'):
+        segs = p.relative_to(root).parts
+        if p.is_file() and not any(s.startswith('.') or s in ('node_modules', '__pycache__') for s in segs):
+            return True
+    return False
+
+
+def find_build_root(folder):
+    """The folder that holds index.html: the folder itself, else one level down (dist/, build/, ... first), else None."""
+    root = Path(folder)
+    if (root / 'index.html').is_file():
+        return root
+    subs = [d for d in sorted(root.iterdir()) if d.is_dir() and not d.name.startswith('.') and d.name not in ('node_modules', '__pycache__') and (d / 'index.html').is_file()]
+    subs.sort(key=lambda d: (APP_DIRS.index(d.name) if d.name in APP_DIRS else 99, d.name))
+    return subs[0] if subs else None
+
+
+def zip_is_data_app(path):
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        return any(re.match(r'^(?:[^/]+/)?Packages/[^/]+/extensions/[^/]+\.trex$', n, re.I) for n in z.namelist())
+
+
+def unpack_build_zip(path):
+    """A zipped build: extract it to a temp folder (paths are checked so nothing lands outside it)."""
+    import tempfile, zipfile
+    out = Path(tempfile.mkdtemp(prefix='ctab_build_')).resolve()
+    with zipfile.ZipFile(path) as z:
+        for n in z.namelist():
+            if n.endswith('/'):
+                continue
+            segs = n.split('/')
+            if any(sg in ('', '.', '..') or ':' in sg for sg in segs) or '\\' in n:
+                raise CtabError(f'Unsafe path inside the zip: {n}')
+            dest = out / n
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(z.read(n))
+    print(f'Build unpacked from {Path(path).name}.')
+    return str(out)
+
+
+def app_meta(build_root, given):
+    """Name and description for a generated manifest: package.json (in the build, or next to dist/build/out), then the folder name."""
+    cands = [build_root / 'package.json']
+    if build_root.name in APP_DIRS:
+        cands.append(build_root.parent / 'package.json')
+    pkg = {}
+    for c in cands:
+        try:
+            pkg = json.loads(c.read_text(encoding='utf-8-sig'))
+            if isinstance(pkg, dict):
+                break
+        except (OSError, ValueError):
+            pkg = {}
+        pkg = {}
+    nm = pkg.get('displayName') or pkg.get('name') or ''
+    if not isinstance(nm, str) or not nm.strip():
+        g = Path(given).resolve()
+        nm = (g.parent.name if g.name in APP_DIRS else g.name) or 'Tableau app'
+    nm = nm.strip().split('/')[-1].strip()[:60] or 'Tableau app'
+    ds = pkg.get('description') if isinstance(pkg.get('description'), str) else ''
+    return nm, (ds.strip() or 'Tableau Next data app build')[:600]
+
+
+def make_trex(name, description, entry, ext_id):
+    from xml.sax.saxutils import escape
+    return ('<?xml version="1.0" encoding="utf-8"?>\n'
+            '<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">\n'
+            f'  <dashboard-extension id="{escape(ext_id)}" extension-version="1.0.0">\n'
+            '    <default-locale>en_US</default-locale>\n'
+            '    <name resource-id="name" />\n'
+            f'    <description>{escape(description)}</description>\n'
+            '    <min-api-version>1.11</min-api-version>\n'
+            f'    <source-location><url>{escape(entry)}</url></source-location>\n'
+            '    <permissions><permission>full data</permission></permissions>\n'
+            '  </dashboard-extension>\n'
+            f'  <resources><resource id="name"><text locale="en_US">{escape(name)}</text></resource></resources>\n'
+            '</manifest>\n')
+
+
+def read_app_folder(folder):
+    """A compiled build with no .trex: find its index.html, check the names, add a generated app.trex. Returns (root, files, skipped)."""
+    import tempfile, uuid
+    b = find_build_root(folder)
+    if b is None:
+        raise CtabError('No .trex manifest and no index.html found (looked in the folder and one level down). Pass your build output folder (dist/ or build/), or a folder with a .trex.')
+    root = b.resolve()
+    bad = []
+    for p in sorted(root.rglob('*')):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(root).as_posix()
+        if any(s.startswith('.') or s in ('node_modules', '__pycache__') for s in rel.split('/')) or p.suffix.lower().lstrip('.') not in OK_EXT:
+            continue
+        badc = sorted({c for c in rel if c not in NAME_OK})
+        if badc:
+            bad.append((rel, badc))
+    if bad:
+        lines = '\n'.join(f'  {r}   bad characters: {" ".join(repr(c) for c in cs)}' for r, cs in bad[:20])
+        raise CtabError(f'{len(bad)} file name(s) use characters the upload does not allow (only letters, numbers and . _ @ + - are allowed). Rename them in your build config, then rebuild:\n{lines}')
+    root, files, skipped = read_folder(root)
+    name, desc = app_meta(root, folder)
+    ext_id = 'ctab-app-' + uuid.uuid4().hex[:16]
+    tf = Path(tempfile.mkdtemp(prefix='ctab_trex_')) / 'app.trex'
+    tf.write_text(make_trex(name, desc, 'index.html', ext_id), encoding='utf-8')
+    files.append({'path': 'app.trex', 'size': tf.stat().st_size, 'file': tf})
+    html = (root / 'index.html').read_text(encoding='utf-8', errors='replace')
+    if re.search(r'''(?:src|href)\s*=\s*["']/(?!/)''', html):
+        print('  note: index.html loads files with absolute paths (/assets/...). The page is served from a sub-path, so those will 404. Rebuild with relative paths (Vite: base: "./", CRA: "homepage": ".").')
+    if skipped:
+        exts = sorted({Path(x).suffix.lower() or x for x in skipped})
+        print(f'  note: {len(skipped)} files of types the upload does not take were left out ({", ".join(exts)}).')
+    print(f'Compiled build detected in {root}: generated app.trex (dashboard-extension "{name}", id {ext_id}).')
+    return root, files, skipped
+
+
+def cmd_upload(folder, visibility='private', ext_id=None, app=False):
     if Path(folder).is_file() and Path(folder).suffix.lower() in ('.twbx', '.zip'):
-        folder = unpack_data_app(folder)
-    root, files, skipped = read_folder(folder)
+        if Path(folder).suffix.lower() == '.zip' and not zip_is_data_app(folder):
+            folder = unpack_build_zip(folder)
+        else:
+            folder = unpack_data_app(folder)
+    if not Path(folder).is_dir():
+        raise CtabError(f'Not a folder: {folder}')
+    if has_trex(folder):
+        if app:
+            print('  --app: a .trex is already in the folder, so it is used as is.')
+        root, files, skipped = read_folder(folder)
+    elif app or find_build_root(folder) is not None:
+        root, files, skipped = read_app_folder(folder)
+    else:
+        root, files, skipped = read_folder(folder)  # no .trex and no index.html: read_manifest refuses with the full message
     m = read_manifest(files)
     big = [f for f in files if f['size'] > MAX_FILE]
     if big:
@@ -229,7 +374,7 @@ def cmd_upload(folder, visibility='private', ext_id=None):
     put_all(t['id'], files)
     row = call('POST', f'/extensions/{t["id"]}/submit')
     print(f'Submitted. id {t["id"]}  status {row["status"]}  visibility {row["visibility"]}')
-    print('It waits for approval. Check later with:  python ctab.py status ' + t['id'])
+    print('It waits for approval: an admin (Chris) approves it before it goes live. Check later with:  python ctab.py status ' + t['id'])
 
 
 def cmd_list():
@@ -430,6 +575,8 @@ def main(argv):
     out = None
     if '-o' in a:
         i = a.index('-o'); out = a[i + 1]; a = a[:i] + a[i + 2:]
+    app = '--app' in a
+    a = [x for x in a if x != '--app']
     vis = 'private'
     if '--visibility' in a:
         i = a.index('--visibility'); vis = a[i + 1]; a = a[:i] + a[i + 2:]
@@ -437,7 +584,7 @@ def main(argv):
         j = call('GET', '/me')
         print(f'{j["email"]}: {j["quota"]["used"]} of {j["quota"]["limit"]} free extensions used' + ('; C-Tableau Unlimited is on' if j['unlocked'] else ''))
     elif c == 'upload' and len(a) == 1:
-        cmd_upload(a[0], vis)
+        cmd_upload(a[0], vis, app=app)
     elif c == 'update' and len(a) == 2:
         cmd_upload(a[1], vis, ext_id=a[0])
     elif c == 'list':

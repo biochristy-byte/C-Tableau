@@ -128,6 +128,42 @@ python tools/ctab.py vizpage publish --name "My App" --extension ID --csv data.c
 
 The page is then at `https://c-tableau-hosted.netlify.app/v/my-app/?embed=1`.
 
+## Uploading a Tableau Next app build
+
+A Tableau Next data app is a compiled web app (a `dist/` or `build/` folder with an
+`index.html`), not a Desktop `.twbx`, so it has no `.trex`. `ctab.py` makes one for
+you. No git, no pull request: one file, your own API key.
+
+1. Get the script (Python 3 only):
+   - `curl -O https://raw.githubusercontent.com/biochristy-byte/C-Tableau/main/tools/ctab.py`
+   - Windows PowerShell: `Invoke-WebRequest -OutFile ctab.py https://raw.githubusercontent.com/biochristy-byte/C-Tableau/main/tools/ctab.py`
+2. Make a key at https://c-tableau.netlify.app/account/#/keys and set it:
+   `set CTAB_API_KEY=ctab_...` (cmd), `$env:CTAB_API_KEY="ctab_..."` (PowerShell) or `export CTAB_API_KEY=ctab_...`.
+3. Build with relative file paths (Vite: `base: './'`; Create React App: `"homepage": "."`),
+   because the page is served from a sub-path and `/assets/...` would 404.
+4. Upload the build folder, the project folder (it finds `dist/`, `build/` or `out/`) or a zip:
+
+```
+python ctab.py upload dist --app
+python ctab.py upload my-app-build.zip --app
+```
+
+What it does: writes a dashboard-extension `.trex` into the upload (name from
+`package.json` `displayName` or `name`, else the folder name; a fresh id; no author, the
+server fills that from your account), uploads every file, and prints the extension id.
+The upload then sits PENDING under your account. Chris approves it, then it goes live
+and can be put on a viz page like any extension (`vizpage publish --extension ID ...`).
+Check progress with `python ctab.py status ID`.
+
+Limits and names: 4 MB per file, 300 files and 30 MB in all. File names may use only
+letters, numbers and `. _ @ + -`, so hashed names like `index-3fA_b9Zq.js` are fine; a
+space or any of `~ $ [ ] ( ) = # %` stops the upload and lists every such file so you can
+rename it in the build config. Types outside html, js, mjs, css, json, svg, images,
+fonts, csv, txt, map, md (for example `.wasm`) are left out and reported.
+
+A Next build's DATA calls (how it reaches its data) are a separate question. We answer it
+per app once we see its code; this upload only gets the build onto C-Tableau.
+
 ## When your data is too big for a viz page
 
 A data app does not hold data. It asks the data source a new question
