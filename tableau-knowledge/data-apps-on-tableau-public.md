@@ -149,10 +149,71 @@ What we learned taking a 59M-row app (a UK police crime ridge plot) through this
   of them breaks a feature silently.
 - **Cutting the extent changes the viz.** A few areas over a few months fits the 8 MB
   limit but can gut an app built for a whole country. Ask the author before trimming.
-- **The next step is map tiles.** For an app whose every question is a count by map
-  area, the data can be split into small pre-counted tiles per cell size that the page
-  loads only for the area on screen. C-Tableau is building and measuring this (11/2026);
-  this section will say what shipped.
+- **The answer is tile pages**, next section.
+
+## Big data apps: tile pages
+
+Use this when every question the app asks is a count by map cell (a ridge plot, a
+heat grid, a hex or square bin map) and the data is millions of rows. The data is split
+into small pre-counted files ("tiles"), one set per cell size the app offers, and the
+page loads only the tiles for the area on screen. Nothing is sampled: every row is
+counted. The full format is ctab-tiles v1 (see `tools/ctab_tiles.py`).
+
+**1. Read the app's queries first.** List every `queryAsync` call: fields, filters,
+and which cell sizes it uses (`ROUND([Latitude] / s)`). A tile package answers only
+what it was built for:
+
+- It carries latitude and longitude, the dimensions you name, and a row count. Every
+  dimension a filter or a chart touches must be named in `--dims` (dates, crime type,
+  who reported it). A missing one breaks a feature silently.
+- Only `COUNT`, `COUNTD`, `MIN` and `MAX` work on a tile page. `SUM`, `AVG`, `MEDIAN`
+  and the like are refused with a clear message. If the app sums a measure, tiles do
+  not fit it as built.
+- Bins must be written `ROUND([Latitude] / s)` with `s` equal to one of your `--levels`.
+  Fields only the hover or detail panel uses (street, area name) go in `--detail`,
+  which is available at point grain for the area on screen.
+
+**2. Build the tiles.** `pip install duckdb`, then:
+
+```
+python -P tools/ctab_tiles.py build --input data.csv more.csv folder-of-csvs/    --datasource "Exact DS_NAME the app looks for" --lat Latitude --lon Longitude    --dims "Month:date,Crime type,Reported by" --detail "LSOA name,Location"    --levels 1,0.5,0.25,0.1,0.05,0.025,0.01 --tile-for-level "0.025=0.25,0.01=0.25"    --detail-tile 0.1 --month-floor Month --out tiles/
+```
+
+- `--input` takes CSV files, folders, globs, or parquet. All inputs must share the
+  same column names.
+- `--dims` is `Caption` or `Caption:date`. Dates are written `YYYY-MM-DD`; a
+  `YYYY-MM` value becomes the 1st. `--month-floor Month` snaps every date in that field
+  to the 1st of its month (use it when the app only ever groups by month or coarser).
+- `--levels` are the app's cell sizes in degrees. Include every size the app can show.
+  `--tile-for-level "0.025=0.25"` sets the tile size in degrees for that level (default 1);
+  a smaller tile means more, smaller files.
+- Use a fresh, empty `--out` folder outside your repo. Rebuilding into a previous
+  tile folder replaces it.
+
+Bins use JavaScript rounding (half up) computed as `x / s`, the same as the viz page,
+so a cell on the page holds exactly the rows the app counts for it. Do not hand-roll
+this with another tool or a spreadsheet: ties and negative values land in different
+cells.
+
+**3. Check it.**
+
+```
+python -P tools/ctab_tiles.py check tiles/
+```
+
+It re-reads every file and must print `GREEN`. It proves each level's counts add up to
+the source row count, every row sits in the right tile, no file passes 2 MB, and prints
+a size table (median, 95th percentile, largest tile, total MB). If it reports a tile
+over 2 MB, rebuild with a smaller tile for that level or a smaller `--detail-tile`. If
+the package is over 300 MB or 20,000 files, coarsen or drop the finest level.
+
+**4. Know what you ship.** The tiles are the data. A tile page is link-only like a
+private viz page, but anyone with the link can download the tiles, so build only from
+data you may publish. Do not put tile folders or source data in a git repo.
+
+Publishing a tile package to a viz page (`vizpage publish --tiles DIR`) is described in
+the publish steps once the platform side is live; build and check first, since a
+package that does not check GREEN will not be accepted.
 
 ## Questions people ask
 
