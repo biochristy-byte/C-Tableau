@@ -25,7 +25,7 @@ Getting ctab.py without git (it is one file, Python 3 only):
     Invoke-WebRequest -OutFile ctab.py https://raw.githubusercontent.com/biochristy-byte/C-Tableau/main/tools/ctab.py     (Windows PowerShell)
 
 --app (a compiled build, no .trex): FOLDER_OR_ZIP holds index.html at its root or one level down (dist/, build/, out/). ctab.py writes a
-dashboard-extension .trex whose page is that index.html (name from package.json displayName or name, else the folder name; a fresh id; no author,
+dashboard-extension .trex whose page is that index.html (name from package.json displayName or name, then a Tableau Next app.spec.json label, else the folder name; a fresh id; no author,
 the server fills that from your account), uploads the build like any extension, and it waits PENDING under your account until an admin approves it.
 It is picked automatically when the folder has no .trex but has an index.html. Build with relative asset paths (Vite: base './', CRA: "homepage": ".")
 because the page is served from a sub-path. File names may use letters, numbers and . _ @ + - only (hashed names like index-3fA_b.js are fine);
@@ -285,6 +285,12 @@ def app_meta(build_root, given):
             pkg = {}
         pkg = {}
     nm = pkg.get('displayName') or pkg.get('name') or ''
+    if not isinstance(nm, str) or not nm.strip():
+        try:  # a ctab_next.py build carries the Tableau Next app.spec.json: use its label, then its name
+            sp = json.loads((build_root / 'app.spec.json').read_text(encoding='utf-8-sig'))
+            nm = (sp.get('label') or sp.get('name') or '') if isinstance(sp, dict) else ''
+        except (OSError, ValueError):
+            nm = ''
     if not isinstance(nm, str) or not nm.strip():
         g = Path(given).resolve()
         nm = (g.parent.name if g.name in APP_DIRS else g.name) or 'Tableau app'
