@@ -1,0 +1,198 @@
+{
+  "name": "fixture_basket",
+  "label": "Fixture Basket",
+  "filters": [],
+  "parameters": [],
+  "fieldLinks": [],
+  "queries": [
+    {
+      "id": "linesCentral",
+      "query": {
+        "kind": "semantic",
+        "query": {
+          "sourceName": "Superstore",
+          "fields": [
+            {
+              "field": "Orders.Order_ID1",
+              "alias": "orderId"
+            },
+            {
+              "field": "Orders.Order_Date1",
+              "alias": "orderDate"
+            },
+            {
+              "field": "Orders.Region8",
+              "alias": "region"
+            },
+            {
+              "field": "Orders.Sub_Category7",
+              "alias": "subCategory"
+            },
+            {
+              "field": "Orders.Sales1",
+              "alias": "sales",
+              "aggregation": "sum"
+            },
+            {
+              "field": "Orders.Discount1",
+              "alias": "discount",
+              "aggregation": "avg"
+            }
+          ],
+          "filters": [
+            {
+              "field": "Orders.Region8",
+              "filterType": "in",
+              "values": [
+                "Central"
+              ]
+            }
+          ],
+          "limit": 5000
+        }
+      },
+      "options": {
+        "receiveFiltersFrom": "none",
+        "receiveParamsFrom": "none"
+      }
+    },
+    {
+      "id": "linesEast",
+      "query": {
+        "kind": "semantic",
+        "query": {
+          "sourceName": "Superstore",
+          "fields": [
+            {
+              "field": "Orders.Order_ID1",
+              "alias": "orderId"
+            },
+            {
+              "field": "Orders.Order_Date1",
+              "alias": "orderDate"
+            },
+            {
+              "field": "Orders.Region8",
+              "alias": "region"
+            },
+            {
+              "field": "Orders.Sub_Category7",
+              "alias": "subCategory"
+            },
+            {
+              "field": "Orders.Sales1",
+              "alias": "sales",
+              "aggregation": "sum"
+            },
+            {
+              "field": "Orders.Discount1",
+              "alias": "discount",
+              "aggregation": "avg"
+            }
+          ],
+          "filters": [
+            {
+              "field": "Orders.Region8",
+              "filterType": "in",
+              "values": [
+                "East"
+              ]
+            }
+          ],
+          "limit": 5000
+        }
+      },
+      "options": {
+        "receiveFiltersFrom": "none",
+        "receiveParamsFrom": "none"
+      }
+    },
+    {
+      "id": "byRegion",
+      "query": {
+        "kind": "semantic",
+        "query": {
+          "sourceName": "Superstore",
+          "fields": [
+            {
+              "field": "Orders.Region8",
+              "alias": "region"
+            },
+            {
+              "field": "Orders.Sales1",
+              "alias": "sales",
+              "aggregation": "sum"
+            },
+            {
+              "field": "Orders.Discount1",
+              "alias": "discount",
+              "aggregation": "avg"
+            },
+            {
+              "field": "Orders.Quantity1",
+              "alias": "quantity",
+              "aggregation": "sum"
+            }
+          ],
+          "filters": [],
+          "limit": 5000
+        }
+      },
+      "options": {
+        "receiveFiltersFrom": "none",
+        "receiveParamsFrom": "none"
+      }
+    },
+    {
+      "id": "sampleCentral",
+      "query": {
+        "kind": "semantic",
+        "query": {
+          "sourceName": "Superstore",
+          "fields": [
+            {
+              "field": "Orders.Order_ID1",
+              "alias": "orderId"
+            },
+            {
+              "field": "Orders.Order_Date1",
+              "alias": "orderDate"
+            },
+            {
+              "field": "Orders.Region8",
+              "alias": "region"
+            },
+            {
+              "field": "Orders.Sub_Category7",
+              "alias": "subCategory"
+            },
+            {
+              "field": "Orders.Sales1",
+              "alias": "sales",
+              "aggregation": "sum"
+            },
+            {
+              "field": "Orders.Discount1",
+              "alias": "discount",
+              "aggregation": "avg"
+            }
+          ],
+          "filters": [
+            {
+              "field": "Orders.Region8",
+              "filterType": "in",
+              "values": [
+                "Central"
+              ]
+            }
+          ],
+          "limit": 5
+        }
+      },
+      "options": {
+        "receiveFiltersFrom": "none",
+        "receiveParamsFrom": "none"
+      }
+    }
+  ]
+}
