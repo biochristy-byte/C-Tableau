@@ -74,7 +74,28 @@ What we learned building it:
 - **Decode off the main thread.** All tile work runs in a Web Worker, with a fallback to the main thread. On his L4 tiles, the longest freeze of the page went from 3,251 ms to 35 ms.
 - **Prove that it is exact.** Every query was answered from raw rows, from rollups, from full tiles and from an old 1.0 package, and all four agreed: 2,082 checks. Another 86 checks compared against his full levels in DuckDB. Each of 15 deliberate breakages turned the gate red.
 
-Load times on his live page, per cell size, are added here once the new engine is deployed.
+### Measured on his live page (11/28/2026, new engine)
+
+Headless Chromium, 1400 x 900, one cold session, home broadband. "Settled" is when the map, the totals and the side panel have all finished and the network has gone quiet.
+
+| Step | Before | After | Bytes after |
+|---|---|---|---|
+| First open, map drawn | about 37 s (20 to 25 s on a fast line) | 5.6 s | 6.6 MB for the whole first view |
+| Cell 0.25 | | under 1 s | 35 KB |
+| Cell 0.1 | | 6 s | 90 KB |
+| Cell 0.05 (default) | | under 1 s | 53 KB |
+| Cell 0.025 | | under 1 s | 340 KB |
+| Cell 0.01 | refused (over the 40 MB cap) | under 1 s | 735 KB |
+| Cell 0.5 | | 74 s | 41 MB, 523 requests |
+| Drag a box on the map | | 93 s | 18.6 MB, 919 requests |
+
+Every total stayed at 59,481,019, and no request failed.
+
+**What is still slow, and why.** The map query is cheap at every cell size: the planner serves it from rollups at 170 to 580 KB. The two slow rows are something else:
+- After a cell change, the app's side panel asks for the top 5 `Location` values and the `LSOA name` inside the selected cell. Those are detail fields. They exist only in the raw-row `D` tiles, so a 0.5 cell over London reads 29 to 41 MB of raw rows. Cell 1 settled in under 1 s on 2 MB in the same run. Why its side panel read so little is not checked yet.
+- A dragged box filters on raw latitude and longitude, so it also reads `D` tiles.
+
+**The next fix (not built yet).** Write detail rollups: for each level, the count per cell and `Location` (and per cell and `LSOA name`). The planner would then answer "top places in this cell" from one small set instead of every raw row under the cell.
 
 ## Tableau Next apps
 
