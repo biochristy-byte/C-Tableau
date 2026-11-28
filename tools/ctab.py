@@ -522,7 +522,8 @@ STATS_JS = """async ([b64, mime]) => {
   const d = x.getImageData(0, 0, 160, 100).data, n = 160 * 100, m = new Map();
   for (let i = 0; i < d.length; i += 4) { const k = (d[i] >> 4) * 256 + (d[i + 1] >> 4) * 16 + (d[i + 2] >> 4); m.set(k, (m.get(k) || 0) + 1); }
   const counts = [...m.values()].sort((a, b) => b - a);
-  return { w: bmp.width, h: bmp.height, top: counts[0] / n, colors: counts.filter((v) => v / n >= 0.005).length };
+  let cover = 0, acc = 0; while (acc < 0.95 * n && cover < counts.length) acc += counts[cover++];
+  return { w: bmp.width, h: bmp.height, top: counts[0] / n, colors: counts.length, cover };
 }"""
 
 
@@ -536,7 +537,9 @@ def poster_kind(data):
 
 def poster_blank(p, data, mime):
     """None when the picture looks like a real viz, else the reason. Refuses a picture that is mostly one color (more than 92 percent in one 4-bit color bucket)
-    or has fewer than 6 colors that each cover at least half a percent. Decoded in Chromium (Playwright) so ctab.py needs no image library."""
+    or whose 5 most common color buckets cover 95 percent of it (a near-empty page). Counting buckets that EACH hold half a percent wrongly refused a
+    busy picture (a gradient or a photo-like map spreads over hundreds of small buckets), so the test is how many buckets it takes to cover the picture.
+    Decoded in Chromium (Playwright) so ctab.py needs no image library."""
     b = p.chromium.launch()
     try:
         try:
@@ -545,11 +548,11 @@ def poster_blank(p, data, mime):
             return 'the picture could not be decoded (a damaged or truncated file)'
     finally:
         b.close()
-    print(f'  picture {st["w"]}x{st["h"]}, biggest single color {st["top"] * 100:.1f}%, {st["colors"]} colors')
+    print(f'  picture {st["w"]}x{st["h"]}, biggest single color {st["top"] * 100:.1f}%, {st["colors"]} colors, {st["cover"]} cover 95%')
     if st['top'] > 0.92:
         return f'{st["top"] * 100:.0f}% of the picture is one color'
-    if st['colors'] < 6:
-        return f'only {st["colors"]} distinct colors, so it is mostly empty'
+    if st['cover'] < 6:
+        return f'only {st["cover"]} colors make up 95% of the picture, so it is mostly empty'
     return None
 
 

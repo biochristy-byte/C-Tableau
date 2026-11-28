@@ -27,6 +27,8 @@ def png(w, h, pixel):
 PAL = [bytes(c) for c in ((200, 40, 40), (40, 160, 70), (40, 80, 200), (230, 190, 40), (120, 40, 160), (30, 30, 30), (240, 240, 240), (20, 170, 180))]
 STRIPES = png(320, 200, lambda x, y: PAL[((x // 40) + 3 * (y // 50)) % 8])   # blocks of 8 flat colors, like a real viz
 BLANK = png(320, 200, lambda x, y: b'\xff\xff\xff')
+BUSY = png(320, 200, lambda x, y: bytes(((x * 7) % 256, (y * 5) % 256, ((x + y) * 3) % 256)))   # a gradient: no color bucket holds 0.5%
+FEW = png(320, 200, lambda x, y: PAL[(x // 80) % 4])   # 4 flat colors, none over 92%: still a near-empty page
 NEARLY = png(320, 200, lambda x, y: b'\xff\xff\xff' if x > 6 else b'\x10\x20\x30')   # one thin stripe on white
 STATIC_PAGE = b'<!doctype html><meta charset=utf-8><body style="margin:0"><div id=a style="height:100vh;background:linear-gradient(90deg,#c33,#36c 40%,#3c6 70%,#fc3)"></div><script>setTimeout(()=>{document.body.insertAdjacentHTML("beforeend","<h1 style=\\"position:fixed;top:30px;left:30px;color:#fff\\">late paint</h1>")},800)</script>'
 
@@ -72,7 +74,7 @@ def main():
     global PORT, CTAB
     if '--sabotage' in sys.argv:   # a copy of ctab.py whose picture checks never refuse: the run must go RED
         src = CTAB.read_text(encoding='utf8')
-        bad = src.replace("if st['top'] > 0.92:", 'if False:').replace("if st['colors'] < 6:", 'if False:').replace("if data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR':", 'if data[:1]:')
+        bad = src.replace("if st['top'] > 0.92:", 'if False:').replace("if st['cover'] < 6:", 'if False:').replace("if data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR':", 'if data[:1]:')
         assert bad != src, 'sabotage changed nothing'
         CTAB = Path(os.environ.get('TEMP', '.')) / 'ctab_sabotaged.py'; CTAB.write_text(bad, encoding='utf8')
     try:
@@ -87,6 +89,8 @@ def main():
     (tmp / 'stripes.png').write_bytes(STRIPES)
     (tmp / 'blank.png').write_bytes(BLANK)
     (tmp / 'nearly.png').write_bytes(NEARLY)
+    (tmp / 'busy.png').write_bytes(BUSY)
+    (tmp / 'few.png').write_bytes(FEW)
     (tmp / 'fake.png').write_bytes(b'<html>' + b'x' * 400)
     (tmp / 'big.png').write_bytes(STRIPES + b'\x00' * (2 * 1024 * 1024))
     jpg_like = b'\xff\xd8\xff\xe0' + bytes(range(256)) * 2
@@ -101,6 +105,11 @@ def main():
     ck(rc == 1 and 'Refused' in err and 'one color' in err and len(STATE['puts']) == n, '--image: an all-white picture is refused and nothing is uploaded', (rc, err))
     rc, out, err = ctab('vizpage', 'poster', 'demo', '--image', str(tmp / 'nearly.png'))
     ck(rc == 1 and 'Refused' in err and len(STATE['puts']) == n, '--image: a picture that is 97 percent one color is refused', (rc, err, out))
+    rc, out, err = ctab('vizpage', 'poster', 'demo', '--image', str(tmp / 'few.png'))
+    ck(rc == 1 and 'Refused' in err and 'make up 95%' in err and len(STATE['puts']) == n, '--image: a picture of only 4 flat colors is refused', (rc, err, out))
+    rc, out, err = ctab('vizpage', 'poster', 'demo', '--image', str(tmp / 'busy.png'))
+    ck(rc == 0 and len(STATE['puts']) == n + 1, '--image: a busy gradient (no single color holds 0.5%) is accepted, not called empty', (rc, err, out))
+    n = len(STATE['puts'])
     rc, out, err = ctab('vizpage', 'poster', 'demo', '--image', str(tmp / 'fake.png'))
     ck(rc == 1 and 'PNG or JPEG' in err and len(STATE['puts']) == n, '--image: HTML named .png is refused by its bytes', (rc, err))
     rc, out, err = ctab('vizpage', 'poster', 'demo', '--image', str(tmp / 'big.png'))
