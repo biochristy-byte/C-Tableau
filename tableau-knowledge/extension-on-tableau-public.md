@@ -141,7 +141,8 @@ placeholder card. Upload it to the `--image` address so link previews show the r
 ## 5. Build the Tableau Public workbook
 
 1. **Data.** Tableau Public publishes a workbook with a data source, so connect a tiny CSV.
-   Ours was one row: a column `Viz` with the value `AI Garden`. (We did not test publishing
+   Ours was one row: a column `Viz` with the value `AI Garden`. A ready one is in this repo at
+   [`templates/placeholder.csv`](../templates/placeholder.csv). (We did not test publishing
    with no data source at all.)
 2. **New dashboard** from the **Dashboard** menu > New Dashboard. The tab-bar icons shift
    as tabs are added; clicking by position once made a Story instead. If that happens,
