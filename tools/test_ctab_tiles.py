@@ -3,7 +3,8 @@
 
 Generates a 50k-row CSV (ties, negatives, nulls, snap points, odd strings), builds a package, runs `check`,
 answers a battery of app-shaped queries from the TILES and from the RAW CSV, and demands identical answers.
-Sabotages (each must go RED): round half even; a tampered tile count; a deleted tile.
+Sabotages (each must go RED): round half even; a tampered tile count; a deleted tile; and for format 1.2 an edge set built with tolerance 0,
+without its -n half, with a tampered row, and a detail rollup with a dropped or over-counted row.
 Also compares the builder's rounding to node's Math.round on edge values (SKIP, not PASS, without node).
 """
 import csv, gzip, json, math, os, random, shutil, subprocess, sys, tempfile
@@ -12,7 +13,7 @@ from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOL = os.path.join(HERE, "ctab_tiles.py")
 sys.path.insert(0, HERE)
-from ctab_tiles import js_round, bin_sql  # noqa: E402
+from ctab_tiles import js_round, bin_sql, near_py, EDGE_TOL  # noqa: E402
 
 MIN_CHECKS = 40
 RES = []
@@ -39,6 +40,11 @@ def gen_csv(path, n=50000, seed=7):
     ties = [(2.5, 0.5, "Tie A"), (-2.5, -0.5, "Tie B"), (0.25, -0.25, "Tie C"), (-0.75, 1.5, "Tie D"),
             (0.5, 0.0, "Tie E"), (1.5, -1.5, "Tie F"), (-0.125, 0.125, "Tie G"), (0.0, 0.0, "Zero"), (-0.0, 3.5, "Tie H")]
     snaps += ties
+    for s_ in (1, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01):   # rows ON a boundary (m + 0.5) * s: float noise, and 5e-8 either side (inside EDGE_TOL)
+        for k in (-7, -2, 0, 3, 11, 24):
+            b_ = (k + 0.5) * s_
+            for dx, dy in ((0, 0), (5e-8, 0), (-5e-8, 0), (0, 5e-8), (0, -5e-8), (5e-8, -5e-8)):
+                snaps.append((b_ + dx, (k + 2 + 0.5) * s_ + dy, f"On the line {len(snaps)}"))
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["id", "Month", "Crime type", "Reported by", "Latitude", "Longitude", "LSOA name", "Location", "junk"])
@@ -243,7 +249,7 @@ def main():
 
         # 8c. rollups (format 1.1): every listed set equals its level re-aggregated over the kept dims, and the raw rows at that grain
         caps = [d["caption"] for d in man["dims"]]
-        ck(man.get("minor") == 1, "manifest says format 1.1 (minor 1)")
+        ck(man.get("minor") == 2, "manifest says format 1.2 (minor 2)")
         nroll = 0
         for i, s in enumerate(S):
             lv = man["levels"][i]
@@ -291,10 +297,11 @@ def main():
             ck(r.returncode != 0 and "RED" in r.stdout and ru["dir"] in r.stdout, f"SABOTAGE a rollup tile that {'drops a row' if what == 'drop' else 'over-counts'} makes check RED")
         # --rollups none: a 1.0-shaped package (no rollups listed, no extra L folders); --rollup-tile-rows 0: the level's own grid; explicit sets
         o3 = os.path.join(tmp, "tiles_norollup")
-        r = run("build", "--input", src, *common, "--rollups", "none", "--out", o3)
+        r = run("build", "--input", src, *common, "--rollups", "none", "--drollups", "none", "--out", o3)
         m3 = json.load(open(os.path.join(o3, "manifest.json"), encoding="utf-8")) if r.returncode == 0 else {}
-        ck(r.returncode == 0 and not any(l.get("rollups") for l in m3.get("levels", [])) and sorted(x for x in os.listdir(o3) if x.startswith("L")) == [f"L{i}" for i in range(7)],
-           "--rollups none builds no rollup sets")
+        e3 = [l["edges"]["dir"] for l in m3.get("levels", []) if l.get("edges", {}).get("dir")]
+        ck(r.returncode == 0 and not any(l.get("rollups") or l.get("drollups") for l in m3.get("levels", [])) and sorted(x for x in os.listdir(o3) if x.startswith("L")) == sorted([f"L{i}" for i in range(7)] + e3),
+           "--rollups none --drollups none builds no rollup or detail rollup sets (only the levels and the edge sets)")
         o4 = os.path.join(tmp, "tiles_explicit")
         r = run("build", "--input", src, *common, "--rollups", "{};Crime type+Reported by", "--rollup-tile-rows", "0", "--out", o4)
         m4 = json.load(open(os.path.join(o4, "manifest.json"), encoding="utf-8")) if r.returncode == 0 else {}
@@ -303,6 +310,8 @@ def main():
            "--rollups with two named sets and --rollup-tile-rows 0: exactly those sets on each level's own grid, check GREEN")
         r = run("build", "--input", src, *common, "--rollups", "Month+Crime type+Reported by", "--out", os.path.join(tmp, "t_r_bad"))
         ck(r.returncode != 0 and "drop at least one dim" in (r.stderr + r.stdout), "a rollup that keeps every dim is refused")
+
+        section_12(tmp, src, common, out, T, man, withxy, S)
 
         # 9. rounding vs JS Math.round on edge values
         rounding_vs_node(tmp)
@@ -357,6 +366,152 @@ def main():
         return 1
     print(f"\n{'GREEN' if not bad else 'RED'}: {n - len(bad)}/{n} checks passed (minimum {MIN_CHECKS}){'; SKIPPED: ' + str(len(skipped)) if skipped else ''}")
     return 0 if not bad else 1
+
+
+def cell_of(x, s):
+    return (round(js_round(x["lat"] / s) * s, 10), round(js_round(x["lon"] / s) * s, 10))
+
+
+def dp4(v):
+    return round(v * 10000) / 10000
+
+
+def edge_rows(T, i, box):
+    """What the planner loads: the level's edge tiles keyed by cell centre that touch the box widened by one cell."""
+    lv = T.man["levels"][i]
+    ed = lv.get("edges") or {}
+    if not ed.get("dir"):
+        return []
+    s = float(lv["s"])
+    la0, la1, lo0, lo1 = box[0] - s, box[1] + s, box[2] - s, box[3] + s
+    rows = []
+    for rel in T.files(ed["dir"], ed["tile"], (la0, la1, lo0, lo1)):
+        rows += T.read(rel)
+    return rows
+
+
+def battery_box(T, withxy, S, seed=11, per_level=14):
+    """Cell-aligned boxes (edges (m + 0.5) * s, dp4-rounded like the app) at every level, several centred on rows that sit ON a boundary:
+    COUNT by crime type from the level tiles plus the level's edge tiles must equal the raw rows. Returns (boxes run, mismatches)."""
+    rnd = random.Random(seed)
+    ran, mism = 0, []
+    for i, s in enumerate(S):
+        near = [x for x in withxy if near_py(x["lat"], s) or near_py(x["lon"], s)]
+        lvl = T.level_rows(i)
+        for k in range(per_level):
+            x = rnd.choice(near) if (near and k % 3) else rnd.choice(withxy)
+            pa, po = round(x["lat"] / s - 0.5), round(x["lon"] / s - 0.5)
+            a, b, c, d = rnd.randint(0, 3), rnd.randint(0, 3), rnd.randint(0, 3), rnd.randint(0, 3)
+            box = (dp4((pa - a + 0.5) * s), dp4((pa + b + 1 + 0.5) * s), dp4((po - c + 0.5) * s), dp4((po + d + 1 + 0.5) * s))
+            want = Counter(y["Crime type"] for y in withxy if box[0] <= y["lat"] < box[1] and box[2] <= y["lon"] < box[3])
+            got = Counter()
+            for y in lvl + edge_rows(T, i, box):
+                if box[0] <= y["Latitude"] < box[1] and box[2] <= y["Longitude"] < box[3]:
+                    got[y["Crime type"]] += y["__n"]
+            got = Counter({k_: v for k_, v in got.items() if v})
+            ran += 1
+            if want != got:
+                mism.append(f"s={s} box={box}")
+    return ran, mism
+
+
+def section_12(tmp, src, common, out, T, man, withxy, S):
+    """Format 1.2: detail rollups, edge sets, cell-aligned boxes; every sabotage must go RED."""
+    # detail rollups: every listed set equals the raw rows at (cell, kept dims, detail dim) grain
+    ndr, droll_levels = 0, set()
+    for i, s in enumerate(S):
+        for dr in man["levels"][i].get("drollups") or []:
+            keep, det = dr["dims"], dr["detail"][0]
+            want = Counter(cell_of(x, s) + tuple(x[c] for c in keep) + (x[det],) for x in withxy)
+            got, rows = Counter(), 0
+            for rel in T.files(dr["dir"], dr["tile"]):
+                for x in T.read(rel):
+                    got[(x["Latitude"], x["Longitude"]) + tuple(x[c] for c in keep) + (x[det],)] += x["__n"]
+                    rows += 1
+            cols_ok = set(T.read(T.files(dr["dir"], dr["tile"])[0])[0]) == {"Latitude", "Longitude", *keep, det, "__n"}
+            ck(got == want and rows == len(want) == dr["rows"] and cols_ok, f"L{i} drollup {dr['dir']} [{'+'.join(keep + [det])}] tile {dr['tile']}: {rows:,} rows equal the raw rows at that grain")
+            ndr += 1
+            droll_levels.add(i)
+    ck(ndr >= 20 and len(droll_levels) >= 4, f"at least 20 detail rollups over at least 4 levels were compared ({ndr} over {len(droll_levels)})")
+    # edge sets: exactly the +n raw rows within EDGE_TOL of a boundary and the -n rows at their centres
+    nedge, nlev = 0, 0
+    for i, s in enumerate(S):
+        ed = man["levels"][i].get("edges")
+        ck(isinstance(ed, dict), f"L{i} lists edges")
+        want = Counter()
+        for x in withxy:
+            if near_py(x["lat"], s) or near_py(x["lon"], s):
+                key = (x["Month"], x["Crime type"], x["Reported by"], x["LSOA name"], x["Location"])
+                c = cell_of(x, s)
+                want[(x["lat"], x["lon"]) + key] += 1
+                want[c + key] -= 1
+        want = {k: v for k, v in want.items() if v}
+        got = {}
+        if ed.get("dir"):
+            for rel in T.files(ed["dir"], ed["tile"]):
+                for x in T.read(rel):
+                    k = (x["Latitude"], x["Longitude"], x["Month"], x["Crime type"], x["Reported by"], x["LSOA name"], x["Location"])
+                    got[k] = got.get(k, 0) + x["__n"]
+        ck(got == want and (ed.get("rows", 0) == sum(1 for _ in want) or ed.get("rows", 0) == 0 and not want), f"L{i} edge set: {len(want):,} rows equal the raw boundary rows (+n) and their centres (-n)")
+        nedge += len(want); nlev += 1 if want else 0
+    ck(nedge >= 200 and nlev >= 6, f"at least 200 edge rows over at least 6 levels were compared ({nedge} over {nlev})")
+    # aligned boxes: level + edge tiles equal the raw rows
+    ran, mism = battery_box(T, withxy, S)
+    ck(ran >= 90 and not mism, f"{ran} cell-aligned boxes (7 levels, many centred on boundary rows) answer identically from level + edge tiles ({mism[:2]})")
+    # no detail dims: the 1.1 behaviours hold (no drollups), edges still written, check GREEN, boxes exact
+    o5 = os.path.join(tmp, "tiles_nodetail")
+    args = [a for a in common]
+    k = args.index("--detail")
+    del args[k:k + 2]
+    r = run("build", "--input", src, *args, "--out", o5)
+    r2 = run("check", o5) if r.returncode == 0 else r
+    m5 = json.load(open(os.path.join(o5, "manifest.json"), encoding="utf-8")) if r.returncode == 0 else {"levels": [], "detail_dims": [1]}
+    ck(r.returncode == 0 and r2.returncode == 0 and not m5["detail_dims"] and not any(l.get("drollups") for l in m5["levels"]) and all("edges" in l for l in m5["levels"]),
+       "no detail dims: no drollups, edges listed, check GREEN: " + (r2.stdout.strip().splitlines() or [""])[-1])
+    if r.returncode == 0:
+        ran5, mism5 = battery_box(Tiles(o5), withxy, S, seed=5)
+        ck(ran5 >= 90 and not mism5, f"no detail dims: {ran5} aligned boxes identical from level + edge tiles")
+    # check validates the new parts: each sabotage must go RED
+    def sabotage(name, fn, want_dir):
+        d = os.path.join(tmp, "s_" + name.replace(" ", "_"))
+        shutil.copytree(out, d)
+        fp = fn(d)
+        if fp:
+            sz = json.load(open(os.path.join(d, "manifest.json"), encoding="utf-8"))
+            sz["sizes"][os.path.relpath(fp, d).replace(os.sep, "/")[:-8]] = os.path.getsize(fp)
+            json.dump(sz, open(os.path.join(d, "manifest.json"), "w", encoding="utf-8"))
+        r = run("check", d)
+        ck(r.returncode != 0 and "RED" in r.stdout and (want_dir is None or want_dir(man) in r.stdout), f"SABOTAGE {name} makes check RED")
+
+    def biggest(d, dirname):
+        fs = [os.path.join(d, dirname, f) for f in os.listdir(os.path.join(d, dirname))]
+        return max(fs, key=os.path.getsize)
+
+    def edit(fp, fn):
+        doc = json.loads(gzip.open(fp, "rb").read().decode("utf-8"))
+        fn(doc)
+        with gzip.open(fp, "wb") as g:
+            g.write(json.dumps(doc).encode("utf-8"))
+        return fp
+
+    lv5 = lambda m: m["levels"][5]
+    ed_dir = lambda m: lv5(m)["edges"]["dir"]
+    dr_dir = lambda m: lv5(m)["drollups"][0]["dir"]
+    sabotage("an edge row's n is raised", lambda d: edit(biggest(d, ed_dir(man)), lambda doc: doc["rows"][0].__setitem__(-1, doc["rows"][0][-1] + 1)), ed_dir)
+    sabotage("an edge row is dropped", lambda d: edit(biggest(d, ed_dir(man)), lambda doc: doc["rows"].pop()), ed_dir)
+    sabotage("an edge tile is deleted", lambda d: os.remove(biggest(d, ed_dir(man))), None)
+    sabotage("a drollup row is dropped", lambda d: edit(biggest(d, dr_dir(man)), lambda doc: doc["rows"].pop()), dr_dir)
+    sabotage("a drollup row is over-counted", lambda d: edit(biggest(d, dr_dir(man)), lambda doc: doc["rows"][0].__setitem__(-1, doc["rows"][0][-1] + 1)), dr_dir)
+    sabotage("a drollup tile is deleted", lambda d: os.remove(biggest(d, dr_dir(man))), None)
+    # builder sabotages: tolerance 0 (misses rows within noise of a boundary) and the -n half left out
+    for name, extra in (("an edge set built with tolerance 0", ["--edge-tol", "0"]), ("an edge set without its -n half", ["--edge-drop-neg"])):
+        d = os.path.join(tmp, "b_" + name.replace(" ", "_"))
+        r = run("build", "--input", src, *common, *extra, "--out", d)
+        r2 = run("check", d) if r.returncode == 0 else r
+        ck(r.returncode == 0 and r2.returncode != 0 and "RED" in r2.stdout, f"SABOTAGE {name} makes check RED")
+        if "--edge-drop-neg" in extra:   # without the -n half the level still counts every boundary row, so boxes over-count
+            ranb, mismb = battery_box(Tiles(d), withxy, S)
+            ck(len(mismb) > 0, f"SABOTAGE {name}: the aligned-box battery is wrong on {len(mismb)} of {ranb} boxes")
 
 
 def battery_grid(T, withxy, S):

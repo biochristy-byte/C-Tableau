@@ -16,8 +16,9 @@ import argparse, glob, gzip, itertools, json, math, os, re, shutil, statistics, 
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 
-TOOL = "ctab_tiles.py 1.1"
-FORMAT_MINOR = 1                   # 1.1: per-level rollups (levels[i].rollups); a 1.0 reader ignores them
+TOOL = "ctab_tiles.py 1.2"
+FORMAT_MINOR = 2                   # 1.1: per-level rollups (levels[i].rollups); 1.2: detail rollups (levels[i].drollups) and edge tiles (levels[i].edges); an older reader ignores them
+EDGE_TOL = 1e-7                    # a raw row this close (in degrees) to a cell boundary (m + 0.5) * s is an EDGE row
 MAX_DIRS = 100                     # the upload API accepts L0..L99 (paths L[0-9]{1,2}/...), so rollup sets take the free L numbers
 ROLLUP_KMAX = 4                    # a rollup tile is the level tile x 2^k, k <= 4
 MAX_TILE_BYTES = 4 * 1024 * 1024   # C-Tableau's per-object limit (raised from 2 MB on 11/27/2026)
@@ -43,6 +44,18 @@ def bin_sql(expr, s, mode="js"):
     if mode == "half-even":
         return f"round_even({q}, 0)::BIGINT"
     return f"(floor({q}) + CASE WHEN {q} - floor({q}) >= 0.5 THEN 1 ELSE 0 END)::BIGINT"
+
+
+def near_sql(expr, s, tol=EDGE_TOL):
+    """SQL: expr lies within tol of a cell boundary (m + 0.5) * s, using the same float64 expr / s as bin_sql."""
+    q = f"(({expr})::DOUBLE / {float(s)!r}::DOUBLE)"
+    return f"(abs({q} - 0.5 - round({q} - 0.5)) * {float(s)!r}::DOUBLE <= {float(tol)!r}::DOUBLE)"
+
+
+def near_py(x, s, tol=EDGE_TOL):
+    """The same test in Python (the check command and the self-test use it)."""
+    t = x / s - 0.5
+    return abs(t - math.floor(t + 0.5)) * s <= tol
 
 
 def fnum(x):
@@ -151,6 +164,30 @@ def _num(x):
     return int(x) if float(x) == int(x) else float(repr(float(x)))
 
 
+def pick_grid(con, table, tl, tile_rows):
+    """The tile size for a rollup-style set held in `table` (clat, clon, ...): the level tile x 2^k, the coarsest k <= ROLLUP_KMAX whose
+    fullest tile holds at most tile_rows rows (0: the level's own grid). Returns (T, number of tiles)."""
+    k = 0
+    if tile_rows and tile_rows > 0:
+        for kk in range(ROLLUP_KMAX, -1, -1):
+            T = tl * (2 ** kk)
+            mx = con.execute(f"SELECT coalesce(max(c), 0) FROM (SELECT count(*) AS c FROM {table} GROUP BY floor(clon / {T!r}::DOUBLE), floor(clat / {T!r}::DOUBLE))").fetchone()[0]
+            if mx <= tile_rows or kk == 0:
+                k = kk
+                break
+    T = _num(tl * (2 ** k))
+    nfiles = con.execute(f"SELECT count(*) FROM (SELECT DISTINCT floor(clon / {float(T)!r}::DOUBLE), floor(clat / {float(T)!r}::DOUBLE) FROM {table})").fetchone()[0]
+    return T, nfiles
+
+
+def next_free_dir(level_meta):
+    """The next unused L number: the levels take L0.., then every rollup, drollup and edge set."""
+    n = len(level_meta)
+    for lv in level_meta:
+        n += len(lv.get("rollups", [])) + len(lv.get("drollups", [])) + (1 if lv.get("edges", {}).get("dir") else 0)
+    return n
+
+
 def build_rollups(con, level_meta, dims, sets, lat, lon, stream, sizes, explicit=False, tile_rows=50000, max_share=0.75):
     """For every level i (table lv<i>: clat, clon, d0.., n), write each rollup set as its own tile set: the level's rows grouped by the kept
     dims with n summed, so every cell keeps its exact count over any filter on the kept dims. A set takes the next free L number (the
@@ -159,7 +196,7 @@ def build_rollups(con, level_meta, dims, sets, lat, lon, stream, sizes, explicit
     In auto mode a set holding more than max_share of the level's rows is skipped: it would save too little to earn its files.
     Sets that would pass MAX_FILES or L99 are skipped with a note. Each kept set is listed in level_meta[i]["rollups"]."""
     caps = [d["caption"] for d in dims]
-    next_dir = len(level_meta)
+    next_dir = next_free_dir(level_meta)
     for lv in level_meta:
         i, s, tl = lv["i"], float(lv["s"]), float(lv["tile"])
         base_rows = con.execute(f"SELECT count(*) FROM lv{i}").fetchone()[0]
@@ -173,16 +210,7 @@ def build_rollups(con, level_meta, dims, sets, lat, lon, stream, sizes, explicit
             if not explicit and base_rows and nr > max_share * base_rows:
                 print(f"  rollup L{i} [{label}]: {nr:,} rows is over {max_share:.0%} of the level's {base_rows:,}; skipped", flush=True)
                 continue
-            k = 0
-            if tile_rows and tile_rows > 0:
-                for kk in range(ROLLUP_KMAX, -1, -1):
-                    T = tl * (2 ** kk)
-                    mx = con.execute(f"SELECT coalesce(max(c), 0) FROM (SELECT count(*) AS c FROM ru GROUP BY floor(clon / {T!r}::DOUBLE), floor(clat / {T!r}::DOUBLE))").fetchone()[0]
-                    if mx <= tile_rows or kk == 0:
-                        k = kk
-                        break
-            T = _num(tl * (2 ** k))
-            nfiles = con.execute(f"SELECT count(*) FROM (SELECT DISTINCT floor(clon / {float(T)!r}::DOUBLE), floor(clat / {float(T)!r}::DOUBLE) FROM ru)").fetchone()[0]
+            T, nfiles = pick_grid(con, "ru", tl, tile_rows)
             if next_dir >= MAX_DIRS or len(sizes) + 1 + nfiles > MAX_FILES:
                 print(f"  rollup L{i} [{label}]: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1}", flush=True)
                 continue
@@ -193,6 +221,76 @@ def build_rollups(con, level_meta, dims, sets, lat, lon, stream, sizes, explicit
             lv.setdefault("rollups", []).append({"dir": d, "dims": list(keep), "tile": T, "rows": nr})
             print(f"  rollup L{i} [{label}] -> {d}: {nr:,} rows ({(nr / base_rows if base_rows else 0):.1%} of the level), {nt} tiles of {T} deg", flush=True)
         con.execute("DROP TABLE IF EXISTS ru")
+
+
+def build_drollups(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, round_mode, d_rows, tile_rows=50000, max_share=0.75):
+    """Format 1.2 detail rollups. For every level and every detail dim E, tile sets grouped by the level's cell, E and a subset of the dims
+    ({} and each single dim), __n summed, built from the detail rows (table dtab) with the same bin_sql as the level, so a cell holds the
+    level's exact count over any filter on the kept dims. A set holding more than max_share of the detail rows is skipped (it would save
+    too little to earn its files), and so is one that would pass MAX_FILES or L99. Each kept set is listed in level_meta[i]["drollups"]
+    as {dir, dims, detail: [E], tile, rows}."""
+    caps = [d["caption"] for d in dims]
+    next_dir = next_free_dir(level_meta)
+    sets = [()] + [(c,) for c in caps]
+    for lv in level_meta:
+        i, s, tl = lv["i"], float(lv["s"]), float(lv["tile"])
+        lb, ob = bin_sql("lat", s, round_mode), bin_sql("lon", s, round_mode)
+        for j, dd in enumerate(detail_dims):
+            for keep in sets:
+                kc = [f"d{caps.index(c)}" for c in keep]
+                ksel = "".join(", " + c for c in kc)
+                con.execute("DROP TABLE IF EXISTS dr")
+                con.execute(f"CREATE TABLE dr AS WITH g AS (SELECT {lb} AS la, {ob} AS lo{ksel}, e{j}, sum(n)::BIGINT AS n FROM dtab GROUP BY ALL) "
+                            f"SELECT round(la * {s!r}::DOUBLE, 10) AS clat, round(lo * {s!r}::DOUBLE, 10) AS clon{ksel}, e{j}, n FROM g")
+                nr = con.execute("SELECT count(*) FROM dr").fetchone()[0]
+                label = "+".join(list(keep) + [dd["caption"]])
+                if d_rows and nr > max_share * d_rows:
+                    print(f"  drollup L{i} [{label}]: {nr:,} rows is over {max_share:.0%} of the detail's {d_rows:,}; skipped", flush=True)
+                    continue
+                T, nfiles = pick_grid(con, "dr", tl, tile_rows)
+                if next_dir >= MAX_DIRS or len(sizes) + 1 + nfiles > MAX_FILES:
+                    print(f"  drollup L{i} [{label}]: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1}", flush=True)
+                    continue
+                d = f"L{next_dir}"
+                next_dir += 1
+                nt, _ = stream(f"SELECT floor(clon / {float(T)!r}::DOUBLE)::BIGINT AS tx, floor(clat / {float(T)!r}::DOUBLE)::BIGINT AS ty, clat, clon{ksel}, e{j}, n FROM dr ORDER BY ALL",
+                               2, [lat, lon] + list(keep) + [dd["caption"], "__n"], d)
+                lv.setdefault("drollups", []).append({"dir": d, "dims": list(keep), "detail": [dd["caption"]], "tile": T, "rows": nr})
+                print(f"  drollup L{i} [{label}] -> {d}: {nr:,} rows ({(nr / d_rows if d_rows else 0):.1%} of the detail), {nt} tiles of {T} deg", flush=True)
+        con.execute("DROP TABLE IF EXISTS dr")
+
+
+def build_edges(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, round_mode, col_names, tol=EDGE_TOL, drop_neg=False):
+    """Format 1.2 edge tiles. Per level, every detail row whose lat or lon lies within tol of a cell boundary (m + 0.5) * s is written TWICE
+    with every dim and detail column: at its raw coordinates with +n, and at its cell centre with -n, both keyed by the centre's tile
+    (the level's tile). A planner that answers a cell-aligned box from the level adds these rows: the -n cancels the level's count of the
+    row, the +n puts it back at its raw point, where the real comparison keeps or drops it. Listed in level_meta[i]["edges"] as
+    {dir, tile, rows} (rows: 0 and no dir when the level has none). drop_neg exists only so the self-test can prove the -n half matters."""
+    next_dir = next_free_dir(level_meta)
+    asel = ", ".join([f"d{k}" for k in range(len(dims))] + [f"e{k}" for k in range(len(detail_dims))])
+    asel = (", " + asel) if asel else ""
+    for lv in level_meta:
+        i, s, tl = lv["i"], float(lv["s"]), float(lv["tile"])
+        lb, ob = bin_sql("lat", s, round_mode), bin_sql("lon", s, round_mode)
+        con.execute("DROP TABLE IF EXISTS ed")
+        con.execute(f"CREATE TABLE ed AS SELECT lat, lon{asel}, n, {lb} AS la, {ob} AS lo FROM dtab WHERE {near_sql('lat', s, tol)} OR {near_sql('lon', s, tol)}")
+        nr = con.execute("SELECT count(*) FROM ed").fetchone()[0]
+        if nr == 0:
+            lv["edges"] = {"rows": 0}
+            print(f"  edges L{i}: none", flush=True)
+            continue
+        if next_dir >= MAX_DIRS or len(sizes) + 1 + nr * 2 > MAX_FILES:
+            print(f"  edges L{i}: skipped, the package would pass {MAX_FILES:,} files or L{MAX_DIRS - 1} (this level keeps answering boxes from detail tiles)", flush=True)
+            continue
+        c = f"round(la * {s!r}::DOUBLE, 10)", f"round(lo * {s!r}::DOUBLE, 10)"
+        neg = "" if drop_neg else f" UNION ALL SELECT {c[0]}, {c[1]}, {c[0]}, {c[1]}{asel}, -n FROM ed"
+        d = f"L{next_dir}"
+        next_dir += 1
+        nt, _ = stream(f"SELECT floor(clon / {tl!r}::DOUBLE)::BIGINT AS tx, floor(clat / {tl!r}::DOUBLE)::BIGINT AS ty, lat, lon{asel}, n FROM "
+                       f"(SELECT {c[0]} AS clat, {c[1]} AS clon, lat, lon{asel}, n FROM ed{neg}) ORDER BY ALL", 2, col_names, d)
+        lv["edges"] = {"dir": d, "tile": lv["tile"], "rows": nr * (1 if drop_neg else 2)}
+        print(f"  edges L{i} -> {d}: {nr:,} boundary rows x2, {nt} tiles of {tl} deg", flush=True)
+    con.execute("DROP TABLE IF EXISTS ed")
 
 
 def cmd_build(a):
@@ -310,8 +408,9 @@ def cmd_build(a):
     dt = a.detail_tile
     allcols = dcols + ecols
     asel = ", ".join(allcols)
-    sql = (f"SELECT floor(lon / {dt!r}::DOUBLE)::BIGINT AS tx, floor(lat / {dt!r}::DOUBLE)::BIGINT AS ty, lat, lon{(', ' + asel) if allcols else ''}, n FROM "
-           f"(SELECT lat, lon{(', ' + asel) if allcols else ''}, count(*) AS n FROM src WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY ALL) ORDER BY ALL")
+    # the detail rows are kept as a table (dtab) so the detail rollups and the edge sets are cut from exactly these rows
+    con.execute(f"CREATE TABLE dtab AS SELECT lat, lon{(', ' + asel) if allcols else ''}, count(*) AS n FROM src WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY ALL")
+    sql = f"SELECT floor(lon / {dt!r}::DOUBLE)::BIGINT AS tx, floor(lat / {dt!r}::DOUBLE)::BIGINT AS ty, lat, lon{(', ' + asel) if allcols else ''}, n FROM dtab ORDER BY ALL"
     t1 = time.time()
     nt, nr = stream(sql, 2, dcol_names, "D")
     stats["D"] = (nt, nr)
@@ -321,6 +420,12 @@ def cmd_build(a):
     rollup_sets = rollup_plan(a.rollups, [d["caption"] for d in dims])
     build_rollups(con, level_meta, dims, rollup_sets, a.lat, a.lon, stream, sizes, explicit=a.rollups not in ("auto", "none"),
                   tile_rows=a.rollup_tile_rows, max_share=a.rollup_max_share)
+
+    # edge tiles (format 1.2): the raw rows that sit on a cell boundary, so a cell-aligned box is answered exactly from a level
+    build_edges(con, level_meta, dims, detail_dims, a.lat, a.lon, stream, sizes, a.round_mode, dcol_names, tol=a.edge_tol, drop_neg=a.edge_drop_neg)
+    # detail rollups (format 1.2): a query that names a detail field, answered at a level's grid
+    if detail_dims and a.drollups != "none":
+        build_drollups(con, level_meta, dims, detail_dims, a.lat, a.lon, stream, sizes, a.round_mode, nr, tile_rows=a.rollup_tile_rows, max_share=a.drollup_max_share)
 
     b = con.execute("SELECT min(lat), min(lon), max(lat), max(lon) FROM src WHERE lat IS NOT NULL AND lon IS NOT NULL").fetchone()
     manifest = {"format": "ctab-tiles", "version": 1, "minor": FORMAT_MINOR, "datasource": a.datasource, "lat": a.lat, "lon": a.lon,
@@ -344,11 +449,15 @@ def cmd_build(a):
 # ---------------------------------------------------------------- check
 
 def _check_file(args):
-    """Validate one tile file. Returns (rel, bytes, rows, sumn, errors, extra)."""
-    root, rel, kind, i, s, tile, expect_cols, ndims, dim_types, latc, lonc = args
+    """Validate one tile file. Returns (rel, bytes, rows, sumn, errors, ext, cells). kinds: null, L (a level, rollup or detail rollup),
+    D (detail), E (an edge set: signed __n, every +n row within EDGE_TOL of a boundary, every -n row at its cell centre, each cell's rows net 0).
+    For D, ext also carries, per level that has edges, [rows, sum n] of the rows within EDGE_TOL of a boundary (the edge set must hold them all)."""
+    root, rel, kind, i, s, tile, expect_cols, ndims, dim_types, latc, lonc = args[:11]
+    edge_levels = args[11] if len(args) > 11 else []
     path = os.path.join(root, rel.replace("/", os.sep) + ".json.gz")
     errs, sumn, nrows = [], 0, 0
-    ext = [None, None, None, None]  # minlat minlon maxlat maxlon (detail)
+    ext = [None, None, None, None] + [[0, 0] for _ in edge_levels]  # minlat minlon maxlat maxlon (detail), then edge-level near counts
+    net = {} if kind == "E" else None
     cells = {} if kind == "L" else None   # (lat, lon) -> sum(__n): a rollup must hold exactly its level's count in every cell
     size = os.path.getsize(path)
     try:
@@ -371,7 +480,7 @@ def _check_file(args):
         if not isinstance(r, list) or len(r) != ncol:
             errs.append(f"{rel}: bad row {str(r)[:80]}"); continue
         n = r[-1]
-        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+        if not isinstance(n, int) or isinstance(n, bool) or (n == 0 if kind == "E" else n < 1):
             errs.append(f"{rel}: bad __n {n!r}"); continue
         sumn += n
         la, lo = r[0], r[1]
@@ -390,13 +499,31 @@ def _check_file(args):
             if round(ba * s, 10) != la or round(bo * s, 10) != lo:
                 errs.append(f"{rel}: ({la},{lo}) is not a cell centre of s={s}"); continue
             cells[(la, lo)] = cells.get((la, lo), 0) + n
+        if kind == "E":
+            cla, clo = round(js_round(la / s) * s, 10), round(js_round(lo / s) * s, 10)
+            if math.floor(clo / tile) != tx or math.floor(cla / tile) != ty:
+                errs.append(f"{rel}: row ({la},{lo}) belongs to another tile (edge tiles are keyed by the cell centre)")
+            if n > 0 and not (near_py(la, s) or near_py(lo, s)):
+                errs.append(f"{rel}: +{n} row ({la},{lo}) is not within {EDGE_TOL} of a cell boundary")
+            if n < 0 and (la, lo) != (cla, clo):
+                errs.append(f"{rel}: {n} row ({la},{lo}) is not at its cell centre ({cla},{clo})")
+            key = (cla, clo, tuple(r[2:-1]))
+            net[key] = net.get(key, 0) + n
+            continue
         if math.floor(lo / tile) != tx or math.floor(la / tile) != ty:
             errs.append(f"{rel}: row ({la},{lo}) belongs to another tile")
         if kind == "D":
+            for k, (_, es) in enumerate(edge_levels):
+                if near_py(la, es) or near_py(lo, es):
+                    ext[4 + k][0] += 1; ext[4 + k][1] += n
             ext[0] = la if ext[0] is None or la < ext[0] else ext[0]
             ext[1] = lo if ext[1] is None or lo < ext[1] else ext[1]
             ext[2] = la if ext[2] is None or la > ext[2] else ext[2]
             ext[3] = lo if ext[3] is None or lo > ext[3] else ext[3]
+    if kind == "E" and not errs:
+        bad = [k for k, v in net.items() if v != 0]
+        if bad:
+            errs.append(f"{rel}: {len(bad)} cells whose edge rows do not net to zero (e.g. {bad[0][:2]} nets {net[bad[0]]})")
     return rel, size, nrows, sumn, errs, ext, cells
 
 
@@ -413,7 +540,7 @@ def cmd_check(a):
     if not os.path.isfile(mp):
         print("RED: no manifest.json"); return 1
     man = json.load(open(mp, encoding="utf-8"))
-    chk(man.get("format") == "ctab-tiles" and man.get("version") == 1 and man.get("minor", 0) in (0, 1), "manifest format/version (1.0 or 1.1)")
+    chk(man.get("format") == "ctab-tiles" and man.get("version") == 1 and man.get("minor", 0) in (0, 1, 2), "manifest format/version (1.0, 1.1 or 1.2)")
     for key in ("datasource", "lat", "lon", "dims", "detail_dims", "levels", "detail", "rows", "bounds", "built", "tool"):
         chk(key in man, f"manifest has {key}")
     levels = man["levels"]
@@ -437,6 +564,33 @@ def cmd_check(a):
             if ok:
                 rolls[d] = (lv, keep, float(ru["tile"]))
 
+    # detail rollups and edge sets (format 1.2). A drollup: a proper subset of the dims plus ONE detail dim. An edge set: one per level at most.
+    drolls, edges, edge_info = {}, {}, []
+    ddim_caps = [d["caption"] for d in ddims]
+    used = set(rolls) | {f"L{lv['i']}" for lv in levels}
+    for lv in levels:
+        for ru in lv.get("drollups") or []:
+            d, keep, det = ru.get("dir"), ru.get("dims"), ru.get("detail")
+            ok = (isinstance(d, str) and re.fullmatch(r"L\d{1,2}", d) and int(d[1:]) >= len(levels) and d not in used and isinstance(keep, list)
+                  and keep == [c for c in dim_caps if c in keep] and len(keep) < len(dim_caps) + 1 and isinstance(det, list) and len(det) == 1 and det[0] in ddim_caps
+                  and isinstance(ru.get("tile"), (int, float)) and ru["tile"] > 0 and isinstance(ru.get("rows"), int) and ru["rows"] > 0)
+            chk(ok, f"drollup {d} of L{lv['i']} is well formed", str(ru)[:120])
+            if ok:
+                used.add(d)
+                drolls[d] = (lv, keep, det[0], float(ru["tile"]), ru["rows"])
+        ed = lv.get("edges")
+        if "edges" in lv:
+            ok = isinstance(ed, dict) and isinstance(ed.get("rows"), int) and ed["rows"] >= 0 and (
+                (ed["rows"] == 0 and "dir" not in ed) or (ed["rows"] > 0 and ed["rows"] % 2 == 0 and isinstance(ed.get("dir"), str) and re.fullmatch(r"L\d{1,2}", ed["dir"])
+                 and int(ed["dir"][1:]) >= len(levels) and ed["dir"] not in used and isinstance(ed.get("tile"), (int, float)) and ed["tile"] > 0))
+            chk(ok, f"edges of L{lv['i']} are well formed", str(ed)[:120])
+            if ok:
+                edge_info.append((lv, ed.get("dir"), ed["rows"]))
+                if ed["rows"] > 0:
+                    used.add(ed["dir"])
+                    edges[ed["dir"]] = (lv, float(ed["tile"]), ed["rows"])
+    edge_levels = [(f"L{lv['i']}", float(lv["s"])) for lv, _, _ in edge_info]
+
     # inventory: every file on disk is a known tile, and every manifest size matches
     on_disk = {}
     for dp, _, fs in os.walk(root):
@@ -455,7 +609,14 @@ def cmd_check(a):
         if d == "null" and fn == "0.json.gz":
             jobs.append((root, base, "null", None, None, None, cols, len(dims), dim_types, man["lat"], man["lon"]))
         elif d == "D" and TILE_FILE_RE.match(fn):
-            jobs.append((root, base, "D", None, None, man["detail"]["tile"], dcols, len(dims), ddim_types, man["lat"], man["lon"]))
+            jobs.append((root, base, "D", None, None, man["detail"]["tile"], dcols, len(dims), ddim_types, man["lat"], man["lon"], edge_levels))
+        elif d in drolls and TILE_FILE_RE.match(fn):
+            lv, keep, det, rt, _ = drolls[d]
+            jobs.append((root, base, "L", lv["i"], float(lv["s"]), rt, [man["lat"], man["lon"]] + keep + [det, "__n"], len(keep) + 1,
+                         [dim_types[dim_caps.index(c)] for c in keep] + ["STRING"], man["lat"], man["lon"]))
+        elif d in edges and TILE_FILE_RE.match(fn):
+            lv, et, _ = edges[d]
+            jobs.append((root, base, "E", lv["i"], float(lv["s"]), et, dcols, len(dims), ddim_types, man["lat"], man["lon"]))
         elif d in rolls and TILE_FILE_RE.match(fn):
             lv, keep, rt = rolls[d]
             jobs.append((root, base, "L", lv["i"], float(lv["s"]), rt, [man["lat"], man["lon"]] + keep + ["__n"], len(keep),
@@ -478,7 +639,7 @@ def cmd_check(a):
 
     per = {}  # group -> dict
     errors = []
-    keep_cells = {f"L{lv['i']}" for lv, _, _ in rolls.values()} | set(rolls)
+    keep_cells = {f"L{lv['i']}" for lv, _, _ in rolls.values()} | set(rolls) | {f"L{lv['i']}" for lv, *_ in drolls.values()} | set(drolls)
     with ProcessPoolExecutor(max_workers=min(16, os.cpu_count() or 4)) as ex:
         for rel, size, nrows, sumn, errs, ext, cells in ex.map(_check_file, jobs, chunksize=16):
             g = rel.split("/")[0]
@@ -489,6 +650,9 @@ def cmd_check(a):
                 for ck, cn in cells.items():
                     pc[ck] = pc.get(ck, 0) + cn
             if g == "D":
+                p.setdefault("near", [[0, 0] for _ in edge_levels])
+                for k in range(len(edge_levels)):
+                    p["near"][k][0] += ext[4 + k][0]; p["near"][k][1] += ext[4 + k][1]
                 for k in range(4):
                     if ext[k] is not None:
                         e = p["ext"][k]
@@ -504,6 +668,17 @@ def cmd_check(a):
         rp, lp = per.get(d, {"n": 0, "cells": {}}), per.get(f"L{lv['i']}", {"cells": {}})
         chk(rp["n"] + null_n == man["rows"], f"{d} (L{lv['i']} rollup [{'+'.join(keep) or '{}'}]): sum(__n) {rp['n']:,} + null {null_n:,} == rows {man['rows']:,}")
         chk(rp["cells"] == lp["cells"], f"{d}: every cell holds exactly L{lv['i']}'s count", f"{len(rp['cells']):,} cells vs {len(lp['cells']):,}")
+    for d, (lv, keep, det, rt, nrows_m) in sorted(drolls.items(), key=lambda kv: int(kv[0][1:])):
+        rp, lp = per.get(d, {"n": 0, "cells": {}, "rows": 0}), per.get(f"L{lv['i']}", {"cells": {}})
+        chk(rp["n"] + null_n == man["rows"], f"{d} (L{lv['i']} drollup [{'+'.join(keep + [det])}]): sum(__n) {rp['n']:,} + null {null_n:,} == rows {man['rows']:,}")
+        chk(rp["cells"] == lp["cells"], f"{d}: every cell holds exactly L{lv['i']}'s count", f"{len(rp['cells']):,} cells vs {len(lp['cells']):,}")
+        chk(rp["rows"] == nrows_m, f"{d}: {rp['rows']:,} rows on disk == {nrows_m:,} listed in the manifest")
+    for k, (lv, d, nrows_m) in enumerate(edge_info):   # edge_levels follows the same order; a level with no edge set must have no boundary rows
+        ep = per.get(d, {"n": 0, "rows": 0}) if d else {"n": 0, "rows": 0}
+        chk(ep["n"] == 0, f"L{lv['i']} edges: signed sum(__n) {ep['n']:,} == 0")
+        chk(ep["rows"] == nrows_m, f"L{lv['i']} edges: {ep['rows']:,} rows on disk == {nrows_m:,} listed in the manifest")
+        near = per.get("D", {}).get("near", [[0, 0]] * len(edge_info))[k]
+        chk(near[0] * 2 == ep["rows"], f"L{lv['i']} edges: hold every detail row within {EDGE_TOL} of a boundary (twice)", f"{near[0]:,} such detail rows x2 vs {ep['rows']:,}")
     dn = per.get("D", {"n": 0})["n"]
     chk(dn + null_n == man["rows"], f"D: sum(__n) {dn:,} + null {null_n:,} == rows {man['rows']:,}")
     if man["bounds"] and "D" in per:
@@ -513,7 +688,7 @@ def cmd_check(a):
     # size table
     print(f"\n{'group':<10}{'tiles':>7}{'rows':>13}{'median KB':>11}{'p95 KB':>9}{'max KB':>9}{'total MB':>10}")
     allb = 0
-    order = ["null"] + [f"L{l['i']}" for l in levels] + sorted(rolls, key=lambda d: int(d[1:])) + ["D"]
+    order = ["null"] + [f"L{l['i']}" for l in levels] + sorted(set(rolls) | set(drolls) | set(edges), key=lambda d: int(d[1:])) + ["D"]
     for g in order:
         p = per.get(g)
         if not p:
@@ -521,7 +696,8 @@ def cmd_check(a):
         kb = sorted(x / 1024 for x in p["sizes"])
         p95 = kb[min(len(kb) - 1, math.ceil(0.95 * len(kb)) - 1)]
         tot = sum(p["sizes"]); allb += tot
-        label = g if not g.startswith("L") else (f"{g} s={levels[int(g[1:])]['s']}" if g not in rolls else f"{g} <L{rolls[g][0]['i']}")
+        label = g if not g.startswith("L") else (f"{g} s={levels[int(g[1:])]['s']}" if g not in rolls and g not in drolls and g not in edges else
+                                                 f"{g} <L{(rolls.get(g) or drolls.get(g) or edges.get(g))[0]['i']}{'e' if g in edges else 'd' if g in drolls else ''}")
         print(f"{label:<10}{len(kb):>7}{p['rows']:>13,}{statistics.median(kb):>11.1f}{p95:>9.1f}{kb[-1]:>9.1f}{tot/1048576:>10.2f}")
     print(f"{'TOTAL':<10}{sum(len(p['sizes']) for p in per.values()):>7}{'':>13}{'':>11}{'':>9}{'':>9}{allb/1048576:>10.2f}")
     bad = [r for r in results if not r[0]]
@@ -547,6 +723,10 @@ def main():
     b.add_argument("--rollups", default="auto", help='auto (every proper subset of --dims, up to 4 dims), none, or sets like "{};Reported by;Crime type+Reported by"')
     b.add_argument("--rollup-tile-rows", type=int, default=50000, help="most rows per rollup tile when picking its grid (0: the level's own grid)")
     b.add_argument("--rollup-max-share", type=float, default=0.75, help="auto mode skips a rollup holding more than this share of its level's rows")
+    b.add_argument("--drollups", choices=["auto", "none"], default="auto", help="detail rollups: per level, tile sets grouped by one detail dim and at most one dim (auto), or none")
+    b.add_argument("--drollup-max-share", type=float, default=0.75, help="auto mode skips a detail rollup holding more than this share of the detail rows")
+    b.add_argument("--edge-tol", type=float, default=EDGE_TOL, help="degrees from a cell boundary that make a raw row an edge row (the self-test sets 0 to prove it matters)")
+    b.add_argument("--edge-drop-neg", action="store_true", help="self-test only: leave the -n half of every edge pair out (WRONG on purpose)")
     b.add_argument("--round-mode", choices=["js", "half-even"], default="js", help="js is correct; half-even exists only so the self-test can prove it goes RED")
     b.add_argument("--out", required=True)
     c = sub.add_parser("check")
