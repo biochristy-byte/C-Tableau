@@ -7,7 +7,7 @@ Sabotages (each must go RED): round half even; a tampered tile count; a deleted 
 without its -n half, with a tampered row, and a detail rollup with a dropped or over-counted row.
 Also compares the builder's rounding to node's Math.round on edge values (SKIP, not PASS, without node).
 """
-import csv, gzip, json, math, os, random, shutil, subprocess, sys, tempfile
+import csv, gzip, json, math, os, random, re, shutil, subprocess, sys, tempfile
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -141,7 +141,7 @@ def main():
         common = ["--datasource", "Test Crime", "--lat", "Latitude", "--lon", "Longitude",
                   "--dims", "Month:date,Crime type,Reported by", "--detail", "LSOA name,Location",
                   "--levels", ",".join(str(x) for x in S), "--tile-for-level", "0.025=0.25,0.01=0.25",
-                  "--detail-tile", "0.5", "--month-floor", "Month", "--rollup-max-share", "1"]
+                  "--detail-tile", "0.5", "--month-floor", "Month", "--rollup-max-share", "1", "--drollup-max-share", "1"]
         out = os.path.join(tmp, "tiles")
         r = run("build", "--input", src, *common, "--out", out)
         ck(r.returncode == 0, "build exits 0" + ("" if r.returncode == 0 else ": " + r.stderr[-300:] + r.stdout[-300:]))
@@ -458,6 +458,20 @@ def section_12(tmp, src, common, out, T, man, withxy, S):
     # aligned boxes: level + edge tiles equal the raw rows
     ran, mism = battery_box(T, withxy, S)
     ck(ran >= 90 and not mism, f"{ran} cell-aligned boxes (7 levels, many centred on boundary rows) answer identically from level + edge tiles ({mism[:2]})")
+    # the default --drollup-max-share (0.05) is honoured: every listed drollup holds at most 5% of the detail rows, and a build of this
+    # dataset at the default skips at least one set (a positive control: the cap must be able to bite here)
+    o6 = os.path.join(tmp, "tiles_dshare")
+    args6 = list(common)
+    k6 = args6.index("--drollup-max-share")
+    del args6[k6:k6 + 2]
+    r6 = run("build", "--input", src, *args6, "--out", o6)
+    m6 = json.load(open(os.path.join(o6, "manifest.json"), encoding="utf-8")) if r6.returncode == 0 else {"levels": []}
+    listed = [d for l in m6["levels"] for d in l.get("drollups", [])]
+    dcount = sum(1 for line in r6.stdout.splitlines() if "drollup" in line and "skipped" in line)
+    mnd = re.search(r"of the detail's ([0-9,]+)", r6.stdout)
+    nd = int(mnd.group(1).replace(",", "")) if mnd else None
+    ck(r6.returncode == 0 and dcount >= 1 and nd is not None and all(d["rows"] <= 0.05 * nd for d in listed),
+       f"default drollup share 5%: {len(listed)} sets kept, {dcount} skipped" + f", every kept set at most 5% of {nd} detail rows")
     # no detail dims: the 1.1 behaviours hold (no drollups), edges still written, check GREEN, boxes exact
     o5 = os.path.join(tmp, "tiles_nodetail")
     args = [a for a in common]

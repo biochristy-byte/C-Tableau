@@ -223,7 +223,7 @@ def build_rollups(con, level_meta, dims, sets, lat, lon, stream, sizes, explicit
         con.execute("DROP TABLE IF EXISTS ru")
 
 
-def build_drollups(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, round_mode, d_rows, tile_rows=50000, max_share=0.75):
+def build_drollups(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, round_mode, d_rows, tile_rows=50000, max_share=0.05):
     """Format 1.2 detail rollups. For every level and every detail dim E, tile sets grouped by the level's cell, E and a subset of the dims
     ({} and each single dim), __n summed, built from the detail rows (table dtab) with the same bin_sql as the level, so a cell holds the
     level's exact count over any filter on the kept dims. A set holding more than max_share of the detail rows is skipped (it would save
@@ -232,10 +232,21 @@ def build_drollups(con, level_meta, dims, detail_dims, lat, lon, stream, sizes, 
     caps = [d["caption"] for d in dims]
     next_dir = next_free_dir(level_meta)
     sets = [()] + [(c,) for c in caps]
-    # priority order under the L99 and MAX_FILES caps: every level's {E} set first (it answers the unfiltered panel at any cell size),
-    # then {E} + one dim, dim by dim across all levels, so a cap trims the rarer filtered sets evenly instead of starving the finest levels
-    jobs = [(keep, lv, j, dd) for keep in sets for lv in level_meta for j, dd in enumerate(detail_dims)]
-    for keep, lv, j, dd in jobs:
+    # Priority under the L99 and MAX_FILES caps: smallest set first, across every level, detail dim and kept dim. A set's row count
+    # is what it costs in files and bytes, and an app's panel query usually carries a context filter on some dim (Andy's: Reported by),
+    # so only an {E}+dim set can answer it; going small first keeps those cheap sets at every level instead of letting a few bulky
+    # ones (cell x Location x Month) take the whole budget. Ties keep the level order.
+    jobs = []
+    for keep in sets:
+        for lv in level_meta:
+            s_ = float(lv["s"])
+            lb_, ob_ = bin_sql("lat", s_, round_mode), bin_sql("lon", s_, round_mode)
+            for j, dd in enumerate(detail_dims):
+                kc_ = "".join(", " + f"d{caps.index(c)}" for c in keep)
+                cnt = con.execute(f"SELECT count(*) FROM (SELECT DISTINCT {lb_}, {ob_}{kc_}, e{j} FROM dtab)").fetchone()[0]
+                jobs.append((cnt, lv["i"], keep, lv, j, dd))
+    jobs.sort(key=lambda t: (t[0], t[1]))
+    for _cnt, _i, keep, lv, j, dd in jobs:
         i, s, tl = lv["i"], float(lv["s"]), float(lv["tile"])
         lb, ob = bin_sql("lat", s, round_mode), bin_sql("lon", s, round_mode)
         kc = [f"d{caps.index(c)}" for c in keep]
@@ -726,7 +737,7 @@ def main():
     b.add_argument("--rollup-tile-rows", type=int, default=50000, help="most rows per rollup tile when picking its grid (0: the level's own grid)")
     b.add_argument("--rollup-max-share", type=float, default=0.75, help="auto mode skips a rollup holding more than this share of its level's rows")
     b.add_argument("--drollups", choices=["auto", "none"], default="auto", help="detail rollups: per level, tile sets grouped by one detail dim and at most one dim (auto), or none")
-    b.add_argument("--drollup-max-share", type=float, default=0.75, help="auto mode skips a detail rollup holding more than this share of the detail rows")
+    b.add_argument("--drollup-max-share", type=float, default=0.05, help="auto mode skips a detail rollup holding more than this share of the detail rows (a bigger one saves too little next to the detail tiles; on UK Crime, cell x Month x Location was 46%%)")
     b.add_argument("--edge-tol", type=float, default=EDGE_TOL, help="degrees from a cell boundary that make a raw row an edge row (the self-test sets 0 to prove it matters)")
     b.add_argument("--edge-drop-neg", action="store_true", help="self-test only: leave the -n half of every edge pair out (WRONG on purpose)")
     b.add_argument("--round-mode", choices=["js", "half-even"], default="js", help="js is correct; half-even exists only so the self-test can prove it goes RED")
